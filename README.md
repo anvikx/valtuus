@@ -6,8 +6,8 @@ buyer's mandate decides, every step is signed and logged.
 Built for the Valio Aimo "Trusted Trade Agents" challenge at Junction 2026.
 Live: https://junction.anvik.fi
 
-> **Status: early prototype.** The project skeleton, CI/CD and the first domain rules exist. The
-> gateway API is not available yet. See [Status](#status).
+> **Status: early prototype.** The gateway gives offers and makes carts with a policy decision.
+> Search, checkout and approval are not complete. See [Status](#status).
 
 ## Why
 
@@ -55,6 +55,56 @@ buyer --> buyer agent --(MCP or REST)--> Valtuus gateway --> Valio Aimo APIs
 
 The cart states, and who is bound to what, are in [docs/INTERACTION.md](docs/INTERACTION.md).
 
+## Connect your agent
+
+| What          | Where                                                                |
+| ------------- | -------------------------------------------------------------------- |
+| MCP URL       | `https://junction.anvik.fi/api/mcp/`                                 |
+| REST base URL | `https://junction.anvik.fi/api/v1`                                   |
+| API docs      | https://junction.anvik.fi/api/docs and `/api/openapi.json`, no login |
+
+The main user gives each agent its own key. Send it on every call, on MCP and REST:
+
+```
+Authorization: Bearer <agent key>
+```
+
+An agent key cannot approve or reject a cart, and cannot change the mandate. Only a person can.
+
+For Claude Code, put this in `.mcp.json` and set `AGENT_KEY` in your shell, so the key is never
+in the file:
+
+```json
+{
+  "mcpServers": {
+    "valtuus": {
+      "type": "http",
+      "url": "https://junction.anvik.fi/api/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${AGENT_KEY}"
+      }
+    }
+  }
+}
+```
+
+Make the 4 calls in this order. REST paths are relative to the base URL.
+
+| Step | MCP tool          | REST call                        | Result                             |
+| ---- | ----------------- | -------------------------------- | ---------------------------------- |
+| 1    | `search_products` | `GET /catalog/search?query=...`  | Product IDs. No price, no stock.   |
+| 2    | `get_offers`      | `POST /offers`                   | Offer IDs, price and stock.        |
+| 3    | `create_cart`     | `POST /carts`                    | The decision: AUTO, HUMAN or DENY. |
+| 4    | `checkout`        | `POST /carts/{cart_id}/checkout` | Order confirmation. AUTO only.     |
+
+* **Before step 1:** read the buyer's rules with `get_mandate` (`GET /mandate`).
+* **HUMAN:** give the main user the cart's `approve_url`. Poll `get_cart`
+  (`GET /carts/{cart_id}`) until the state is `ORDERED`, `REJECTED` or `EXPIRED`.
+* **DENY:** stop. `reason_sentences` tell the buyer why.
+* **Retries:** `create_cart` and `checkout` need an idempotency key (the `Idempotency-Key`
+  header on REST, the `idempotency_key` argument on MCP). Send the same key again on a retry.
+* **Errors:** every error has the body `{error, message, next_step}`. Follow `next_step`.
+
 ## Status
 
 | Part                                                     | State   |
@@ -62,8 +112,10 @@ The cart states, and who is bound to what, are in [docs/INTERACTION.md](docs/INT
 | Project skeleton, CI/CD with auto deploy and rollback    | Built   |
 | Health endpoint `GET /api/health`                        | Built   |
 | UHT attribute derived from product names                 | Built   |
-| Product index, offers, carts, policy engine              | Planned |
-| REST API, MCP tools, open OpenAPI file                   | Planned |
+| Offers, carts, policy engine                             | Built   |
+| REST API, MCP tools, open OpenAPI file, main user login  | Built   |
+| Product search                                           | Started |
+| Checkout, orders, approve and reject                     | Started |
 | Approval page, "Agent permissions" page, audit timeline  | Planned |
 | Signed offers and order confirmations                    | Planned |
 
