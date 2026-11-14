@@ -10,6 +10,10 @@ services:
       # Built from the one secret the db container also reads. Fail closed: without it the
       # backend would fall back to memory and lose every order.
       DATABASE_URL: postgresql+psycopg://valtuus:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/valtuus
+    volumes:
+      # Keeps the last good catalog across deploys, so startup can fall back to it when the
+      # upstream download fails.
+      - catalog_data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +54,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  catalog_data:
   pg_data:
   caddy_data:
   caddy_config:
