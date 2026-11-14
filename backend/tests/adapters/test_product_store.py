@@ -87,9 +87,27 @@ def test_load_maps_enrichment_and_names(tmp_path):
     assert product.delivery_reliability == Decimal("0.1234567890123456789")
     assert product.co2_kg_per_kg is None
     assert product.content_per_sales_unit.value == Decimal(5)
+    assert product.lot_size == Decimal(1)
     assert "UHT" in product.attributes
     assert store.skipped == 1
     assert normalize_name("Ääni") == "aani"
+
+
+@pytest.mark.parametrize(
+    ("lot", "expected"),
+    [("0.01", "1"), ("0.99", "1"), ("1", "1"), ("2", "2")],
+)
+def test_catalog_stores_fractional_lots_as_one_sales_unit(tmp_path, lot, expected):
+    """D37 normalizes the stored lot, so downstream callers cannot order fractional boxes."""
+    source = record()
+    source["allowedLotSize"] = float(lot)
+    path = tmp_path / "products.json"
+    path.write_text(json.dumps([source]))
+    store = ProductStore(tmp_path)
+
+    load_catalog(store, DownloadedCatalog(path, None, None))
+
+    assert store.get("1").lot_size == Decimal(expected)
 
 
 def test_duplicate_id_has_context(tmp_path):

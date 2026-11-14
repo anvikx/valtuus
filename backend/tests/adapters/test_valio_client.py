@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import BytesIO
 from urllib.error import HTTPError, URLError
@@ -8,6 +8,7 @@ import pytest
 from pydantic import SecretStr
 
 from app.adapters.valio_client import ValioClient
+from app.adapters.valio_requests import ValioRequests
 from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import StockModel, Unit
 from app.domain.errors import UpstreamRateLimitedError, UpstreamUnavailableError
@@ -93,28 +94,30 @@ class _Upstream:
 
 class _Time:
     def __init__(self) -> None:
-        self.now = 1000.0
+        self.at = datetime(2026, 11, 14, tzinfo=GATEWAY_TIMEZONE)
         self.slept = []
 
-    def monotonic(self) -> float:
-        return self.now
+    def now(self) -> datetime:
+        return self.at
+
+    def advance(self, seconds: float) -> None:
+        self.at += timedelta(seconds=seconds)
 
     def sleep(self, seconds: float) -> None:
         self.slept.append(seconds)
-        self.now += seconds
+        self.advance(seconds)
 
 
 @pytest.fixture
 def time(monkeypatch):
     fake = _Time()
-    monkeypatch.setattr("app.adapters.valio_client.monotonic", fake.monotonic)
-    monkeypatch.setattr("app.adapters.valio_client.sleep", fake.sleep)
+    monkeypatch.setattr("app.adapters.valio_requests.sleep", fake.sleep)
     return fake
 
 
-def _client(monkeypatch, upstream: _Upstream) -> ValioClient:
+def _client(monkeypatch, upstream: _Upstream, clock: _Time) -> ValioClient:
     monkeypatch.setattr("app.adapters.valio_client.urlopen", upstream)
-    return ValioClient("https://example.test/api/", SecretStr("secret"))
+    return ValioClient("https://example.test/api/", SecretStr("secret"), ValioRequests(clock))
 
 
 def _http_error(code: int) -> HTTPError:
@@ -124,7 +127,7 @@ def _http_error(code: int) -> HTTPError:
 def test_prices_sends_the_ids_and_parses_numbers_as_exact_decimals(monkeypatch, time):
     upstream = _Upstream(_PRICE_ANSWER)
 
-    prices = _client(monkeypatch, upstream).prices(["464306", "000000", "111111"], _MONDAY)
+    prices = _client(monkeypatch, upstream, time).prices(["464306", "000000", "111111"], _MONDAY)
 
     request, timeout = upstream.calls[0]
     assert request.full_url == "https://example.test/api/price"
@@ -142,7 +145,7 @@ def test_prices_sends_the_ids_and_parses_numbers_as_exact_decimals(monkeypatch, 
 
 def test_a_product_with_no_price_is_absent(monkeypatch, time):
     """The offer rejects a missing product as NO_PRICE, so it must not appear with a zero price."""
-    prices = _client(monkeypatch, _Upstream(_PRICE_ANSWER)).prices(
+    prices = _client(monkeypatch, _Upstream(_PRICE_ANSWER), time).prices(
         ["000000", "111111", "222222"], _MONDAY
     )
 
@@ -154,14 +157,14 @@ def test_a_null_tax_is_an_unknown_vat_rate(monkeypatch, time):
     no_tax = {**_PRICE_ANSWER["products"][0], "productId": "333333", "tax": None}
     answer = {**_PRICE_ANSWER, "products": [*_PRICE_ANSWER["products"], no_tax]}
 
-    prices = _client(monkeypatch, _Upstream(answer)).prices(["464306", "333333"], _MONDAY)
+    prices = _client(monkeypatch, _Upstream(answer), time).prices(["464306", "333333"], _MONDAY)
 
     assert prices["333333"].vat_rate is None
     assert prices["464306"].vat_rate == Decimal("13.5")
 
 
 def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypatch, time):
-    snapshot = _client(monkeypatch, _Upstream(_AVAILABILITY_ANSWER)).availability(
+    snapshot = _client(monkeypatch, _Upstream(_AVAILABILITY_ANSWER), time).availability(
         ["464306", "465039", "000000"], _MONDAY
     )
 
@@ -189,7 +192,7 @@ def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypa
 def test_a_server_error_is_retried_once(monkeypatch, time):
     upstream = _Upstream(_http_error(503), _PRICE_ANSWER)
 
-    prices = _client(monkeypatch, upstream).prices(["464306"], _MONDAY)
+    prices = _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
     assert "464306" in prices
     assert len(upstream.calls) == 2
@@ -197,14 +200,14 @@ def test_a_server_error_is_retried_once(monkeypatch, time):
 
 @pytest.mark.parametrize(
     "failure",
-    [_http_error(502), TimeoutError(), URLError(ConnectionRefusedError("refused"))],
+    [_http_error(502), TimeoutError(), URLError(TimeoutError("timeout"))],
 )
 def test_a_second_failure_is_upstream_unavailable(monkeypatch, time, failure):
     """No offer from old or partial data: the caller gets an error it can show."""
     upstream = _Upstream(failure, failure)
 
     with pytest.raises(UpstreamUnavailableError):
-        _client(monkeypatch, upstream).prices(["464306"], _MONDAY)
+        _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
     assert len(upstream.calls) == 2
 
@@ -213,19 +216,43 @@ def test_a_client_error_is_not_retried(monkeypatch, time):
     upstream = _Upstream(_http_error(422))
 
     with pytest.raises(UpstreamUnavailableError):
-        _client(monkeypatch, upstream).prices(["464306"], _MONDAY)
+        _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
     assert len(upstream.calls) == 1
+
+
+def test_a_connection_refusal_is_not_retried(monkeypatch, time):
+    upstream = _Upstream(URLError(ConnectionRefusedError("refused")))
+
+    with pytest.raises(UpstreamUnavailableError):
+        _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
+
+    assert len(upstream.calls) == 1
+    assert time.slept == []
+
+
+def test_a_429_on_the_retry_also_pauses_all_calls(monkeypatch, time):
+    upstream = _Upstream(_http_error(503), _http_error(429))
+    client = _client(monkeypatch, upstream, time)
+
+    with pytest.raises(UpstreamRateLimitedError) as limited:
+        client.prices(["464306"], _MONDAY)
+    with pytest.raises(UpstreamRateLimitedError):
+        client.availability(["464306"], _MONDAY)
+
+    assert limited.value.retry_after == 30
+    assert len(upstream.calls) == 2
+    assert time.slept == [0.5]
 
 
 def test_a_429_pauses_every_call_for_30_seconds(monkeypatch, time):
     """The mock blocks a caller for 30 s after a 429. A call in the pause only extends it."""
     upstream = _Upstream(_http_error(429), _AVAILABILITY_ANSWER)
-    client = _client(monkeypatch, upstream)
+    client = _client(monkeypatch, upstream, time)
 
     with pytest.raises(UpstreamRateLimitedError) as blocked:
         client.prices(["464306"], _MONDAY)
-    time.now += 10
+    time.advance(10)
     with pytest.raises(UpstreamRateLimitedError) as paused:
         client.availability(["464306"], _MONDAY)
 
@@ -233,7 +260,7 @@ def test_a_429_pauses_every_call_for_30_seconds(monkeypatch, time):
     assert len(upstream.calls) == 1
     assert paused.value.retry_after == 20
     assert paused.value.next_step == "Try again in 20 seconds."
-    time.now += 20
+    time.advance(20)
     client.availability(["464306"], _MONDAY)
     assert len(upstream.calls) == 2
     assert time.slept == []
@@ -243,7 +270,7 @@ def test_a_malformed_answer_is_upstream_unavailable(monkeypatch, time):
     upstream = _Upstream({"products": [{"productId": "464306", "catalogPrice": {}}]})
 
     with pytest.raises(UpstreamUnavailableError):
-        _client(monkeypatch, upstream).prices(["464306"], _MONDAY)
+        _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
 
 def _priced(product_id: object, value: object) -> dict:
@@ -275,7 +302,10 @@ def _taxed(**fields: object) -> dict:
 @pytest.mark.parametrize("value", [0, -1.5])
 def test_a_price_of_zero_or_less_is_no_price(monkeypatch, time, value):
     """A zero price would rank first as the cheapest offer."""
-    prices = _client(monkeypatch, _Upstream(_priced("464306", value))).prices(["464306"], _MONDAY)
+    prices = _client(monkeypatch, _Upstream(_priced("464306", value)), time).prices(
+        ["464306"],
+        _MONDAY,
+    )
 
     assert prices == {}
 
@@ -305,7 +335,7 @@ def test_a_price_of_zero_or_less_is_no_price(monkeypatch, time, value):
 )
 def test_a_broken_price_answer_is_upstream_unavailable(monkeypatch, time, answer):
     with pytest.raises(UpstreamUnavailableError):
-        _client(monkeypatch, _Upstream(answer)).prices(["464306"], _MONDAY)
+        _client(monkeypatch, _Upstream(answer), time).prices(["464306"], _MONDAY)
 
 
 @pytest.mark.parametrize(
@@ -325,7 +355,7 @@ def test_a_broken_price_answer_is_upstream_unavailable(monkeypatch, time, answer
 )
 def test_an_entry_that_is_not_an_object_is_upstream_unavailable(monkeypatch, time, route, answer):
     """An AttributeError escaped the parser and answered 500 instead of failing closed."""
-    client = _client(monkeypatch, _Upstream(answer))
+    client = _client(monkeypatch, _Upstream(answer), time)
 
     with pytest.raises(UpstreamUnavailableError):
         getattr(client, route)(["1"], _MONDAY)
@@ -340,4 +370,4 @@ def test_a_broken_stock_amount_is_upstream_unavailable(monkeypatch, time, amount
     }
 
     with pytest.raises(UpstreamUnavailableError):
-        _client(monkeypatch, _Upstream(answer)).availability(["1"], _MONDAY)
+        _client(monkeypatch, _Upstream(answer), time).availability(["1"], _MONDAY)

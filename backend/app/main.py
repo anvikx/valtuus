@@ -39,6 +39,7 @@ from app.adapters.postgres.repositories import (
 from app.adapters.product_store import ProductStore
 from app.adapters.signer import NullSigner
 from app.adapters.valio_client import ValioClient
+from app.adapters.valio_requests import ValioRequests
 from app.api import health
 from app.api.deps import AgentKeyGuard, Services
 from app.api.errors import install_error_handlers
@@ -58,6 +59,7 @@ from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
 from app.services.ports.catalog import ProductCatalog
+from app.services.ports.clock import Clock
 from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
@@ -167,10 +169,15 @@ def _open_store(settings: Settings) -> _Store:
     return _memory_store()
 
 
-def _build_services(settings: Settings, store: _Store, catalog_store: ProductCatalog) -> Services:
-    clock = SystemClock()
+def _build_services(
+    settings: Settings,
+    store: _Store,
+    catalog_store: ProductCatalog,
+    clock: Clock,
+    requests: ValioRequests,
+) -> Services:
     signer = NullSigner()
-    valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
+    valio = ValioClient(settings.valio_base_url, settings.valio_api_key, requests)
 
     audit_service = AuditService(
         store.audit,
@@ -291,7 +298,9 @@ def create_app(
         )
         loader = ProductStore(settings.data_dir)
         catalog_store = PostgresCatalog(store.database) if store.database else loader
-        services = _build_services(settings, store, catalog_store)
+        clock = SystemClock()
+        requests = ValioRequests(clock)
+        services = _build_services(settings, store, catalog_store, clock, requests)
     except Exception:
         store.close()
         raise
@@ -305,7 +314,10 @@ def create_app(
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
             downloader = CatalogDownloader(
-                settings.valio_base_url, settings.valio_api_key, settings.data_dir
+                settings.valio_base_url,
+                settings.valio_api_key,
+                settings.data_dir,
+                requests,
             )
             files = await asyncio.to_thread(downloader.download)
             await asyncio.to_thread(loader.load, files)

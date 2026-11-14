@@ -25,8 +25,7 @@ def sales_units_needed(
     content: ContentPerSalesUnit | None,
 ) -> int:
     """12 L of a 5 x 1 l box is 3 boxes. No quantity is 1 sales unit."""
-    # ponytail: an allowedLotSize under 1 counts as 1 (D37), so ceil is enough. Lots over 1
-    # (about 640 products) are not rounded up to their multiple yet.
+    # Catalog loading normalizes lots under 1 to 1 (D37). Round up to whole sales units.
     if quantity is None:
         return 1
 

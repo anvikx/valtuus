@@ -9,10 +9,12 @@ from urllib.request import Request, urlopen
 
 from pydantic import SecretStr
 
+from app.adapters.valio_requests import ValioRequests
+from app.domain.errors import UpstreamRateLimitedError
+
 _LOG = logging.getLogger(__name__)
 _TIMEOUT = 60
-_ATTEMPTS = 3
-_DOWNLOAD_ERRORS = (HTTPError, URLError, TimeoutError, OSError)
+_DOWNLOAD_ERRORS = (HTTPError, URLError, TimeoutError, OSError, UpstreamRateLimitedError)
 _PRODUCTS_FILE = "valio_products.json"
 
 
@@ -24,10 +26,17 @@ class DownloadedCatalog:
 
 
 class CatalogDownloader:
-    def __init__(self, base_url: str, api_key: SecretStr, data_dir: Path) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: SecretStr,
+        data_dir: Path,
+        requests: ValioRequests,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._data_dir = data_dir
+        self._requests = requests
 
     def download(self) -> DownloadedCatalog:
         self._data_dir.mkdir(parents=True, exist_ok=True)
@@ -65,31 +74,23 @@ class CatalogDownloader:
             headers={"X-API-Key": self._api_key.get_secret_value(), "User-Agent": "curl/8.7.1"},
         )
         destination = self._data_dir / filename
-        for attempt in range(_ATTEMPTS):
-            try:
-                with (
-                    urlopen(request, timeout=_TIMEOUT) as response,
-                    tempfile.NamedTemporaryFile(dir=self._data_dir, delete=False) as temporary,
-                ):
-                    temp_path = Path(temporary.name)
-                    try:
-                        while chunk := response.read(1024 * 1024):
-                            temporary.write(chunk)
-                    except BaseException:
-                        temp_path.unlink(missing_ok=True)
-                        raise
-                try:
-                    temp_path.replace(destination)
-                finally:
-                    temp_path.unlink(missing_ok=True)
-                return destination
-            except HTTPError as exc:
-                if (exc.code != 429 and exc.code < 500) or attempt == _ATTEMPTS - 1:
-                    raise
-            except TimeoutError as exc:
-                if attempt == _ATTEMPTS - 1:
-                    raise exc
-            except URLError as exc:
-                if not isinstance(exc.reason, TimeoutError) or attempt == _ATTEMPTS - 1:
-                    raise
-        raise RuntimeError("download attempts exhausted")
+        return self._requests.send(lambda: _save_download(request, destination))
+
+
+def _save_download(request: Request, destination: Path) -> Path:
+    with (
+        urlopen(request, timeout=_TIMEOUT) as response,
+        tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as temporary,
+    ):
+        temp_path = Path(temporary.name)
+        try:
+            while chunk := response.read(1024 * 1024):
+                temporary.write(chunk)
+        except BaseException:
+            temp_path.unlink(missing_ok=True)
+            raise
+    try:
+        temp_path.replace(destination)
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return destination
