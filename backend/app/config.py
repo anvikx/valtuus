@@ -1,3 +1,4 @@
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,3 +11,6 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "junction-2026"
+    valio_base_url: str = "https://junction26.valioaimo.fi"
+    # SecretStr keeps the key out of reprs and logs.
+    valio_api_key: SecretStr = SecretStr("")
