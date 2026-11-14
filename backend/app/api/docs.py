@@ -23,32 +23,30 @@ def describe(
 
 
 def _table(model: type[BaseModel]) -> str:
-    return "\n".join([_TABLE_HEAD, *_rows(model, prefix="")])
+    return "\n".join([_TABLE_HEAD, *_rows(model)])
 
 
-def _rows(model: type[BaseModel], prefix: str) -> list[str]:
-    # Nested fields get a path, as on the Valio Aimo page: lines[].unit_price.
+def _rows(model: type[BaseModel]) -> list[str]:
+    # Top-level fields only. A nested object points to its schema, which Swagger lists once
+    # under Schemas, so its fields are not repeated on every route that returns it.
     rows = []
     for name, field in model.model_fields.items():
-        path = f"{prefix}{field.alias or name}"
         meaning = (field.description or "").replace("|", "\\|").replace("\n", " ")
-        rows.append(f"| `{path}` | {meaning} |")
-
-        nested, is_list = _nested_model(field.annotation)
+        nested = _nested_model(field.annotation)
         if nested is not None:
-            rows.extend(_rows(nested, prefix=f"{path}{'[]' if is_list else ''}."))
+            meaning = f"{meaning} See `{nested.__name__}`."
+        rows.append(f"| `{field.alias or name}` | {meaning} |")
     return rows
 
 
-def _nested_model(annotation: object) -> tuple[type[BaseModel] | None, bool]:
-    """The model inside X, X | None or list[X], and whether it was a list."""
+def _nested_model(annotation: object) -> type[BaseModel] | None:
+    """The model inside X, X | None or list[X]."""
     origin = get_origin(annotation)
     if origin in (Union, UnionType):
         inner = [arg for arg in get_args(annotation) if arg is not NoneType]
-        return _nested_model(inner[0]) if len(inner) == 1 else (None, False)
+        return _nested_model(inner[0]) if len(inner) == 1 else None
     if origin is list:
-        model, _ = _nested_model(get_args(annotation)[0])
-        return model, model is not None
+        return _nested_model(get_args(annotation)[0])
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation, False
-    return None, False
+        return annotation
+    return None

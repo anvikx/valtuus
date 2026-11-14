@@ -1,8 +1,10 @@
+import re
+
 from app.main import create_app
 
 _CHECKOUT = "/api/v1/carts/{cart_id}/checkout"
 _OFFERS = "/api/v1/offers"
-_AUDIT = "/api/v1/audit/{cart_id}"
+_SCHEMA_POINTER = re.compile(r"See `(\w+)`\.")
 _ERROR_BODY = {"$ref": "#/components/schemas/ErrorBody"}
 _ERROR_STATUSES = ("401", "403", "404", "409", "422", "503")
 
@@ -42,23 +44,37 @@ def test_every_field_says_what_it_means() -> None:
     assert missing == []
 
 
-def test_route_page_lists_the_response_fields() -> None:
-    """The field table is built from the schema, so the page and the schema cannot differ."""
+def test_route_table_lists_top_level_fields_only() -> None:
+    """One row per field the route returns. Nested fields live once in the schema, not per route."""
     operation = create_app().openapi()["paths"][_CHECKOUT]["post"]
+    description = operation["description"]
 
-    assert "**Response fields**" in operation["description"]
-    assert (
-        "| `lines[].unit_price` | Price per sales unit, EUR ex VAT. |" in operation["description"]
-    )
+    assert "**Response fields**" in description
+    assert "| `total_ex_vat` | Order total, EUR ex VAT. |" in description
+    assert "lines[]." not in description
 
 
-def test_field_table_reaches_nested_fields() -> None:
-    """A nested field with no row is a field the agent cannot look up."""
-    paths = create_app().openapi()["paths"]
-    offers = paths[_OFFERS]["post"]["description"]
-    audit = paths[_AUDIT]["get"]["description"]
+def test_nested_field_points_to_its_schema() -> None:
+    """The pointer is the only way from a route to the nested fields, so each must resolve."""
+    spec = create_app().openapi()
+    offers = spec["paths"][_OFFERS]["post"]["description"]
 
-    # Optional model in a list, a list in an optional model, and a field read by its wire name.
-    assert "| `lines[].substitute_for.basis` |" in offers
-    assert "| `proposed_split.lines[].qty` |" in offers
-    assert "| `records[].input` |" in audit
+    # A list of models and an optional model.
+    assert "| `lines` | Offer lines, best rank first. See `OfferLine`. |" in offers
+    assert "See `ProposedSplit`." in offers
+
+
+def test_every_schema_pointer_resolves() -> None:
+    """Pydantic renames a schema when two models share a class name, which breaks the pointer."""
+    spec = create_app().openapi()
+    schemas = spec["components"]["schemas"]
+
+    dead = [
+        f"{path} {name}"
+        for path, operations in spec["paths"].items()
+        for operation in operations.values()
+        for name in _SCHEMA_POINTER.findall(operation.get("description", ""))
+        if name not in schemas
+    ]
+
+    assert dead == []
