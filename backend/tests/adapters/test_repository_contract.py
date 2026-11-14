@@ -153,6 +153,51 @@ def test_agent_key_add_replaces_by_hash(store: _Store) -> None:
     assert store.agent_keys.for_buyer(samples.BUYER_ID) == [stored]
 
 
+def test_mark_used_keeps_a_revoke_made_after_the_read(store: _Store) -> None:
+    """A call read the key as active, then the main user revoked it. The call must not undo that."""
+    revoked = dataclasses.replace(
+        samples.agent_key(),
+        status=AgentKeyStatus.REVOKED,
+        last_used_at=None,
+    )
+    with store.unit_of_work.transaction():
+        store.agent_keys.add(revoked)
+
+    with store.unit_of_work.transaction():
+        store.agent_keys.mark_used(revoked.key_hash, samples.NOW, samples.NOW)
+
+    assert store.agent_keys.by_hash(revoked.key_hash) == dataclasses.replace(
+        revoked,
+        last_used_at=samples.NOW,
+    )
+
+
+@pytest.mark.parametrize(
+    ("cutoff", "expected"),
+    [
+        (samples.NOW - timedelta(seconds=1), samples.NOW),
+        (samples.NOW, samples.NOW + timedelta(minutes=1)),
+    ],
+    ids=["used-after-cutoff", "used-at-cutoff"],
+)
+def test_mark_used_writes_only_when_the_last_use_is_old(
+    store: _Store,
+    cutoff: datetime,
+    expected: datetime,
+) -> None:
+    """Two calls that read the same old time must not both write. The second sees the new time."""
+    key = samples.agent_key()
+    with store.unit_of_work.transaction():
+        store.agent_keys.add(key)
+
+    with store.unit_of_work.transaction():
+        store.agent_keys.mark_used(key.key_hash, samples.NOW + timedelta(minutes=1), cutoff)
+
+    stored = store.agent_keys.by_hash(key.key_hash)
+    assert stored is not None
+    assert stored.last_used_at == expected
+
+
 def test_user_round_trip(store: _Store) -> None:
     """Approval checks the role, so it must come back as the enum it went in as."""
     user = User(user_id="u_1", buyer_id=None, role=UserRole.STAFF)
