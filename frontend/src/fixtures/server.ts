@@ -13,6 +13,7 @@
 //   c_conflict       waiting; approve and reject answer 409, and the cart is then EXPIRED
 //   c_approve_fails  waiting; approve answers 503
 //   c_unavailable    every read answers 503
+// GET /v1/carts lists every cart above except c_unavailable.
 import type { WireAuditRecord, WireCart, WireRequest, WireResponse } from '../api.ts'
 import {
   ORDER_CONFIRMATION,
@@ -56,6 +57,7 @@ const UNAVAILABLE_ID = 'c_unavailable'
 const ANSWERS_ID = 'c_answers'
 
 const AUTH_PATH = /^\/v1\/auth\/(login|logout|me)$/
+const CARTS_PATH = '/v1/carts'
 const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject))?$/
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 
@@ -270,6 +272,18 @@ function answerCart(
   return decide(cartId, cart, action, request.body)
 }
 
+// Waiting carts first, as the backend sorts them. All fixture carts share one deadline, so the
+// order inside each group is the START_OUTCOME order.
+function answerInbox(): WireResponse {
+  const carts = Object.keys(START_OUTCOME).flatMap((cartId) => {
+    const cart = findCart(cartId)
+    return cart === null ? [] : [wireCart(cartId, cart)]
+  })
+  const waiting = carts.filter((cart) => cart.state === PENDING_CART.state)
+  const decided = carts.filter((cart) => cart.state !== PENDING_CART.state)
+  return reply(STATUS.ok, [...waiting, ...decided])
+}
+
 function answerAudit(cartId: string): WireResponse {
   const cart = findCart(cartId)
   if (cart === null) {
@@ -290,6 +304,10 @@ function route(request: WireRequest): WireResponse {
 
   if (!isSignedIn()) {
     return reply(STATUS.unauthorized)
+  }
+
+  if (request.path === CARTS_PATH) {
+    return answerInbox()
   }
 
   const cartMatch = CART_PATH.exec(request.path)

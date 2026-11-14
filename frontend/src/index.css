@@ -255,6 +255,24 @@ blockquote {
   font: var(--type-label);
 }
 
+/* Inbox: each cart is one link card. A waiting cart has the decide colour on its frame. */
+.inbox-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--tap-target);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.inbox-item:hover {
+  border-color: var(--brand);
+}
+
+.inbox-waiting {
+  border-color: var(--decide);
+}
+
 .actions {
   display: flex;
   flex-direction: column;

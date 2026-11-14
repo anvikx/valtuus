@@ -24,6 +24,8 @@ const AUTH_PATH = {
   me: '/auth/me',
 } as const
 
+const CARTS_PATH = '/carts'
+
 const WIRE_STATE_TO_STATUS: Readonly<Record<string, CartStatus>> = {
   PENDING_APPROVAL: 'waiting',
   ORDERED: 'ordered',
@@ -431,7 +433,7 @@ function toAuditTrail(wire: WireAudit): AuditTrail {
 }
 
 function cartPath(cartId: string): string {
-  return `/carts/${encodeURIComponent(cartId)}`
+  return `${CARTS_PATH}/${encodeURIComponent(cartId)}`
 }
 
 // Operations.
@@ -465,6 +467,12 @@ export async function getSession(): Promise<Session> {
 // 'unauthenticated'.
 export async function signIn(password: string): Promise<void> {
   await call(HTTP_METHOD.post, AUTH_PATH.login, { password })
+}
+
+// Waiting carts first, the earliest deadline on top, then the rest. The backend sorts them.
+export async function listCarts(): Promise<Cart[]> {
+  const wire = (await call(HTTP_METHOD.get, CARTS_PATH)) as WireCart[]
+  return wire.map(toCart)
 }
 
 export async function getCart(cartId: string): Promise<Cart> {
