@@ -125,6 +125,14 @@ class OfferService:
         # stored, not sent, so a buyer agent can check the signature on what it got.
         body = asdict(offer)
         del body["signature"], body["buyer_id"]
+        # asdict keeps internal declaration types, but the public body exposes their union.
+        # Sign the same allergen fields the agent receives so that proof can match the body.
+        for line, stored in zip(offer.lines, body["lines"], strict=True):
+            stored["allergens"] = {
+                "status": line.allergens.status,
+                "contains": list(line.allergens.contains),
+                "free_from": list(line.allergens.free_from),
+            }
         return replace(offer, signature=self._signer.sign(body))
 
     def _record(self, agent: AgentKey, query: OfferQuery, offer: Offer) -> None:

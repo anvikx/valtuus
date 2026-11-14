@@ -122,6 +122,8 @@ products = Table(
     Column("content_per_sales_unit", Numeric),
     Column("attributes", ARRAY(Text), nullable=False),
     Column("allergen", ARRAY(Text), nullable=False),
+    Column("allergen_declarations", JSONB(none_as_null=True)),
+    Column("names", JSONB(none_as_null=True)),
     Column("non_allergen", ARRAY(Text), nullable=False),
     Column("allergen_status", Text, nullable=False),
     Column("country_of_origin", Text),

@@ -6,6 +6,7 @@ import pytest
 
 from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import InMemoryOfferRepository, InMemoryUnitOfWork
+from app.api.results import offer_response
 from app.api.schemas.offers import OfferResponse
 from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import AuditStep, ReasonCode
@@ -189,9 +190,15 @@ def test_the_signature_covers_the_response_body_once() -> None:
     offer = world.get_offers()
 
     (payload,) = world.signer.payloads
+    response = offer_response(offer)
     body = asdict(offer)
     del body["signature"], body["buyer_id"]
+    for line, public_line in zip(body["lines"], response.lines, strict=True):
+        line["allergens"] = public_line.allergens.model_dump()
+
     assert payload == body
+    assert response.lines[0].allergens.contains == ["AM"]
+    assert response.lines[0].allergens.free_from == []
     assert set(payload) == set(OfferResponse.model_fields) - {"signature"}
     assert offer.signature == _SIGNATURE
     assert world.offers.get(offer.offer_id).signature == _SIGNATURE

@@ -1,9 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from app.domain.enums import AllergenStatus, Decision, ReasonCode, SearchStatus, Unit
+from app.domain.enums import AllergenStatus, AllergenType, Decision, ReasonCode, SearchStatus, Unit
 
 
 @dataclass(frozen=True)
@@ -11,8 +11,12 @@ class Allergens:
     """UNKNOWN when the data lists nothing: an empty list does not mean free from."""
 
     status: AllergenStatus
-    contains: tuple[str, ...]
     free_from: tuple[str, ...]
+    declarations: dict[AllergenType, tuple[str, ...]] = field(default_factory=dict)
+
+    @property
+    def contains(self) -> tuple[str, ...]:
+        return tuple(sorted({code for codes in self.declarations.values() for code in codes}))
 
 
 @dataclass(frozen=True)

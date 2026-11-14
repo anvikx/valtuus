@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import insert
 
 from app.adapters.postgres.database import Database
+from app.adapters.postgres.offer_codec import OFFER_CODEC
 from app.adapters.postgres.tables import (
     agent_keys,
     audit_records,
@@ -42,7 +43,7 @@ from app.domain.session import Session
 _MANDATE = TypeAdapter(Mandate)
 _AGENT_KEY = TypeAdapter(AgentKey)
 _USER = TypeAdapter(User)
-_OFFER = TypeAdapter(Offer)
+_OFFER = OFFER_CODEC
 _CART = TypeAdapter(Cart)
 _ORDER = TypeAdapter(Order)
 _AUDIT = TypeAdapter(AuditRecord)

@@ -3,24 +3,25 @@
 from collections.abc import Sequence
 from decimal import Decimal
 
-from pydantic import TypeAdapter
 from sqlalchemy import Select, delete, insert, select
 
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.tables import product_deposits, products
 from app.adapters.product_store import normalize_name
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
-from app.domain.enums import AllergenStatus
+from app.domain.enums import AllergenStatus, AllergenType
 
-_PRODUCT = TypeAdapter(Product)
 _BATCH_SIZE = 500
 
 
 def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]:
+    declarations = {
+        kind.value: list(product.allergens.declarations.get(kind, ())) for kind in AllergenType
+    }
     row = {
         "product_id": product.product_id,
         "gtin": product.gtin,
-        "name": next(iter(product.names.values())),
+        "name": product.name,
         "brand": product.brand,
         "category": product.category,
         "sales_unit": product.sales_unit,
@@ -29,6 +30,8 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
         else None,
         "attributes": list(product.attributes),
         "allergen": list(product.allergens.contains),
+        "allergen_declarations": declarations,
+        "names": product.names,
         "non_allergen": list(product.allergens.free_from),
         "allergen_status": product.allergens.status.value,
         "country_of_origin": product.country_of_origin,
@@ -60,11 +63,18 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
 def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Product:
     name = str(row["name"])
     amount = row["content_per_sales_unit"]
+    stored = row["allergen_declarations"]
+    # An old image writes only the merged array; preserve those codes and its status.
+    declarations = (
+        {kind: tuple(stored.get(kind.value, ())) for kind in AllergenType}
+        if stored is not None
+        else {AllergenType.CONTAINS: tuple(row["allergen"] or ())}
+    )
     return Product(
         product_id=str(row["product_id"]),
         gtin=row["gtin"],
         name=name,
-        names={"en": name},
+        names=dict(row["names"] or {}),
         brand=row["brand"],
         category=str(row["category"]),
         sales_unit=str(row["sales_unit"]),
@@ -74,8 +84,8 @@ def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Produ
         attributes=tuple(row["attributes"] or ()),
         allergens=Allergens(
             AllergenStatus(row["allergen_status"]),
-            tuple(row["allergen"] or ()),
             tuple(row["non_allergen"] or ()),
+            declarations,
         ),
         country_of_origin=row["country_of_origin"],
         labels=tuple(row["labels"] or ()),

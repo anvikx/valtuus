@@ -34,6 +34,11 @@ class AllergenStatus(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class AllergenType(StrEnum):
+    CONTAINS = "CONTAINS"
+    MAY_CONTAIN = "MAY_CONTAIN"
+
+
 class SearchStatus(StrEnum):
     OK = "OK"
     NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"

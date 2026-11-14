@@ -51,7 +51,13 @@ def map_product(
     if selected_language is None:
         raise ValueError("missing product names")
     name = source_names[selected_language]
-    names = {selected_language: name}
+    names = {
+        language: source_names[language]
+        for language in ("en", "fi", "sv")
+        if language in source_names
+    }
+    if not names:
+        names = {selected_language: name}
     groups = synkka.get("classifications") or []
     claims = _codes(groups, "nutritionalClaim")
     attributes = claims + (("UHT",) if is_uht(source_names.values()) else ())
