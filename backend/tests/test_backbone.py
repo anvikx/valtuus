@@ -142,6 +142,32 @@ def test_offers_answer_with_a_stored_offer() -> None:
     assert body["rejected"][0]["reason_code"] == "PRODUCT_NOT_FOUND"
 
 
+@pytest.mark.parametrize("quantity", ["1000001", "1e27"])
+def test_a_huge_quantity_is_a_validation_error(quantity) -> None:
+    """1e27 L overflowed the cent rounding of the line total and answered 500."""
+    body = {"product_ids": ["p_1"], "quantity": quantity, "unit": "L"}
+
+    response = _client().post(_OFFERS_PATH, headers=_AUTH, json=body)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["error"] == "VALIDATION_ERROR"
+
+
+@pytest.mark.parametrize("qty", [1_000_001, 10**27])
+def test_a_huge_cart_qty_is_a_validation_error(qty) -> None:
+    """The cart line total uses the same cent rounding, so it would overflow into a 500 too."""
+    lines = [{**_CART["lines"][0], "qty": qty}]
+
+    response = _client().post(
+        "/api/v1/carts",
+        headers={**_AUTH, **_IDEMPOTENCY},
+        json={**_CART, "lines": lines},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["error"] == "VALIDATION_ERROR"
+
+
 @pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_CALLS)
 def test_main_user_route_waits_for_the_session(method, path, body) -> None:
     """No agent key opens a main user route. Login is not built yet, so it is 501."""

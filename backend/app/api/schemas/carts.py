@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import ConfigDict, Field
 
 from app.api.schemas.catalog import InterpretedRequest
-from app.api.schemas.common import Reasons, RequestModel
+from app.api.schemas.common import PositiveSalesUnits, Reasons, RequestModel
 from app.api.schemas.offers import SubstituteFor
 from app.domain.cart import CartDraft, CartLineInput
 from app.domain.enums import CartState, Decision, ReasonCode
@@ -13,7 +13,7 @@ from app.domain.enums import CartState, Decision, ReasonCode
 class CartLineRequest(RequestModel):
     offer_id: str = Field(description="Offer that holds the line.", examples=["o_1"])
     product_id: str = Field(description="Product code of an offer line.", examples=["464306"])
-    qty: int = Field(gt=0, description="Sales units.", examples=[1000])
+    qty: PositiveSalesUnits = Field(description="Sales units.", examples=[1000])
 
 
 class CartRequest(RequestModel):

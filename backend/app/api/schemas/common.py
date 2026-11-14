@@ -12,7 +12,10 @@ def _json_number(value: Decimal) -> int | float:
 
 
 Quantity = Annotated[Decimal, PlainSerializer(_json_number, when_used="json")]
-PositiveQuantity = Annotated[Quantity, Field(gt=0)]
+# Far above any kitchen order. Without a cap, 1e27 overflowed the cent rounding into a 500.
+_MAX_QUANTITY = 1_000_000
+PositiveQuantity = Annotated[Quantity, Field(gt=0, le=_MAX_QUANTITY)]
+PositiveSalesUnits = Annotated[int, Field(gt=0, le=_MAX_QUANTITY)]
 # One type for both doors: an empty key would match every retry and replay a wrong result.
 IdempotencyKeyValue = Annotated[str, StringConstraints(min_length=1)]
 
