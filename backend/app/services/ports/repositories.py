@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 from typing import Protocol
 
@@ -76,6 +76,13 @@ class OrderRepository(Protocol):
     def by_cart(self, cart_id: str) -> Order | None: ...
 
     def for_day(self, buyer_id: str, delivery_date: date) -> Sequence[Order]: ...
+
+    def lock_days(self, buyer_id: str, days: Iterable[date]) -> None:
+        """Holds the buyer's delivery dates until the transaction ends.
+
+        Two checkouts for one date then read the day's orders one after the other.
+        """
+        ...
 
     def add(self, order: Order) -> None:
         """Refuses a second order for the same cart."""

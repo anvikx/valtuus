@@ -1,5 +1,5 @@
 import threading
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import date, datetime
 
@@ -113,6 +113,10 @@ class InMemoryOrderRepository:
             if order.buyer_id == buyer_id
             and any(line.delivery_date == delivery_date for line in order.lines)
         ]
+
+    def lock_days(self, buyer_id: str, days: Iterable[date]) -> None:
+        # The unit of work lock already serializes every transaction here.
+        pass
 
     def add(self, order: Order) -> None:
         with self._lock:

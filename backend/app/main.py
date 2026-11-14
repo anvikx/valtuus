@@ -46,6 +46,7 @@ from app.api.mcp_server import build_mcp_app, create_mcp_server
 from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
 from app.config import Settings
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
+from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.services.agent_key_service import AgentKeyService
@@ -190,7 +191,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         store.orders,
         store.idempotency,
         mandate_service,
-        PolicyEngine([AutoOrderSwitch(), OrderLimit()]),
+        PolicyEngine([AutoOrderSwitch(), OrderLimit(), DailyLimit()]),
         clock,
         audit_service,
         store.unit_of_work,

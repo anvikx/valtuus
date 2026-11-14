@@ -26,6 +26,8 @@ REASON_TEXT = MappingProxyType(
         "delivery {delivery_date}.",
         ReasonCode.PRICE_OR_STOCK_CHANGED: "The price or the stock changed after the offer. "
         "Get new offers.",
+        ReasonCode.OVER_DAILY_AUTO_LIMIT: "Automatic orders for {delivery_date} would be "
+        "{day_total}, over the {limit} daily limit.",
     }
 )
 

@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 
 from pydantic import TypeAdapter
@@ -13,6 +13,7 @@ from sqlalchemy import (
     func,
     or_,
     select,
+    text,
     true,
     update,
 )
@@ -49,6 +50,8 @@ _OFFER = OFFER_CODEC
 _CART = TypeAdapter(Cart)
 _ORDER = TypeAdapter(Order)
 _AUDIT = TypeAdapter(AuditRecord)
+# Transaction level: the commit or the rollback frees it, so no path can leak the lock.
+_DAY_LOCK = text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
 
 
 def _one[T](database: Database, adapter: TypeAdapter[T], query: Select) -> T | None:
@@ -277,6 +280,13 @@ class PostgresOrderRepository:
             .order_by(orders.c.order_id)
         )
         return _all(self._database, _ORDER, query)
+
+    def lock_days(self, buyer_id: str, days: Iterable[date]) -> None:
+        # Sorted, so two checkouts with the same dates take the locks in the same order and
+        # cannot deadlock. A hash collision only makes two days wait on each other.
+        connection = self._database.writer()
+        for day in sorted(set(days)):
+            connection.execute(_DAY_LOCK, {"key": f"{buyer_id}/{day.isoformat()}"})
 
     def add(self, order: Order) -> None:
         row = {

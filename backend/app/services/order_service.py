@@ -128,6 +128,11 @@ class OrderService:
         # Valio Aimo is read before the transaction: no remote call while the cart is locked.
         fresh = self._fresh_data(cart)
         with self._unit_of_work.transaction():
+            # The day lock goes first, so no other checkout places an AUTO order for these dates
+            # between the policy's read of the day's orders and this order. Approve skips it:
+            # an approved order does not count for the daily AUTO limit.
+            if approved_by is None:
+                self._orders.lock_days(cart.buyer_id, (line.delivery_date for line in cart.lines))
             locked = self._cart_service.locked_cart(cart.cart_id)
             # A call with the same key may have placed the order while this one waited on the lock.
             used = None if claim is None else self._idempotency.get(claim.buyer_id, claim.key)
