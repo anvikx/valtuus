@@ -112,7 +112,10 @@ function WaitingRow({ cart }: { readonly cart: Cart }): ReactElement {
             </span>
           )}
         </span>
-        <span className="inbox-deadline">Approve before {formatDateTime(cart.approveBefore)}</span>
+        <span className="inbox-deadline">
+          <span className="inbox-deadline-label">Approve before </span>
+          {formatDateTime(cart.approveBefore)}
+        </span>
         <Icon className="inbox-chevron" name="chevron" />
       </a>
     </li>
@@ -162,6 +165,14 @@ function InboxView({ data }: { readonly data: InboxData }): ReactElement {
               Waits for you <span className="inbox-count">({waiting.length})</span>
             </h2>
             <ul className="inbox-list" role="list">
+              {/* Desktop column titles. Hidden from screen readers: each row keeps its own
+                  "Approve before" label, so the titles add nothing for them. */}
+              <li className="inbox-columns" aria-hidden="true">
+                <span>Request</span>
+                <span>Why it waits</span>
+                <span>Approve before</span>
+                <span>Total</span>
+              </li>
               {waiting.map((cart) => (
                 <WaitingRow cart={cart} key={cart.id} />
               ))}
