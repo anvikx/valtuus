@@ -4,8 +4,9 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.common import RequestModel
-from app.domain.constants import MONEY_DECIMALS
+from app.domain.constants import MAX_MANDATE_LIMIT, MONEY_DECIMALS
 from app.domain.enums import Decision
+from app.domain.money import round_money
 from app.services.mandate_service import MandateChanges
 
 
@@ -58,12 +59,14 @@ class MandateUpdateRequest(RequestModel):
     max_auto_order_value: Decimal | None = Field(
         default=None,
         ge=0,
+        le=MAX_MANDATE_LIMIT,
         decimal_places=MONEY_DECIMALS,
         description="New automatic cart limit, EUR ex VAT. 0: proposals only.",
     )
     max_auto_value_per_delivery_date: Decimal | None = Field(
         default=None,
         ge=0,
+        le=MAX_MANDATE_LIMIT,
         decimal_places=MONEY_DECIMALS,
         description="New limit per delivery date, EUR ex VAT.",
     )
@@ -82,9 +85,15 @@ class MandateUpdateRequest(RequestModel):
             return None if values is None else tuple(values)
 
         return MandateChanges(
-            max_auto_order_value=self.max_auto_order_value,
-            max_auto_value_per_delivery_date=self.max_auto_value_per_delivery_date,
+            max_auto_order_value=_cents(self.max_auto_order_value),
+            max_auto_value_per_delivery_date=_cents(self.max_auto_value_per_delivery_date),
             preferred_brands=as_tuple(self.preferred_brands),
             forbidden_allergens=as_tuple(self.forbidden_allergens),
             allergen_unknown_policy=self.allergen_unknown_policy,
         )
+
+
+def _cents(limit: Decimal | None) -> Decimal | None:
+    """Input such as 1e6 or -0 passes the bounds but reads back as 1E+6 or -0. Store cents."""
+    # abs() only clears the sign of -0: the bounds already refuse a negative limit.
+    return None if limit is None else abs(round_money(limit))

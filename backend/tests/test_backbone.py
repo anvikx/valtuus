@@ -183,6 +183,20 @@ def test_audit_of_an_unknown_cart_is_not_found() -> None:
     assert response.json()["error"] == "NOT_FOUND"
 
 
+def test_main_user_raise_reaches_the_agent() -> None:
+    """The agent reads the raised limit on its next call, so a waiting cart can go AUTO."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.put(_MANDATE_PATH, json={"max_auto_order_value": "1500.00"})
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["mandate"]["version"] == 2
+    agent_view = client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]
+    assert agent_view["version"] == 2
+    assert Decimal(agent_view["max_auto_order_value"]) == Decimal(1500)
+
+
 def test_offers_answer_with_a_stored_offer() -> None:
     """The test catalog is empty, so the id is rejected and no Valio call is made."""
     response = _client().post(_OFFERS_PATH, headers=_AUTH, json={"product_ids": ["p_1"]})

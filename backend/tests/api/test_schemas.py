@@ -242,8 +242,27 @@ def test_mandate_limit_refuses_part_cents(field: str, value: str) -> None:
 
 
 @pytest.mark.parametrize("field", _LIMITS)
-@pytest.mark.parametrize("value", ["500", "500.5", "500.50", "0"])
+@pytest.mark.parametrize("value", ["1000000.01", "1E+30"])
+def test_mandate_limit_has_an_upper_bound(field: str, value: str) -> None:
+    """A typo of extra zeros would let the agent spend without any approval."""
+    with pytest.raises(ValidationError, match=field):
+        MandateUpdateRequest.model_validate({field: value})
+
+
+@pytest.mark.parametrize("field", _LIMITS)
+@pytest.mark.parametrize("value", ["500", "500.5", "500.50", "0", "1000000"])
 def test_mandate_limit_takes_whole_cents(field: str, value: str) -> None:
     parsed = MandateUpdateRequest.model_validate({field: value})
 
     assert getattr(parsed, field) == Decimal(value)
+
+
+@pytest.mark.parametrize("field", _LIMITS)
+@pytest.mark.parametrize(
+    ("value", "stored"), [("1e6", "1000000.00"), ("-0", "0.00"), ("5", "5.00")]
+)
+def test_mandate_limit_is_stored_as_plain_cents(field: str, value: str, stored: str) -> None:
+    """The agent reads the limit back as text. "1E+6" or "-0" is not a price it can parse."""
+    changes = MandateUpdateRequest.model_validate({field: value}).to_domain()
+
+    assert str(getattr(changes, field)) == stored

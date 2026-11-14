@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
 from app.domain.agent_key import User
 from app.domain.constants import CURRENCY
-from app.domain.enums import Decision
-from app.domain.errors import NotFoundError
+from app.domain.enums import AuditStep, Decision
+from app.domain.errors import ConflictError, ForbiddenError, NotFoundError
 from app.domain.mandate import Mandate
 from app.domain.money import round_money
 from app.services.audit_service import AuditService
@@ -77,8 +77,59 @@ class MandateService:
         )
 
     def update(self, user: User, changes: MandateChanges) -> Mandate:
-        """Makes version + 1 and keeps the old one. Changes no cart and places no order."""
-        raise NotImplementedError("MandateService.update")
+        """Makes version + 1 and keeps the old one. Changes no cart and places no order.
+
+        A waiting cart gets the new version when the agent calls checkout again.
+        """
+        buyer_id = _buyer_id(user)
+        with self._unit_of_work.transaction():
+            current = self.get(buyer_id)
+            changed = _changed_fields(current, changes)
+            if not changed:
+                return current
+
+            mandate = replace(current, version=current.version + 1, **changed)
+            self._add(mandate)
+            self._audit.record(
+                AuditStep.MANDATE_CHANGED,
+                user.user_id,
+                f"{user.user_id} changed the mandate to version {mandate.version}: "
+                f"{', '.join(changed)}.",
+                buyer_id=buyer_id,
+                input_data=changed,
+                mandate_version=mandate.version,
+            )
+
+        return mandate
+
+    def _add(self, mandate: Mandate) -> None:
+        try:
+            self._mandates.add(mandate)
+        except ValueError:
+            # Another edit took this version first. Its values are unknown here, so retry.
+            raise ConflictError(
+                f"The mandate changed to version {mandate.version} during this edit.",
+                "Open the permissions page again and send the change again.",
+            ) from None
+
+
+def _buyer_id(user: User) -> str:
+    if user.buyer_id is None:
+        raise ForbiddenError(
+            "This user acts for no buyer.",
+            "Log in as the main user of the buyer.",
+        )
+
+    return user.buyer_id
+
+
+def _changed_fields(current: Mandate, changes: MandateChanges) -> dict[str, object]:
+    """Only the given values that differ, so a save with no change makes no version."""
+    return {
+        field: value
+        for field, value in asdict(changes).items()
+        if value is not None and value != getattr(current, field)
+    }
 
 
 def _limits_sentence(mandate: Mandate) -> str:
