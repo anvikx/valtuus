@@ -24,19 +24,26 @@ class RequestModel(BaseModel):
 
 
 class Allergens(BaseModel):
-    status: AllergenStatus
-    contains: list[str]
-    free_from: list[str]
+    status: AllergenStatus = Field(
+        description="UNKNOWN when the product data does not declare its allergens. "
+        "UNKNOWN never means safe.",
+    )
+    contains: list[str] = Field(
+        description="Allergen codes the product contains or may contain.",
+    )
+    free_from: list[str] = Field(description="Allergen codes the product data marks as absent.")
 
 
 class Reasons(BaseModel):
     """Every reason code comes with its sentence, in the same order."""
 
-    reason_codes: list[ReasonCode]
-    reason_sentences: list[str]
+    reason_codes: list[ReasonCode] = Field(description="Why the gateway decided as it did.")
+    reason_sentences: list[str] = Field(
+        description="One plain sentence per reason code, in the same order. Show it to the buyer.",
+    )
 
 
 class ErrorBody(BaseModel):
-    error: ErrorCode
-    message: str
-    next_step: str
+    error: ErrorCode = Field(description="Machine code of the error.")
+    message: str = Field(description="What went wrong, in one sentence.")
+    next_step: str = Field(description="What the caller must do now.")

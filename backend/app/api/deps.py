@@ -2,7 +2,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
@@ -23,6 +24,9 @@ from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
 
 _BEARER = "bearer"
+# auto_error=False: a missing key still gets the gateway's own 401 body from _agent_key.
+_BEARER_SCHEME = HTTPBearer(auto_error=False, description="The agent key.")
+_BearerDep = Annotated[HTTPAuthorizationCredentials | None, Security(_BEARER_SCHEME)]
 _UNAUTHENTICATED = ErrorBody(
     error=ErrorCode.UNAUTHENTICATED,
     message="The agent key is missing, unknown or revoked.",
@@ -71,11 +75,11 @@ def check_scope(agent_key: AgentKey, scope: AgentScope) -> None:
     )
 
 
-def require_scope(scope: AgentScope) -> Callable[[Request], AgentKey]:
+def require_scope(scope: AgentScope) -> Callable[..., AgentKey]:
     """REST dependency: the active agent key of the caller, with the given scope."""
 
-    def dependency(request: Request) -> AgentKey:
-        return _agent_key(request, scope)
+    def dependency(request: Request, credentials: _BearerDep) -> AgentKey:
+        return _agent_key(request, credentials.credentials if credentials else "", scope)
 
     return dependency
 
@@ -88,15 +92,15 @@ def require_main_user() -> User:
 MainUserDep = Annotated[User, Depends(require_main_user)]
 
 
-def require_buyer(scope: AgentScope) -> Callable[[Request], str]:
+def require_buyer(scope: AgentScope) -> Callable[..., str]:
     """The buyer_id of an agent key with the scope, or of the main user session.
 
     The agent polls a cart and the main user opens the same cart on the approve page.
     """
 
-    def dependency(request: Request) -> str:
-        if _bearer_token(request.scope):
-            return _agent_key(request, scope).buyer_id
+    def dependency(request: Request, credentials: _BearerDep) -> str:
+        if credentials is not None:
+            return _agent_key(request, credentials.credentials, scope).buyer_id
 
         return buyer_of(require_main_user())
 
@@ -114,8 +118,8 @@ def buyer_of(user: User) -> str:
     return user.buyer_id
 
 
-def _agent_key(request: Request, scope: AgentScope) -> AgentKey:
-    agent_key = get_services(request).agent_keys.authenticate(_bearer_token(request.scope))
+def _agent_key(request: Request, token: str, scope: AgentScope) -> AgentKey:
+    agent_key = get_services(request).agent_keys.authenticate(token)
     if agent_key is None:
         raise UnauthenticatedError(_UNAUTHENTICATED.message, _UNAUTHENTICATED.next_step)
 
