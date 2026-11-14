@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "react/react-in-jsx-scope": "off",
+    "typescript/no-explicit-any": "error",
+    "eqeqeq": "error",
+    "curly": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    "import/no-default-export": "error",
+    "no-restricted-globals": [
+      "error",
+      { "name": "fetch", "message": "Call the backend only from src/api.ts." }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/api.ts"],
+      "rules": { "no-restricted-globals": "off" }
+    },
+    {
+      "files": ["vite.config.ts"],
+      "rules": { "import/no-default-export": "off" }
+    }
+  ]
+}

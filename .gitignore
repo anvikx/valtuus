@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Local data files (Valio data, generated indexes)
+backend/data/
+
+# Deploy state on the server
+.last_good_tag
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+*.log

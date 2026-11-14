@@ -1,0 +1,12 @@
+# Web build context is the repo root. Host node_modules hold macOS native binaries
+# that must not replace the Linux ones from npm ci, and .env must not reach an image.
+.git
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+.env
+.env.*
+!.env.example

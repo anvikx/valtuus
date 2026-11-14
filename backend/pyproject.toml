@@ -1,0 +1,41 @@
+[project]
+name = "backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "pydantic-settings>=2.6",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# ANN: type hints on signatures. FBT: no boolean parameters. SLF: no private access from
+# outside. T20: no print left in code.
+select = [
+    "E", "W", "F", "I", "N", "B", "UP", "SIM", "RET", "C90", "RUF",
+    "ANN", "FBT", "SLF", "T20",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
