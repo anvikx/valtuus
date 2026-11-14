@@ -132,7 +132,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: appleboy/scp-action@v0.1.7
+      # A rerun of an old run, or a run that waited behind a newer push, must not put an
+      # older commit on production. Only the head of main deploys.
+      - id: head
+        # Adds pipefail, so a failed lookup fails the job instead of a silent skip.
+        shell: bash
+        run: |
+          head_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "${head_sha}" == "${GITHUB_SHA}" ]]; then
+            echo "is_head=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "is_head=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::Skip deploy: ${GITHUB_SHA} is not the head of main (${head_sha})."
+
+      - if: steps.head.outputs.is_head == 'true'
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
@@ -140,7 +155,8 @@ jobs:
           source: docker-compose.yml,scripts/deploy.sh
           target: ${{ secrets.DEPLOY_PATH }}
 
-      - uses: appleboy/ssh-action@v1.2.0
+      - if: steps.head.outputs.is_head == 'true'
+        uses: appleboy/ssh-action@v1.2.0
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GHCR_USER: ${{ github.actor }}
