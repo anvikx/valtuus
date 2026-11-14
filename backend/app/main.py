@@ -49,8 +49,10 @@ from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, s
 from app.config import Settings
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.daily_limit import DailyLimit
+from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.previously_rejected import PreviouslyRejected
 from app.domain.policy.stock_check import StockCheck
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -211,7 +213,16 @@ def _build_services(
         store.orders,
         store.idempotency,
         mandate_service,
-        PolicyEngine([AutoOrderSwitch(), OrderLimit(), DailyLimit(), StockCheck()]),
+        PolicyEngine(
+            [
+                AutoOrderSwitch(),
+                OrderLimit(),
+                DailyLimit(),
+                StockCheck(),
+                DuplicateOrder(),
+                PreviouslyRejected(),
+            ]
+        ),
         clock,
         audit_service,
         store.unit_of_work,

@@ -17,7 +17,7 @@ from app.domain.order import Order, OrderLine
 from app.domain.policy.engine import PolicyResult
 from app.domain.reason_text import reason_sentence
 from app.services.audit_service import AuditService
-from app.services.cart_service import CartService
+from app.services.cart_service import CartService, CurrentPolicy
 from app.services.offer_service import ISSUER
 from app.services.ports.clock import Clock
 from app.services.ports.price_source import PriceSource
@@ -143,11 +143,12 @@ class OrderService:
                 return locked
 
             now = self._clock.now()
-            mandate, result = self._cart_service.current_policy(locked, now)
+            policy = self._cart_service.current_policy(locked, now)
+            mandate, result = policy.mandate, policy.result
             if not _allows(result.decision, approved_by):
                 # A person's yes that ends in DENY must still show in the timeline.
                 self._record_approval(locked, approved_by, mandate.version)
-                return self._hold(locked, mandate, result)
+                return self._hold(locked, policy)
 
             if fresh is not None and fresh.changed(locked):
                 self._record_approval(locked, approved_by, mandate.version)
@@ -175,8 +176,9 @@ class OrderService:
 
         return _FreshData(prices, stock)
 
-    def _hold(self, cart: Cart, mandate: Mandate, result: PolicyResult) -> Cart:
+    def _hold(self, cart: Cart, policy: CurrentPolicy) -> Cart:
         """HUMAN or DENY now. Stored, so the 409 the door builds is what get_cart shows."""
+        mandate, result = policy.mandate, policy.result
         codes = tuple(reason.reason_code for reason in result.reasons)
         held = replace(
             cart,
@@ -187,6 +189,8 @@ class OrderService:
             current_decision=result.decision,
             current_reason_codes=codes,
             mandate_version=mandate.version,
+            duplicate_of_order_id=policy.duplicate_of_order_id,
+            previous_reject_reason=policy.previous_reject_reason,
         )
         self._carts.save(held)
         self._audit.record(

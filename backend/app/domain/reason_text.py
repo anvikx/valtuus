@@ -28,6 +28,10 @@ REASON_TEXT = MappingProxyType(
         "Get new offers.",
         ReasonCode.OVER_DAILY_AUTO_LIMIT: "Automatic orders for {delivery_date} would be "
         "{day_total}, over the {limit} daily limit.",
+        ReasonCode.DUPLICATE_ORDER: "Possible duplicate: order {order_id} has the same product, "
+        "quantity and delivery day.",
+        ReasonCode.PREVIOUSLY_REJECTED: "A person rejected this same order at {rejected_at}: "
+        '"{reject_reason}".',
     }
 )
 
