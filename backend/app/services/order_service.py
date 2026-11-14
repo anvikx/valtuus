@@ -276,7 +276,16 @@ class OrderService:
                 "Read the cart to get its order id.",
             ) from error
 
-        self._carts.save(replace(cart, state=CartState.ORDERED, order_id=order.order_id))
+        approved_at = None if order.approved_by is None else order.placed_at
+        self._carts.save(
+            replace(
+                cart,
+                state=CartState.ORDERED,
+                order_id=order.order_id,
+                decided_by=order.approved_by,
+                decided_at=approved_at,
+            ),
+        )
 
     def _record_order(
         self,
@@ -285,6 +294,17 @@ class OrderService:
         result: PolicyResult,
         approved_by: User | None,
     ) -> None:
+        if approved_by is not None:
+            self._audit.record(
+                AuditStep.APPROVAL,
+                approved_by.user_id,
+                f"Approved by {approved_by.user_id}.",
+                cart_id=cart.cart_id,
+                phase=FlowPhase.APPROVAL,
+                output_data={"order_id": order.order_id},
+                mandate_version=order.mandate_version,
+            )
+
         self._audit.record(
             AuditStep.POLICY,
             _GATEWAY_ACTOR,
