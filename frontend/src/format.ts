@@ -96,7 +96,7 @@ export function formatCount(count: number): string {
   return count.toLocaleString(LOCALE)
 }
 
-/** FREE_FROM_LACTOSE gives "Free from lactose". The backend has no labels yet (open question 7). */
+/** FREE_FROM_LACTOSE gives "Free from lactose". The backend has no labels yet. */
 export function formatAttribute(code: string): string {
   const words = code.toLowerCase().replaceAll('_', ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`

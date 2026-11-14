@@ -16,7 +16,7 @@ const RESULT_ICON: Readonly<Record<ClosedStatus, IconName>> = {
 const PROTOTYPE_ORDER_NOTE =
   "Prototype order: committed in this prototype's order ledger, not sent to Valio Aimo's production systems."
 
-// A cart in AUTO or DENIED state is not specified for this page (open question 9).
+// A cart in AUTO or DENIED state is not specified for this page.
 const CLOSED_SENTENCE = 'This order needs no decision from you.'
 const EXPIRED_FALLBACK = 'Nobody decided before the order deadline.'
 

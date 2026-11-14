@@ -4,7 +4,7 @@ import type { Cart, CartLine, UnderstoodRequest } from '../api.ts'
 import { formatAttribute, formatCount, formatDate, formatDateTime } from '../format.ts'
 import { Icon } from './Icon.tsx'
 
-// The cart has no signature field and the UI has no verify call yet (open question 2).
+// The cart has no signature field and the UI has no verify call yet.
 const TRUST_MARK = 'Not signed (development)'
 
 interface CartReviewProps {

@@ -33,7 +33,7 @@ type LoadState =
   | { readonly kind: 'ready'; readonly data: PageData }
 
 // The session comes first, so a signed out user never gets a cart request. The audit only
-// adds the agent name and the timeline: the page still works without it (open question 3).
+// adds the agent name and the timeline: the page still works without it.
 type DecisionCall = () => Promise<unknown>
 
 function isConflict(error: unknown): boolean {

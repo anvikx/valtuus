@@ -22,7 +22,7 @@ interface AuditTimelineProps {
   readonly requestText: string
 }
 
-// No audit step maps to REQUEST yet (open question 4). Until one does, the Request group shows
+// No audit step maps to REQUEST yet. Until one does, the Request group shows
 // the buyer's words at the time of the first record.
 function withRequestEntry(audit: AuditTrail, requestText: string): readonly AuditEntry[] {
   const hasRequestRecord = audit.entries.some((entry) => entry.phase === 'request')
