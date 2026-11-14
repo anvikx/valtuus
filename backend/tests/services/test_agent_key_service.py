@@ -1,10 +1,20 @@
 import dataclasses
 from datetime import UTC, datetime, timedelta
 
-from app.adapters.memory.repositories import InMemoryAgentKeyRepository, InMemoryUnitOfWork
+import pytest
+
+from app.adapters.memory.repositories import (
+    InMemoryAgentKeyRepository,
+    InMemoryCartRepository,
+    InMemoryOfferRepository,
+    InMemoryUnitOfWork,
+)
 from app.domain.agent_key import AgentKey, hash_agent_key
-from app.domain.enums import AgentKeyStatus, AgentScope
+from app.domain.enums import AgentKeyStatus, AgentScope, AuditStep, ReasonCode
+from app.domain.errors import NotFoundError
 from app.services.agent_key_service import AgentKeyService
+from app.services.audit_service import AuditService
+from tests.fakes.catalog import Records
 
 _KEY = "test-agent-key-0123456789"
 _ACTIVE = AgentKey(
@@ -16,6 +26,7 @@ _ACTIVE = AgentKey(
     status=AgentKeyStatus.ACTIVE,
 )
 _POLL_INTERVAL = timedelta(seconds=5)
+_MAIN_USER = "hotel-1-main"
 
 
 class _Clock:
@@ -40,10 +51,24 @@ def _service(
     agent_key: AgentKey,
     clock: _Clock | None = None,
     agent_keys: InMemoryAgentKeyRepository | None = None,
+    records: Records | None = None,
 ) -> AgentKeyService:
+    clock = clock or _Clock()
     agent_keys = agent_keys or InMemoryAgentKeyRepository()
     agent_keys.add(agent_key)
-    return AgentKeyService(agent_keys, clock or _Clock(), InMemoryUnitOfWork())
+    unit_of_work = InMemoryUnitOfWork()
+    audit = AuditService(
+        records or Records(),
+        InMemoryCartRepository(),
+        InMemoryOfferRepository(),
+        clock,
+        unit_of_work,
+    )
+    return AgentKeyService(agent_keys, audit, clock, unit_of_work)
+
+
+def _steps(records: Records) -> list[tuple[AuditStep, tuple[ReasonCode, ...]]]:
+    return [(record.step, record.reason_codes) for record in records.records]
 
 
 def test_active_key_authenticates() -> None:
@@ -64,6 +89,17 @@ def test_revoked_key_is_refused() -> None:
     revoked = dataclasses.replace(_ACTIVE, status=AgentKeyStatus.REVOKED)
 
     assert _service(revoked).authenticate(_KEY) is None
+
+
+def test_revoked_key_call_is_on_the_record() -> None:
+    """The main user must see that a stopped agent still tried, under the right buyer."""
+    records = Records()
+    revoked = dataclasses.replace(_ACTIVE, status=AgentKeyStatus.REVOKED)
+
+    _service(revoked, records=records).authenticate(_KEY)
+
+    assert _steps(records) == [(AuditStep.REFUSED, (ReasonCode.KEY_REVOKED,))]
+    assert records.records[0].buyer_id == "hotel-1"
 
 
 def test_ten_polls_in_one_minute_write_the_time_once() -> None:
@@ -109,6 +145,62 @@ def test_refused_key_gets_no_use_time() -> None:
     stored = agent_keys.by_hash(_ACTIVE.key_hash)
     assert stored is not None
     assert stored.last_used_at is None
+
+
+def test_revoke_stops_the_next_call_and_records_both() -> None:
+    """The main user stops the agent; the record shows who did it and that the agent was cut off."""
+    records = Records()
+    service = _service(_ACTIVE, records=records)
+
+    service.revoke("hotel-1", "claude-code", _MAIN_USER)
+    authenticated = service.authenticate(_KEY)
+
+    assert authenticated is None
+    assert _steps(records) == [
+        (AuditStep.AGENT_REVOKED, ()),
+        (AuditStep.REFUSED, (ReasonCode.KEY_REVOKED,)),
+    ]
+    assert records.records[0].actor == _MAIN_USER
+
+
+def test_second_revoke_writes_no_second_record() -> None:
+    """A double click must not show the agent stopped twice."""
+    records = Records()
+    service = _service(_ACTIVE, records=records)
+
+    service.revoke("hotel-1", "claude-code", _MAIN_USER)
+    service.revoke("hotel-1", "claude-code", _MAIN_USER)
+
+    assert _steps(records) == [(AuditStep.AGENT_REVOKED, ())]
+
+
+def test_revoke_stops_every_active_key_of_the_agent() -> None:
+    """A new demo key keeps the agent id, so stopping the agent must stop all its keys."""
+    records = Records()
+    agent_keys = InMemoryAgentKeyRepository()
+    agent_keys.add(dataclasses.replace(_ACTIVE, key_hash=hash_agent_key("second-key")))
+    service = _service(_ACTIVE, agent_keys=agent_keys, records=records)
+
+    service.revoke("hotel-1", "claude-code", _MAIN_USER)
+
+    assert {key.status for key in agent_keys.for_buyer("hotel-1")} == {AgentKeyStatus.REVOKED}
+    assert len(records.records) == 1
+
+
+def test_revoke_of_another_buyers_agent_is_not_found() -> None:
+    """A main user must not stop, or learn about, an agent of another buyer."""
+    records = Records()
+    agent_keys = InMemoryAgentKeyRepository()
+    other = dataclasses.replace(_ACTIVE, buyer_id="hotel-2")
+    service = _service(other, agent_keys=agent_keys, records=records)
+
+    with pytest.raises(NotFoundError):
+        service.revoke("hotel-1", "claude-code", _MAIN_USER)
+
+    stored = agent_keys.by_hash(_ACTIVE.key_hash)
+    assert stored is not None
+    assert stored.status is AgentKeyStatus.ACTIVE
+    assert records.records == []
 
 
 def test_buyer_sees_its_own_keys_and_revoked_ones_too() -> None:

@@ -264,7 +264,12 @@ def _build_services(
         store.unit_of_work,
     )
     return Services(
-        agent_keys=AgentKeyService(store.agent_keys, clock, store.unit_of_work),
+        agent_keys=AgentKeyService(
+            store.agent_keys,
+            audit_service,
+            clock,
+            store.unit_of_work,
+        ),
         catalog=CatalogService(
             catalog_store,
             store.mandates,

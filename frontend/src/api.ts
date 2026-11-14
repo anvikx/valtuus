@@ -24,6 +24,9 @@ const HTTP_METHOD = {
   put: 'PUT',
 } as const
 
+const AGENTS_PATH = '/agents'
+const AGENT_ACTIVE = 'ACTIVE'
+
 const AUTH_PATH = {
   login: '/auth/login',
   me: '/auth/me',
@@ -215,6 +218,14 @@ export interface WireMandateResponse {
   readonly mandate: WireMandate
 }
 
+// One key. A new key for the same agent keeps the agent_id, so one agent can have more.
+export interface WireAgent {
+  readonly agent_id: string
+  readonly agent_name: string
+  readonly status: string
+  readonly last_used_at: string | null
+}
+
 export interface WireMandateUpdate {
   readonly max_auto_order_value: string
   readonly max_auto_value_per_delivery_date: string
@@ -353,6 +364,15 @@ export interface Mandate {
 }
 
 export type MandateEdit = Omit<Mandate, 'version'>
+
+export interface Agent {
+  readonly id: string
+  readonly name: string
+  // True while any key of the agent works.
+  readonly isActive: boolean
+  // Null: the agent never called.
+  readonly lastUsedAt: string | null
+}
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
@@ -585,6 +605,31 @@ function toMandate({ mandate }: WireMandateResponse): Mandate {
   }
 }
 
+function laterTime(first: string | null, second: string | null): string | null {
+  if (first === null || second === null) {
+    return first ?? second
+  }
+
+  // Parse: the offsets can differ, so the strings do not sort by time.
+  return Date.parse(second) > Date.parse(first) ? second : first
+}
+
+// One row per agent, not per key, so a replaced key does not show as a second agent.
+function toAgents(keys: readonly WireAgent[]): Agent[] {
+  const byId = new Map<string, Agent>()
+  for (const key of keys) {
+    const seen = byId.get(key.agent_id)
+    byId.set(key.agent_id, {
+      id: key.agent_id,
+      name: key.agent_name,
+      isActive: (seen?.isActive ?? false) || key.status === AGENT_ACTIVE,
+      lastUsedAt: laterTime(seen?.lastUsedAt ?? null, key.last_used_at),
+    })
+  }
+
+  return [...byId.values()]
+}
+
 function cartPath(cartId: string): string {
   return `/carts/${encodeURIComponent(cartId)}`
 }
@@ -702,6 +747,16 @@ export async function changeCart(
 
 export async function getMandate(): Promise<Mandate> {
   return toMandate((await call(HTTP_METHOD.get, '/mandate')) as WireMandateResponse)
+}
+
+export async function listAgents(): Promise<readonly Agent[]> {
+  return toAgents((await call(HTTP_METHOD.get, AGENTS_PATH)) as WireAgent[])
+}
+
+// Revokes every key of the agent. The answer is the new agent list.
+export async function stopAgent(agentId: string): Promise<readonly Agent[]> {
+  const path = `${AGENTS_PATH}/${encodeURIComponent(agentId)}/revoke`
+  return toAgents((await call(HTTP_METHOD.post, path)) as WireAgent[])
 }
 
 // Saving makes a new version. The answer carries it.

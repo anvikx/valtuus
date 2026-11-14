@@ -26,7 +26,11 @@ class AgentKeyRepository(Protocol):
     def for_buyer(self, buyer_id: str) -> Sequence[AgentKey]: ...
 
     def add(self, agent_key: AgentKey) -> None:
-        """Adds a key, or replaces the key with the same hash (for example to revoke it)."""
+        """Adds a key, or replaces the key with the same hash."""
+        ...
+
+    def revoke(self, key_hash: str) -> bool:
+        """True when this call changed an ACTIVE key to REVOKED, so two revokes give one record."""
         ...
 
     def mark_used(self, key_hash: str, at: datetime, cutoff: datetime) -> None:

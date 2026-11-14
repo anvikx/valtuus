@@ -16,9 +16,17 @@
 //   c_revised        waiting, revision 2: the agent changed the milk and added coffee
 //   c_revised_stale  like c_revised, but approve and reject answer 409 and a revision 3 shows
 //
-// Permissions: /permissions. /permissions?save=fail makes a save answer 503.
+// Permissions: /permissions. /permissions?save=fail makes a save answer 503, and
+// /permissions?revoke=fail a stop agent answer 503.
 // Inbox: /inbox lists the carts above. /inbox?inbox=empty hides the waiting ones.
-import type { WireAuditRecord, WireCart, WireMandate, WireRequest, WireResponse } from '../api.ts'
+import type {
+  WireAgent,
+  WireAuditRecord,
+  WireCart,
+  WireMandate,
+  WireRequest,
+  WireResponse,
+} from '../api.ts'
 import {
   ORDER_CONFIRMATION,
   PENDING_CART,
@@ -75,6 +83,9 @@ const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject|changes))?$/
 const MANDATE_PATH = '/v1/mandate'
 const SAVE_FAILS_PARAM = 'save'
 const SAVE_FAILS_VALUE = 'fail'
+const AGENTS_PATH = '/v1/agents'
+const REVOKE_PATH = /^\/v1\/agents\/([^/]+)\/revoke$/
+const REVOKE_FAILS_PARAM = 'revoke'
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 const ORDER_PATH = /^\/v1\/orders\/([^/]+)$/
 
@@ -424,6 +435,45 @@ function answerMandate(request: WireRequest): WireResponse {
   return reply(STATUS.ok, { mandate })
 }
 
+// The current key shows "Active now" because it is stamped at load. The old key was replaced,
+// so the page must show one claude-code row.
+let agentKeys: WireAgent[] = [
+  {
+    agent_id: 'claude-code',
+    agent_name: 'claude-code',
+    status: 'ACTIVE',
+    last_used_at: new Date().toISOString(),
+  },
+  {
+    agent_id: 'claude-code',
+    agent_name: 'claude-code',
+    status: 'REVOKED',
+    last_used_at: '2026-11-13T09:12:00+02:00',
+  },
+  {
+    agent_id: 'rest-script',
+    agent_name: 'rest-script',
+    status: 'ACTIVE',
+    last_used_at: null,
+  },
+]
+
+function answerRevoke(agentId: string): WireResponse {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get(REVOKE_FAILS_PARAM) === SAVE_FAILS_VALUE) {
+    return reply(STATUS.unavailable)
+  }
+
+  if (!agentKeys.some((key) => key.agent_id === agentId)) {
+    return reply(STATUS.notFound)
+  }
+
+  agentKeys = agentKeys.map((key) =>
+    key.agent_id === agentId ? { ...key, status: 'REVOKED' } : key,
+  )
+  return reply(STATUS.ok, agentKeys)
+}
+
 function route(request: WireRequest): WireResponse {
   const authMatch = AUTH_PATH.exec(request.path)
   if (authMatch !== null) {
@@ -445,6 +495,15 @@ function route(request: WireRequest): WireResponse {
 
   if (request.path === MANDATE_PATH) {
     return answerMandate(request)
+  }
+
+  if (request.path === AGENTS_PATH) {
+    return reply(STATUS.ok, agentKeys)
+  }
+
+  const revokeMatch = REVOKE_PATH.exec(request.path)
+  if (revokeMatch !== null) {
+    return answerRevoke(decodeURIComponent(revokeMatch[1]))
   }
 
   const auditMatch = AUDIT_PATH.exec(request.path)

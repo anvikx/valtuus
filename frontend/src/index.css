@@ -1176,6 +1176,49 @@ textarea.input {
   align-self: flex-start;
 }
 
+.agent-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.agent-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--line);
+}
+
+.agent-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.agent-name {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-confirm p {
+  margin: 0;
+}
+
+.agent-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.agent-confirm-actions .button-deny {
+  width: auto;
+}
+
 .mandate-saved {
   padding: var(--space-3);
   border-radius: var(--radius-md);

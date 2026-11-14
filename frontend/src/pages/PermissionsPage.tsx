@@ -8,6 +8,7 @@ import {
   type Mandate,
   type MandateEdit,
 } from '../api.ts'
+import { AgentList } from '../components/AgentList.tsx'
 import { MandateForm } from '../components/MandateForm.tsx'
 import { MandateView, POLICY_WORDS } from '../components/MandateView.tsx'
 import { money } from '../components/ResultScreen.tsx'
@@ -188,12 +189,15 @@ function PermissionsView({ data, onSaved }: ReadyProps): ReactElement {
           }}
         />
       ) : (
-        <MandateView
-          mandate={mandate}
-          onEdit={() => {
-            setMode({ kind: 'edit', isFailed: false })
-          }}
-        />
+        <>
+          <MandateView
+            mandate={mandate}
+            onEdit={() => {
+              setMode({ kind: 'edit', isFailed: false })
+            }}
+          />
+          <AgentList />
+        </>
       )}
     </main>
   )
