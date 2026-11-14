@@ -4,7 +4,7 @@ from app.domain.cart import PricedLine
 from app.domain.enums import Decision, ReasonCode
 from app.domain.money import total_ex_vat
 from app.domain.policy.check import CheckResult, PolicyContext
-from app.domain.reason_text import money_text
+from app.domain.reason_text import money_text, reason_sentence
 
 
 class OrderLimit:
@@ -19,7 +19,11 @@ class OrderLimit:
         result = CheckResult(
             decision=Decision.HUMAN,
             reason_code=ReasonCode.OVER_AUTO_LIMIT,
-            sentence=f"{money_text(total)} is over the {money_text(limit)} limit.",
+            sentence=reason_sentence(
+                ReasonCode.OVER_AUTO_LIMIT,
+                total=money_text(total),
+                limit=money_text(limit),
+            ),
             line_id=None,
         )
         return [result]
