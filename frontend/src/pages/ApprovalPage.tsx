@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 
-import { getAudit, getCart, getSession, type AuditTrail, type Cart, type Session } from '../api.ts'
+import {
+  approveCart,
+  getAudit,
+  getCart,
+  getSession,
+  rejectCart,
+  type AuditTrail,
+  type Cart,
+  type Session,
+} from '../api.ts'
 import { CartReview } from '../components/CartReview.tsx'
+import { DecisionPanel } from '../components/DecisionPanel.tsx'
+import { ResultCard } from '../components/ResultCard.tsx'
 import { isSignedOut, redirectToLogin } from '../session.ts'
 
 interface ApprovalPageProps {
@@ -35,23 +46,58 @@ async function loadPage(cartId: string): Promise<PageData> {
 // The approve_url in a cart opens this page.
 export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
+  const [isBusy, setIsBusy] = useState(false)
+  const [hasDecisionFailed, setHasDecisionFailed] = useState(false)
+  // A ref, not state: a second tap before React renders still reads the old isBusy.
+  const isBusyRef = useRef(false)
 
-  const load = useCallback(() => {
-    loadPage(cartId)
-      .then((data) => {
-        setState({ kind: 'ready', data })
-      })
-      .catch((error: unknown) => {
-        if (isSignedOut(error)) {
-          redirectToLogin()
-          return
-        }
+  const load = useCallback(
+    () =>
+      loadPage(cartId).then(
+        (data) => {
+          setState({ kind: 'ready', data })
+        },
+        (error: unknown) => {
+          if (isSignedOut(error)) {
+            redirectToLogin()
+            return
+          }
 
-        setState({ kind: 'failed' })
-      })
-  }, [cartId])
+          setState({ kind: 'failed' })
+        },
+      ),
+    [cartId],
+  )
 
-  useEffect(load, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  // The buttons stay disabled until the reload shows the new cart state, so the user cannot
+  // send a second decision on a cart that is already decided.
+  async function decide(call: () => Promise<unknown>): Promise<void> {
+    if (isBusyRef.current) {
+      return
+    }
+
+    isBusyRef.current = true
+    setIsBusy(true)
+    setHasDecisionFailed(false)
+    try {
+      await call()
+      await load()
+    } catch (error: unknown) {
+      if (isSignedOut(error)) {
+        redirectToLogin()
+        return
+      }
+
+      setHasDecisionFailed(true)
+    } finally {
+      isBusyRef.current = false
+      setIsBusy(false)
+    }
+  }
 
   if (state.kind === 'loading') {
     return (
@@ -74,7 +120,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
           type="button"
           onClick={() => {
             setState({ kind: 'loading' })
-            load()
+            void load()
           }}
         >
           Retry
@@ -86,8 +132,8 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   const { session, cart, audit } = state.data
   if (cart.status !== 'waiting') {
     return (
-      <main>
-        <p>This order is no longer waiting for approval.</p>
+      <main className="stack">
+        <ResultCard cart={cart} status={cart.status} />
       </main>
     )
   }
@@ -95,14 +141,16 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   return (
     <main className="stack">
       <CartReview cart={cart} buyerId={session.buyerId} agentName={audit?.agentName ?? null} />
-      <div className="actions">
-        <button className="button button-primary" type="button">
-          Approve order
-        </button>
-        <button className="button button-text" type="button">
-          Reject
-        </button>
-      </div>
+      {hasDecisionFailed ? (
+        <p className="alert" role="alert">
+          Your decision was not saved. Try again.
+        </p>
+      ) : null}
+      <DecisionPanel
+        isBusy={isBusy}
+        onApprove={() => void decide(() => approveCart(cartId))}
+        onReject={(reason) => void decide(() => rejectCart(cartId, reason))}
+      />
     </main>
   )
 }

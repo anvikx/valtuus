@@ -32,6 +32,11 @@ blockquote {
   outline-offset: var(--space-1);
 }
 
+/* tabindex -1 marks text that gets focus from code (a result sentence), not a control. */
+[tabindex='-1']:focus-visible {
+  outline: none;
+}
+
 /* Page frame: header with the Prototype tag, content, footer. */
 .app-shell {
   display: flex;
@@ -198,6 +203,27 @@ blockquote {
   font: var(--type-label);
 }
 
+/* Result card: the icon colour says the outcome, the sentence says it in words. */
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.result-icon {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  color: var(--ink-muted);
+}
+
+.result-ordered .result-icon {
+  color: var(--done);
+}
+
+.result-rejected .result-icon {
+  color: var(--deny);
+}
+
 .actions {
   display: flex;
   flex-direction: column;
@@ -229,6 +255,23 @@ blockquote {
   background: none;
   color: var(--deny);
   text-decoration: underline;
+}
+
+.button-deny {
+  width: 100%;
+  background: var(--deny);
+  color: var(--on-brand);
+}
+
+.button-text-quiet {
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.field-error {
+  color: var(--deny);
+  font: var(--type-small);
 }
 
 .button-quiet {

@@ -1,8 +1,13 @@
 import type { ReactElement } from 'react'
 
 // Inline SVG paths on a 24 x 24 grid, drawn with currentColor. No icon dependency.
+const CIRCLE = 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18'
+
 const ICON_PATHS = {
-  attention: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7.5v6M12 16.5v.01',
+  attention: `${CIRCLE}M12 7.5v6M12 16.5v.01`,
+  done: `${CIRCLE}M8 12.5l2.5 2.5L16 9.5`,
+  denied: `${CIRCLE}M9 9l6 6M15 9l-6 6`,
+  clock: `${CIRCLE}M12 7v5l3 2`,
 } as const
 
 export type IconName = keyof typeof ICON_PATHS
