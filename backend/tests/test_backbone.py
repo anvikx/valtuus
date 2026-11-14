@@ -472,6 +472,17 @@ def test_search_tool_lists_valid_attributes():
     assert all(code in tool["description"] for code in VALID_ATTRIBUTES)
 
 
+def test_search_tool_schema_lists_valid_attributes():
+    """An agent reads the input schema, so a wrong code is caught before the call is sent."""
+    from app.domain.catalog_search import VALID_ATTRIBUTES
+
+    result = _mcp(create_app(), "tools/list", {})
+    tool = next(tool for tool in result["tools"] if tool["name"] == "search_products")
+    request = tool["inputSchema"]["$defs"]["SearchRequest"]
+
+    assert request["properties"]["required_attributes"]["items"]["enum"] == list(VALID_ATTRIBUTES)
+
+
 @pytest.mark.parametrize(
     "search_input", [{"query": "ab"}, {"query": "milk", "required_attributes": ["ORGANIC"]}]
 )
