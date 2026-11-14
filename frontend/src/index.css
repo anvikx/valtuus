@@ -643,11 +643,16 @@ textarea.input {
   color: var(--ink);
 }
 
-/* Inbox: one list per section. Phone rows stack, desktop rows are columns. */
+/* Inbox: a stacked list on a phone, two tables on desktop. Both are in the page and the hidden
+   one is display: none, so only the visible one reaches a screen reader or the Tab key. */
 .inbox {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.inbox .page-title {
+  font: var(--type-title);
 }
 
 .inbox-head,
@@ -676,6 +681,11 @@ textarea.input {
   border-bottom: var(--border-width) solid var(--line);
 }
 
+.inbox-summary,
+.inbox-table {
+  display: none;
+}
+
 .inbox-list {
   margin: 0;
   padding: 0;
@@ -688,60 +698,96 @@ textarea.input {
 }
 
 .inbox-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto var(--space-3);
+  display: flex;
   align-items: center;
-  column-gap: var(--space-3);
-  row-gap: var(--space-1);
+  gap: var(--space-3);
   min-height: var(--tap-target);
   padding: var(--space-3) 0;
   color: var(--ink);
   text-decoration: none;
 }
 
-.inbox-row:hover .inbox-request {
+.inbox-row:hover .inbox-request,
+.inbox-cell-link:hover .inbox-request {
   text-decoration: underline;
 }
 
+.inbox-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inbox-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
 .inbox-row-waiting .inbox-request,
-.inbox-row-waiting .inbox-total {
+.inbox-row-waiting .inbox-total,
+.inbox-table-waiting .inbox-request {
   font-weight: 600;
-}
-
-.inbox-why,
-.inbox-result,
-.inbox-deadline {
-  grid-column: 1;
-  font: var(--type-small);
-}
-
-.inbox-why {
-  color: var(--decide);
-  font-weight: 600;
-}
-
-.inbox-more,
-.inbox-deadline {
-  color: var(--ink-muted);
-  font-weight: 400;
 }
 
 .inbox-total {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
+  flex: none;
   font-variant-numeric: tabular-nums;
+}
+
+.inbox-small {
+  font: var(--type-small);
+}
+
+.inbox-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inbox-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+}
+
+.inbox-dot-decide {
+  background: var(--decide);
+}
+
+.inbox-dot-done {
+  background: var(--done);
+}
+
+.inbox-dot-deny {
+  background: var(--deny);
+}
+
+.inbox-dot-muted {
+  background: var(--ink-muted);
+}
+
+.inbox-updated {
+  margin-left: var(--space-2);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font: var(--type-label);
   white-space: nowrap;
 }
 
-/* Column titles show on desktop only, where the cells sit in columns. */
-.inbox-columns {
-  display: none;
+/* In the phone row the tag is a flex item, and the gap already spaces it. */
+.inbox-status .inbox-updated {
+  margin-left: 0;
 }
 
 .inbox-chevron {
-  grid-column: 3;
-  grid-row: 1;
+  flex: none;
   width: var(--space-3);
   height: var(--space-3);
   color: var(--ink-muted);
@@ -765,115 +811,119 @@ textarea.input {
 }
 
 @media (min-width: 900px) {
-  /* The limits line comes last on a phone, and sits beside the title on desktop. */
   .inbox {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
     max-width: var(--page-wide-width);
     gap: var(--space-5);
     padding: var(--space-5);
   }
 
-  .inbox > * {
-    grid-column: 1 / -1;
+  .inbox .page-title {
+    font: var(--type-display);
   }
 
-  .inbox > .inbox-head {
-    grid-column: 1;
+  .inbox-section {
+    gap: var(--space-2);
   }
 
-  .inbox > .inbox-limits {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: end;
+  .inbox-list,
+  .inbox-narrow {
+    display: none;
   }
 
-  /* One column grid per list, and every row takes it as a subgrid. A grid per row sized its
-     max-content columns to its own text, so a shorter total shifted that row's columns. The
-     7.5rem floor fits "Sun 15 Nov 17:00" (112 px) and a bold "1010.00 EUR" (102 px), so the
-     decided list (no deadline) gets the same columns as the waiting list. */
-  .inbox-list {
-    display: grid;
-    grid-template-columns:
-      minmax(0, 2fr) minmax(0, 2fr) minmax(7.5rem, max-content) minmax(7.5rem, max-content)
-      var(--space-3);
-    column-gap: var(--space-3);
+  .inbox-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: calc(-1 * var(--space-3));
+    padding: var(--space-3) 0;
+    border-top: var(--border-width) solid var(--line);
+    border-bottom: var(--border-width) solid var(--line);
   }
 
-  .inbox-item,
-  .inbox-columns,
-  .inbox-row {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
+  .inbox-summary-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-5);
+    margin: 0;
   }
 
-  /* Baseline: the bold request and the small cells start on the same text line. */
-  .inbox-columns,
-  .inbox-row {
-    align-items: baseline;
-    padding-inline: var(--space-2);
+  .inbox-summary-facts dt {
+    color: var(--ink-muted);
+    font: var(--type-small);
   }
 
-  .inbox-columns {
-    padding-block: var(--space-2);
+  .inbox-summary-facts dd {
+    margin: 0;
+    font: var(--type-title);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .inbox-summary-facts .inbox-summary-waiting {
+    color: var(--decide);
+  }
+
+  .inbox-table {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-bottom: var(--border-width) solid var(--line);
+  }
+
+  .inbox-table th {
+    padding: var(--space-2) var(--space-3);
     color: var(--ink-muted);
     font: var(--type-label);
+    text-align: left;
   }
 
-  .inbox-columns > :last-child {
-    justify-self: end;
+  .inbox-table td {
+    padding: var(--space-3);
+    font: var(--type-small);
+    vertical-align: middle;
   }
 
-  .inbox-row:hover {
+  .inbox-table tbody tr {
+    border-top: var(--border-width) solid var(--line);
+  }
+
+  .inbox-table tbody tr:hover {
     background: var(--surface-200);
   }
 
-  .inbox-chevron {
-    align-self: center;
+  .inbox-table .inbox-amount {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
   }
 
-  /* The column title says it, so only a screen reader reads it in each row. */
-  .inbox-deadline-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+  .inbox-table td.inbox-amount,
+  .inbox-request {
+    font: var(--type-body);
+  }
+
+  .inbox-cell-link {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .inbox-clip {
     overflow: hidden;
-    clip-path: inset(50%);
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .inbox-row-waiting .inbox-why {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .inbox-row-waiting .inbox-deadline {
-    grid-column: 3;
-    grid-row: 1;
-    white-space: nowrap;
-  }
-
-  .inbox-row-waiting .inbox-total {
-    grid-column: 4;
-  }
-
-  .inbox-row-waiting .inbox-chevron {
-    grid-column: 5;
-  }
-
-  /* The result spans the why and deadline columns, so totals line up with the list above. */
-  .inbox-row-decided .inbox-result {
-    grid-column: 2 / 4;
-    grid-row: 1;
-  }
-
-  .inbox-row-decided .inbox-total {
-    grid-column: 4;
-  }
-
-  .inbox-row-decided .inbox-chevron {
-    grid-column: 5;
+  .inbox-time-left {
+    display: block;
+    color: var(--decide);
+    font: var(--type-body);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
   }
 }
 
