@@ -37,7 +37,7 @@ const STATUS = {
   unavailable: 503,
 } as const
 
-const FIXTURE_USERNAME = 'main'
+const FIXTURE_USER_ID = 'main'
 const FIXTURE_PASSWORD = 'demo'
 const SESSION_KEY = 'valtuus.fixture.session'
 const STORE_KEY = 'valtuus.fixture.carts'
@@ -50,7 +50,7 @@ const APPROVE_FAILS_ID = 'c_approve_fails'
 const UNAVAILABLE_ID = 'c_unavailable'
 const ANSWERS_ID = 'c_answers'
 
-const SESSION_PATH = '/v1/session'
+const AUTH_PATH = /^\/v1\/auth\/(login|logout|me)$/
 const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject))?$/
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 
@@ -188,18 +188,18 @@ function isSignedIn(): boolean {
   return readItem(SESSION_KEY) !== null
 }
 
-function answerSession({ method, body }: WireRequest): WireResponse {
-  if (method === 'POST') {
+function answerAuth(action: string, body: unknown): WireResponse {
+  if (action === 'login') {
     const { password } = body as { password: string }
     if (password !== FIXTURE_PASSWORD) {
       return reply(STATUS.unauthorized)
     }
 
-    writeItem(SESSION_KEY, FIXTURE_USERNAME)
+    writeItem(SESSION_KEY, FIXTURE_USER_ID)
     return reply(STATUS.noContent)
   }
 
-  if (method === 'DELETE') {
+  if (action === 'logout') {
     writeItem(SESSION_KEY, null)
     return reply(STATUS.noContent)
   }
@@ -209,7 +209,7 @@ function answerSession({ method, body }: WireRequest): WireResponse {
   }
 
   return reply(STATUS.ok, {
-    username: readItem(SESSION_KEY),
+    user_id: readItem(SESSION_KEY),
     buyer_id: 'hotel-1',
     role: 'MAIN_USER',
   })
@@ -283,8 +283,9 @@ function answerAudit(cartId: string): WireResponse {
 }
 
 function route(request: WireRequest): WireResponse {
-  if (request.path === SESSION_PATH) {
-    return answerSession(request)
+  const authMatch = AUTH_PATH.exec(request.path)
+  if (authMatch !== null) {
+    return answerAuth(authMatch[1], request.body)
   }
 
   if (!isSignedIn()) {

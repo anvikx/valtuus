@@ -19,6 +19,11 @@ const HTTP_METHOD = {
   post: 'POST',
 } as const
 
+const AUTH_PATH = {
+  login: '/auth/login',
+  me: '/auth/me',
+} as const
+
 const WIRE_STATE_TO_STATUS: Readonly<Record<string, CartStatus>> = {
   PENDING_APPROVAL: 'waiting',
   ORDERED: 'ordered',
@@ -61,8 +66,8 @@ export interface WireResponse {
 }
 
 export interface WireSession {
-  readonly username: string
-  readonly buyer_id: string
+  readonly user_id: string
+  readonly buyer_id: string | null
   readonly role: string
 }
 
@@ -183,7 +188,6 @@ export type FlowPhase = 'request' | 'lookup' | 'order' | 'approval'
 export type ApiErrorKind = 'unauthenticated' | 'conflict' | 'failed'
 
 export interface Session {
-  readonly username: string
   readonly buyerId: string
 }
 
@@ -440,11 +444,15 @@ export async function getHealth(): Promise<BackendHealth> {
   return body.status === HEALTHY_STATUS ? 'ok' : 'down'
 }
 
+// A user with no buyer (staff) has no carts to approve here, so the page treats it as signed
+// out and shows the login page.
 export async function getSession(): Promise<Session> {
-  const wire = (await call(HTTP_METHOD.get, '/session')) as WireSession
+  const wire = (await call(HTTP_METHOD.get, AUTH_PATH.me)) as WireSession
+  if (wire.buyer_id === null) {
+    throw new ApiError('unauthenticated')
+  }
 
   return {
-    username: wire.username,
     buyerId: wire.buyer_id,
   }
 }
@@ -452,7 +460,7 @@ export async function getSession(): Promise<Session> {
 // One main user, so the backend asks only for the password. A wrong one throws ApiError
 // 'unauthenticated'.
 export async function signIn(password: string): Promise<void> {
-  await call(HTTP_METHOD.post, '/session', { password })
+  await call(HTTP_METHOD.post, AUTH_PATH.login, { password })
 }
 
 export async function getCart(cartId: string): Promise<Cart> {
