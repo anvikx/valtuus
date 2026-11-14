@@ -211,6 +211,21 @@ def test_main_user_inbox_lists_the_buyers_carts() -> None:
     assert response.json() == []
 
 
+def test_main_user_sees_the_agent_without_its_key() -> None:
+    """The page shows who may buy, but a leaked key or hash would let anyone buy as the agent."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.get("/api/v1/agents")
+
+    assert response.status_code == HTTPStatus.OK
+    [agent] = response.json()
+    assert agent["status"] == AgentKeyStatus.ACTIVE
+    assert "key_hash" not in agent
+    assert _AGENT_KEY not in response.text
+    assert hash_agent_key(_AGENT_KEY) not in response.text
+
+
 def test_offers_answer_with_a_stored_offer() -> None:
     """The test catalog is empty, so the id is rejected and no Valio call is made."""
     response = _client().post(_OFFERS_PATH, headers=_AUTH, json={"product_ids": ["p_1"]})
