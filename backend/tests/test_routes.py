@@ -1,3 +1,7 @@
+from http import HTTPStatus
+
+from fastapi.testclient import TestClient
+
 from app.main import create_app
 
 _API_PREFIX = "/api/"
@@ -29,3 +33,17 @@ def test_all_routes_use_api_prefix() -> None:
     )
 
     assert outside == []
+
+
+def test_slash_redirect_keeps_https_behind_proxy() -> None:
+    """Clients such as claude.ai refuse a redirect from https to http, so the connection fails."""
+    proxied = {
+        "Host": "junction.anvik.fi",
+        "X-Forwarded-Proto": "https",
+    }
+
+    with TestClient(create_app(), base_url="http://backend:8000") as client:
+        response = client.get("/api/health/", headers=proxied, follow_redirects=False)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "https://junction.anvik.fi/api/health"
