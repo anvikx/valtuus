@@ -1,4 +1,6 @@
-import type { ReactElement, ReactNode } from 'react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
+
+import { getSession } from '../api.ts'
 
 interface ShellProps {
   readonly path: string
@@ -34,6 +36,25 @@ function MainNav({ path }: { readonly path: string }): ReactElement {
   )
 }
 
+// Desktop only: the phone header has no room, and the page title line names the buyer.
+// A failed session read hides the label: the page itself sends a signed out user to login.
+function UserLabel(): ReactElement | null {
+  const [buyerId, setBuyerId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getSession().then(
+      (session) => {
+        setBuyerId(session.buyerId)
+      },
+      () => {
+        setBuyerId(null)
+      },
+    )
+  }, [])
+
+  return buyerId === null ? null : <span className="muted app-user">Main user, {buyerId}</span>
+}
+
 // Every page carries the Prototype tag and the disclaimer, so nobody takes it for a Valio Aimo
 // production system.
 export function Shell({ path, children }: ShellProps): ReactElement {
@@ -44,6 +65,7 @@ export function Shell({ path, children }: ShellProps): ReactElement {
       <header className={hasNav ? 'app-header app-header-nav' : 'app-header'}>
         <span className="app-name">Valtuus</span>
         {hasNav ? <MainNav path={path} /> : null}
+        {hasNav ? <UserLabel /> : null}
         <span className="tag">Prototype</span>
       </header>
       {children}
