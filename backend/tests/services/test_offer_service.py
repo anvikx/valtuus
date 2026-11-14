@@ -170,6 +170,18 @@ def test_the_snapshot_ends_with_the_price() -> None:
     assert offer.valid_until == datetime(2026, 11, 15, tzinfo=GATEWAY_TIMEZONE)
 
 
+def test_a_price_with_no_end_holds_15_minutes() -> None:
+    """Valio sends 9999-12-31 for a price with no end. The day after it must not break the offer.
+
+    On 2026-11-14, 23 of 33 lactose free milk candidates had this date.
+    """
+    source = FakePriceSource([price(valid_to=date.max)], [stock()])
+
+    offer = _World(source).get_offers()
+
+    assert offer.valid_until == NOW + timedelta(minutes=15)
+
+
 @pytest.mark.parametrize(
     "error",
     [
