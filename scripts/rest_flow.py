@@ -36,6 +36,7 @@ STATE_AUTO = "AUTO"
 STATE_PENDING = "PENDING_APPROVAL"
 STATE_ORDERED = "ORDERED"
 SEARCH_READY = "READY"
+SEARCH_ASK_CHOICES = "ASK_CHOICES"
 
 PRODUCT_QUERY = "milk"
 LACTOSE_FREE = "FREE_FROM_LACTOSE"
@@ -146,22 +147,35 @@ def next_monday(gateway_now: str) -> date:
 
 def _search(gateway: Gateway, run: Run, deliver_by: date) -> tuple[str, list[str]]:
     """The request_id and the candidate product ids."""
-    query = urlencode(
-        {
-            "query": PRODUCT_QUERY,
-            "required_attributes": LACTOSE_FREE,
-            "quantity": run.litres,
-            "unit": LITRES,
-            "deliver_by": deliver_by.isoformat(),
-        },
-    )
-    search = gateway.agent("GET", f"/catalog/search?{query}")
+    search = _search_once(gateway, run, deliver_by, declined=[])
+
+    # The buyer of this flow needs only lactose free milk, so it declines each other choice.
+    if search["hint"]["code"] == SEARCH_ASK_CHOICES:
+        declined = [choice["attribute"] for choice in search["choices"]]
+        print(f"  search declines {', '.join(declined)}")
+        search = _search_once(gateway, run, deliver_by, declined=declined)
+
     if search["hint"]["code"] != SEARCH_READY:
         raise FlowError(f"Search hint is {search['hint']['code']}, not READY.")
 
     product_ids = [candidate["product_id"] for candidate in search["candidates"]]
     print(f"  search {search['request_id']}: {len(product_ids)} candidates")
     return search["request_id"], product_ids
+
+
+def _search_once(gateway: Gateway, run: Run, deliver_by: date, declined: list[str]) -> Json:
+    query = urlencode(
+        {
+            "query": PRODUCT_QUERY,
+            "required_attributes": LACTOSE_FREE,
+            "declined_attributes": declined,
+            "quantity": run.litres,
+            "unit": LITRES,
+            "deliver_by": deliver_by.isoformat(),
+        },
+        doseq=True,
+    )
+    return gateway.agent("GET", f"/catalog/search?{query}")
 
 
 def _offer(

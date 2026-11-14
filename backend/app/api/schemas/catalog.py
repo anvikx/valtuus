@@ -33,6 +33,11 @@ class SearchRequest(RequestModel):
         description="Codes every product must have. " + ATTRIBUTE_DESCRIPTION,
         examples=[["FREE_FROM_LACTOSE"]],
     )
+    declined_attributes: list[AttributeCodeValue] = Field(
+        default_factory=list,
+        description="Codes the buyer said they do not need. The search stops asking about them.",
+        examples=[["LOW_FAT"]],
+    )
     quantity: PositiveQuantity | None = Field(
         default=None,
         description="How much the buyer needs, in `unit`.",
@@ -60,6 +65,7 @@ class SearchRequest(RequestModel):
             deliver_by=self.deliver_by,
             preferred_brands=tuple(self.preferred_brands),
             category=self.category,
+            declined_attributes=tuple(self.declined_attributes),
         )
 
 
@@ -118,6 +124,7 @@ class ExcludedProduct(BaseModel):
 
 class UnderstoodRequest(InterpretedRequest):
     category: str | None = Field(description="Requested category code, when given.")
+    declined_attributes: list[str] = Field(description="Codes the buyer does not need.")
 
 
 class CategorySummary(BaseModel):
@@ -137,6 +144,11 @@ class CategorySummary(BaseModel):
 class SearchHint(BaseModel):
     code: SearchHintCode = Field(description=HINT_CODE_DESCRIPTION)
     sentence: str = Field(description="Fixed advice for the agent; never blocks another call.")
+
+
+class SearchChoice(BaseModel):
+    attribute: str = Field(description="Attribute code that only some candidates have.")
+    hits: int = Field(description="Candidates that have the code.")
 
 
 class SearchResponse(BaseModel):
@@ -164,5 +176,11 @@ class SearchResponse(BaseModel):
     )
     missing_fields: list[str] = Field(
         description="Missing quantity, unit or deliver_by for offers."
+    )
+    choices: list[SearchChoice] = Field(
+        description=(
+            "Safety and type codes that only some candidates have, and that the buyer has not "
+            "required or declined. Ask the buyer about them before offers."
+        ),
     )
     request_id: str = Field(description="Send it with get_offers for the same request.")

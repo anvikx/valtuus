@@ -23,8 +23,9 @@ _ALLERGENS = {"status": "KNOWN", "contains": ["AM"], "free_from": []}
 
 _SEARCH = {
     "hint_category": "10400",
-    "understood": {**_INTERPRETED, "category": None},
+    "understood": {**_INTERPRETED, "category": None, "declined_attributes": ["LOW_FAT"]},
     "missing_fields": [],
+    "choices": [{"attribute": "EU_ORGANIC_FARMING", "hits": 11}],
     "total_hits": 1,
     "categories": [
         {"category": "10400", "hits": 1, "examples": ["Valio Arki Eila 1 l"], "in_list": True}

@@ -34,7 +34,9 @@ indicate completeness; the hint reports safety-guard cuts.
 `understood` holds the normalized request. {HINT_CODE_DESCRIPTION}
 A hint that says the list is complete applies to its category; it does not identify the
 buyer's intended type. Use `category` to select another.
-Ask for `missing_fields` before offers. Send `request_id` with get_offers.
+Ask for `missing_fields` and `choices` in one question before offers. Search again with the
+chosen codes in `required_attributes` and the other codes in `declined_attributes`.
+Send `request_id` with get_offers.
 
 **Scope:** `catalog:read`.
 """
