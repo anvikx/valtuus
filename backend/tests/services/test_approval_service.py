@@ -58,11 +58,12 @@ class _World:
         mandates.add(samples.mandate())
         orders = InMemoryOrderRepository()
         idempotency = InMemoryIdempotencyRepository()
+        offers = InMemoryOfferRepository()
         unit_of_work = InMemoryUnitOfWork()
         audit = AuditService(self.audit, self.clock, unit_of_work)
         mandate_service = MandateService(mandates, self.clock, audit, unit_of_work)
         cart_service = CartService(
-            InMemoryOfferRepository(),
+            offers,
             self.carts,
             orders,
             idempotency,
@@ -73,10 +74,11 @@ class _World:
             unit_of_work,
         )
         order_service = OrderService(
+            cart_service,
             self.carts,
             orders,
+            offers,
             idempotency,
-            mandate_service,
             FakePriceSource(),
             NullSigner(),
             self.clock,

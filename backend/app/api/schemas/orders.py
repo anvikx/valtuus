@@ -9,7 +9,7 @@ from app.domain.enums import Ledger, OrderStatus
 
 class OrderLine(BaseModel):
     product_id: str = Field(description="Valio Aimo product code.")
-    gtin: str = Field(description="GTIN of the unit that is ordered.")
+    gtin: str | None = Field(description="GTIN of the unit that is ordered. null: no data.")
     name: str = Field(description="Product name.")
     qty: int = Field(description="Sales units.")
     unit_price: Decimal = Field(description="Price per sales unit, EUR ex VAT.")

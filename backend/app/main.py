@@ -175,17 +175,6 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         audit_service,
         store.unit_of_work,
     )
-    order_service = OrderService(
-        store.carts,
-        store.orders,
-        store.idempotency,
-        mandate_service,
-        valio,
-        signer,
-        clock,
-        audit_service,
-        store.unit_of_work,
-    )
     cart_service = CartService(
         store.offers,
         store.carts,
@@ -193,6 +182,18 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         store.idempotency,
         mandate_service,
         PolicyEngine([OrderLimit()]),
+        clock,
+        audit_service,
+        store.unit_of_work,
+    )
+    order_service = OrderService(
+        cart_service,
+        store.carts,
+        store.orders,
+        store.offers,
+        store.idempotency,
+        valio,
+        signer,
         clock,
         audit_service,
         store.unit_of_work,

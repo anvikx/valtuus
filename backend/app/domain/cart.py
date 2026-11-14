@@ -1,10 +1,21 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
+from types import MappingProxyType
 
 from app.domain.catalog import SearchQuery
 from app.domain.enums import CartState, Decision, ReasonCode
 from app.domain.offer import SubstituteFor
+
+# Checkout and approve act only on these. Every other state is final.
+OPEN_STATES = frozenset({CartState.AUTO, CartState.PENDING_APPROVAL})
+STATE_BY_DECISION = MappingProxyType(
+    {
+        Decision.AUTO: CartState.AUTO,
+        Decision.HUMAN: CartState.PENDING_APPROVAL,
+        Decision.DENY: CartState.DENIED,
+    }
+)
 
 
 @dataclass(frozen=True)

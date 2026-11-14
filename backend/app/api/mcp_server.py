@@ -98,7 +98,12 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         idempotency_key: IdempotencyKeyValue,
         ctx: Context,
     ) -> OrderConfirmation:
-        """Place the order of an AUTO cart."""
+        """Place the order of an AUTO cart, or of a pending cart with current_decision AUTO.
+
+        A 409 means no new order: the cart is now pending, denied or expired, or it was ordered
+        with another key. get_cart says why.
+        Send the same idempotency_key on a retry to get the same order.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CHECKOUT)
             return order_confirmation(services.orders.checkout(agent, cart_id, idempotency_key))

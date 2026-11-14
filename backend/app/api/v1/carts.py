@@ -43,11 +43,14 @@ The cart and its current state. Poll it every 10 seconds while the main user dec
 **Auth:** an agent key with scope `cart`, or the main user session.
 """
 _CHECKOUT = """
-Place the order of an AUTO cart. The policy runs again with the current mandate.
+Place the order of an AUTO cart, or of a pending cart that the current mandate now allows.
+The policy runs again with the current mandate.
 
 **Request:** `POST /api/v1/carts/c_1/checkout` with an `Idempotency-Key` header.
 
-**Limit:** HUMAN, DENY or EXPIRED returns 409. Send the same key on a retry.
+**Limit:** HUMAN, DENY or EXPIRED returns 409, and the cart keeps that new state. After the
+15 minutes of the offer, a changed price or too little stock gives EXPIRED. Send the same
+key on a retry to get the same order. A new key on an ORDERED cart returns 409.
 
 **Scope:** `checkout`.
 """

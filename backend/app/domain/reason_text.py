@@ -21,6 +21,8 @@ REASON_TEXT = MappingProxyType(
         ReasonCode.CUTOFF_PASSED: "The order deadline {deadline} has passed. Get new offers.",
         ReasonCode.PRICE_NOT_VALID_FOR_DATE: "The price ends {price_valid_to}, before the "
         "delivery {delivery_date}.",
+        ReasonCode.PRICE_OR_STOCK_CHANGED: "The price or the stock changed after the offer. "
+        "Get new offers.",
     }
 )
 

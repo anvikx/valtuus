@@ -2,13 +2,20 @@ from collections.abc import Iterable, Sequence
 from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from types import MappingProxyType
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey
-from app.domain.cart import Cart, CartDraft, CartLine, CartLineInput, PricedLine
+from app.domain.cart import (
+    OPEN_STATES,
+    STATE_BY_DECISION,
+    Cart,
+    CartDraft,
+    CartLine,
+    CartLineInput,
+    PricedLine,
+)
 from app.domain.constants import CURRENCY, GATEWAY_TIMEZONE, REJECT_MEMORY_MINUTES
-from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, CartState, FlowPhase, ReasonCode
 from app.domain.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord, request_hash
 from app.domain.mandate import Mandate
@@ -31,14 +38,6 @@ from app.services.ports.unit_of_work import UnitOfWork
 
 _OPERATION = "create_cart"
 _GATEWAY_ACTOR = "gateway"
-_OPEN_STATES = frozenset({CartState.AUTO, CartState.PENDING_APPROVAL})
-_STATE_BY_DECISION = MappingProxyType(
-    {
-        Decision.AUTO: CartState.AUTO,
-        Decision.HUMAN: CartState.PENDING_APPROVAL,
-        Decision.DENY: CartState.DENIED,
-    }
-)
 _WITHIN_MANDATE = "The cart is within the mandate."
 
 
@@ -92,14 +91,39 @@ class CartService:
         if cart is None or cart.buyer_id != buyer_id:
             raise _cart_not_found(cart_id)
 
-        if cart.state not in _OPEN_STATES:
+        if cart.state not in OPEN_STATES:
             return cart
 
         now = self._clock.now()
         if now >= cart.approve_before:
-            return self._expire(cart_id)
+            return self.locked_cart(cart_id)
 
         return self._with_current_decision(cart, now)
+
+    def locked_cart(self, cart_id: str) -> Cart:
+        """The cart under its row lock, set to EXPIRED first if its deadline passed.
+
+        Checkout and approve call it inside their own transaction, so the lock holds until
+        their order is stored.
+        """
+        with self._unit_of_work.transaction():
+            # Read again under the lock: a parallel read or an approve may have closed it.
+            cart = self._carts.get_locked(cart_id)
+            if cart is None:
+                raise _cart_not_found(cart_id)
+            if cart.state not in OPEN_STATES or self._clock.now() < cart.approve_before:
+                return cart
+
+            return self._expire(cart)
+
+    def current_policy(self, cart: Cart, now: datetime) -> tuple[Mandate, PolicyResult]:
+        """The policy on the cart's lines by the current mandate, as checkout and approve run it."""
+        mandate = self._mandate(cart.buyer_id)
+        lines = tuple(_priced_again(line) for line in cart.lines)
+        context = self._context(cart.buyer_id, mandate, lines, now)
+        # TODO: when the DUPLICATE_ORDER check lands, keep it from counting this cart as its
+        # own duplicate after checkout places the order.
+        return mandate, self._policy.decide(lines, context)
 
     def list_for_inbox(self, buyer_id: str) -> Sequence[Cart]:
         raise NotImplementedError("CartService.list_for_inbox")
@@ -136,7 +160,7 @@ class CartService:
             cart_id=f"c_{uuid4().hex}",
             buyer_id=agent.buyer_id,
             agent_name=agent.agent_name,
-            state=_STATE_BY_DECISION[result.decision],
+            state=STATE_BY_DECISION[result.decision],
             decision=result.decision,
             reason_codes=reason_codes,
             reason_sentences=tuple(reason.sentence for reason in result.reasons),
@@ -209,49 +233,36 @@ class CartService:
 
     def _with_current_decision(self, cart: Cart, now: datetime) -> Cart:
         """What checkout would decide now. Shown, not stored: the cart keeps its first decision."""
-        lines = tuple(_priced_again(line) for line in cart.lines)
-        context = self._context(cart.buyer_id, self._mandate(cart.buyer_id), lines, now)
-        # TODO: when the DUPLICATE_ORDER check lands, keep it from counting this cart as its
-        # own duplicate after checkout places the order.
-        result = self._policy.decide(lines, context)
+        _mandate, result = self.current_policy(cart, now)
         return replace(
             cart,
             current_decision=result.decision,
             current_reason_codes=tuple(reason.reason_code for reason in result.reasons),
         )
 
-    def _expire(self, cart_id: str) -> Cart:
-        with self._unit_of_work.transaction():
-            # Read again under the lock: a parallel read or an approve may have closed it.
-            cart = self._carts.get_locked(cart_id)
-            if cart is None:
-                raise _cart_not_found(cart_id)
-            if cart.state not in _OPEN_STATES:
-                return cart
-
-            sentence = reason_sentence(
-                ReasonCode.CUTOFF_PASSED,
-                deadline=_deadline_text(cart.approve_before),
-            )
-            expired = replace(
-                cart,
-                state=CartState.EXPIRED,
-                reason_codes=(ReasonCode.CUTOFF_PASSED,),
-                reason_sentences=(sentence,),
-            )
-            self._carts.save(expired)
-            self._audit.record(
-                AuditStep.CART,
-                _GATEWAY_ACTOR,
-                sentence,
-                cart_id=cart_id,
-                phase=FlowPhase.ORDER,
-                input_data={"state": cart.state},
-                output_data={"state": expired.state},
-                reason_codes=expired.reason_codes,
-                mandate_version=cart.mandate_version,
-            )
-
+    def _expire(self, cart: Cart) -> Cart:
+        sentence = reason_sentence(
+            ReasonCode.CUTOFF_PASSED,
+            deadline=_deadline_text(cart.approve_before),
+        )
+        expired = replace(
+            cart,
+            state=CartState.EXPIRED,
+            reason_codes=(ReasonCode.CUTOFF_PASSED,),
+            reason_sentences=(sentence,),
+        )
+        self._carts.save(expired)
+        self._audit.record(
+            AuditStep.CART,
+            _GATEWAY_ACTOR,
+            sentence,
+            cart_id=cart.cart_id,
+            phase=FlowPhase.ORDER,
+            input_data={"state": cart.state},
+            output_data={"state": expired.state},
+            reason_codes=expired.reason_codes,
+            mandate_version=cart.mandate_version,
+        )
         return expired
 
     def _record_cart(self, agent: AgentKey, draft: CartDraft, cart: Cart) -> None:
