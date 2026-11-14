@@ -2,7 +2,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header
 
-from app.api.deps import HumanSessionDep, PublicUrlDep, ServicesDep, require_buyer, require_scope
+from app.api.deps import (
+    HumanSessionDep,
+    MainUserDep,
+    PublicUrlDep,
+    ServicesDep,
+    buyer_of,
+    require_buyer,
+    require_scope,
+)
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import cart_response, order_confirmation
@@ -34,6 +42,14 @@ DUPLICATE_ORDER. A cart the main user rejected inside {REJECT_MEMORY_MINUTES} mi
 PREVIOUSLY_REJECTED.
 
 **Scope:** `cart`.
+"""
+_LIST = """
+The approval inbox: the buyer's carts, each in its current state. Carts that wait for the main
+user come first, the earliest deadline on top. Then the other carts, the latest first.
+
+**Request:** `GET /api/v1/carts`
+
+**Auth:** main user session only.
 """
 _GET = """
 The cart and its current state. Poll it every 10 seconds while the main user decides.
@@ -84,6 +100,16 @@ def create_cart(
 ) -> CartResponse:
     cart = services.carts.create_cart(agent, request.to_domain(), idempotency_key)
     return cart_response(cart, public_url)
+
+
+@router.get("", description=describe(_LIST, CartResponse))
+def list_carts(
+    user: MainUserDep,
+    services: ServicesDep,
+    public_url: PublicUrlDep,
+) -> list[CartResponse]:
+    carts = services.carts.list_for_inbox(buyer_of(user))
+    return [cart_response(cart, public_url) for cart in carts]
 
 
 @router.get("/{cart_id}", description=describe(_GET, CartResponse))

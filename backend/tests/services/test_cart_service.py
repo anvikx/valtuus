@@ -436,3 +436,57 @@ def test_current_decision_follows_a_new_mandate() -> None:
     assert read.current_decision is Decision.HUMAN
     assert read.current_reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
     assert world.carts.get(cart.cart_id) == cart
+
+
+def _stored(world: _World, cart_id: str, state: CartState, deadline: datetime, **changes):
+    cart = dataclasses.replace(samples.cart(cart_id, state), approve_before=deadline, **changes)
+    world.carts.add(cart)
+    return cart
+
+
+def test_inbox_shows_pending_carts_first_then_the_latest_decided() -> None:
+    """The main user acts on the most urgent cart first, then sees what was decided last."""
+    world = _World()
+    later = NOW + timedelta(hours=2)
+    sooner = NOW + timedelta(hours=1)
+    _stored(world, "c_old", CartState.ORDERED, NOW - timedelta(days=2))
+    _stored(world, "c_late", CartState.PENDING_APPROVAL, later)
+    _stored(world, "c_new", CartState.REJECTED, NOW - timedelta(days=1))
+    _stored(world, "c_soon", CartState.PENDING_APPROVAL, sooner)
+    _stored(world, "c_auto", CartState.AUTO, later)
+
+    inbox = world.service.list_for_inbox(samples.BUYER_ID)
+
+    assert [cart.cart_id for cart in inbox] == ["c_soon", "c_late", "c_auto", "c_new", "c_old"]
+
+
+def test_inbox_expires_a_pending_cart_past_its_deadline() -> None:
+    """An approve button on a dead cart only gives a 409, so the inbox shows it as expired."""
+    world = _World()
+    _stored(world, "c_1", CartState.PENDING_APPROVAL, NOW)
+
+    [cart] = world.service.list_for_inbox(samples.BUYER_ID)
+
+    assert cart.state is CartState.EXPIRED
+    assert world.steps("c_1") == [AuditStep.CART]
+
+
+def test_inbox_shows_the_current_decision_by_the_current_mandate() -> None:
+    """After the main user raises the limit, the inbox shows the cart can go through now."""
+    world = _World()
+    _stored(world, "c_1", CartState.PENDING_APPROVAL, NOW + timedelta(hours=1))
+    world.mandates.add(_mandate(2, Decimal("5000.00")))
+
+    [cart] = world.service.list_for_inbox(samples.BUYER_ID)
+
+    assert cart.current_decision is Decision.AUTO
+
+
+def test_inbox_lists_only_the_buyers_own_carts() -> None:
+    """One buyer must not see another buyer's carts."""
+    world = _World()
+    _stored(
+        world, "c_other", CartState.PENDING_APPROVAL, NOW + timedelta(hours=1), buyer_id="hotel-2"
+    )
+
+    assert world.service.list_for_inbox(samples.BUYER_ID) == []

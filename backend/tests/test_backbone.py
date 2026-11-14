@@ -32,6 +32,7 @@ _CONTRACT = {
     ("GET", "/api/v1/catalog/search"),
     ("POST", "/api/v1/offers"),
     ("POST", "/api/v1/carts"),
+    ("GET", "/api/v1/carts"),
     ("GET", "/api/v1/carts/{cart_id}"),
     ("POST", "/api/v1/carts/{cart_id}/checkout"),
     ("POST", "/api/v1/carts/{cart_id}/approve"),
@@ -93,6 +94,7 @@ _HUMAN_ACTIONS = [
 ]
 _MAIN_USER_READS = [
     ("GET", "/api/v1/agents", None),
+    ("GET", _CARTS_PATH, None),
     ("GET", "/api/v1/auth/me", None),
 ]
 
@@ -196,6 +198,17 @@ def test_main_user_raise_reaches_the_agent() -> None:
     agent_view = client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]
     assert agent_view["version"] == 2
     assert Decimal(agent_view["max_auto_order_value"]) == Decimal(1500)
+
+
+def test_main_user_inbox_lists_the_buyers_carts() -> None:
+    """The approval inbox opens on this list, so a new main user sees an empty inbox, not 501."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.get(_CARTS_PATH)
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == []
 
 
 def test_offers_answer_with_a_stored_offer() -> None:

@@ -91,12 +91,30 @@ class CartService:
         if cart is None or cart.buyer_id != buyer_id:
             raise _cart_not_found(cart_id)
 
+        return self._on_read(cart)
+
+    def list_for_inbox(self, buyer_id: str) -> Sequence[Cart]:
+        """Pending carts first, the earliest deadline on top. Then the rest, the latest first.
+
+        ponytail: every cart of the buyer, each open one read as get_cart reads it, so each
+        open cart runs the policy and reads the buyer's carts again. Add a page, and build the
+        policy context once per list, when a buyer has more carts than one page shows.
+        """
+        carts = [self._on_read(cart) for cart in self._carts.for_buyer(buyer_id)]
+        pending = [cart for cart in carts if cart.state is CartState.PENDING_APPROVAL]
+        others = [cart for cart in carts if cart.state is not CartState.PENDING_APPROVAL]
+        return [
+            *sorted(pending, key=_by_deadline),
+            *sorted(others, key=_by_deadline, reverse=True),
+        ]
+
+    def _on_read(self, cart: Cart) -> Cart:
         if cart.state not in OPEN_STATES:
             return cart
 
         now = self._clock.now()
         if now >= cart.approve_before:
-            return self.locked_cart(cart_id)
+            return self.locked_cart(cart.cart_id)
 
         return self._with_current_decision(cart, now)
 
@@ -124,9 +142,6 @@ class CartService:
         # TODO: when the DUPLICATE_ORDER check lands, keep it from counting this cart as its
         # own duplicate after checkout places the order.
         return mandate, self._policy.decide(lines, context)
-
-    def list_for_inbox(self, buyer_id: str) -> Sequence[Cart]:
-        raise NotImplementedError("CartService.list_for_inbox")
 
     def _replay(self, used: IdempotencyRecord, fingerprint: str) -> Cart:
         if used.request_hash != fingerprint:
@@ -436,6 +451,10 @@ def _priced_record(line: CartLine) -> dict[str, object]:
         "line_total": str(line.line_total),
         "delivery_date": line.delivery_date.isoformat(),
     }
+
+
+def _by_deadline(cart: Cart) -> tuple[datetime, str]:
+    return cart.approve_before, cart.cart_id
 
 
 def _cart_not_found(cart_id: str) -> NotFoundError:
