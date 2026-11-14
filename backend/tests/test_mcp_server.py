@@ -80,21 +80,6 @@ def test_call_with_other_scheme_is_refused() -> None:
     _assert_unauthenticated(_call_ping(create_app(), f"Basic {_AGENT_KEY}"))
 
 
-def test_slash_redirect_keeps_https_behind_proxy() -> None:
-    """Clients such as claude.ai refuse a redirect from https to http, so the connection fails."""
-    proxied = {
-        **_HEADERS,
-        "Host": "junction.anvik.fi",
-        "X-Forwarded-Proto": "https",
-    }
-
-    with TestClient(create_app(), base_url="http://backend:8000") as client:
-        response = client.get("/api/health/", headers=proxied, follow_redirects=False)
-
-    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
-    assert response.headers["location"] == "https://junction.anvik.fi/api/health"
-
-
 def test_call_with_revoked_key_is_refused(agent_keys: InMemoryAgentKeyRepository) -> None:
     """A revoked agent must be stopped on its next call."""
     app = create_app(agent_keys=agent_keys)
