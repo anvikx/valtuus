@@ -22,8 +22,11 @@ export function returnPath(): string {
     return HOME_PATH
   }
 
+  // The origin check alone is not enough: "/.//evil.example" stays on this origin, but its
+  // clean pathname is "//evil.example", which location.assign reads as another host.
   const target = new URL(next, window.location.origin)
-  if (target.origin !== window.location.origin || target.pathname === LOGIN_PATH) {
+  const isOtherHost = target.origin !== window.location.origin || target.pathname.startsWith('//')
+  if (isOtherHost || target.pathname === LOGIN_PATH) {
     return HOME_PATH
   }
 
