@@ -69,9 +69,7 @@ export function Shell({ path, children }: ShellProps): ReactElement {
         <span className="tag">Prototype</span>
       </header>
       {children}
-      <footer className="app-footer">
-        Valtuus prototype for the Valio Aimo challenge. Not a Valio Aimo production system.
-      </footer>
+      <footer className="app-footer">Valtuus prototype for the Valio Aimo challenge.</footer>
     </div>
   )
 }
