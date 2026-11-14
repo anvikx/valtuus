@@ -27,8 +27,9 @@ interface AuditTimelineProps {
 }
 
 // No audit step maps to REQUEST yet. Until one does, the Request group shows
-// the buyer's words at the time of the first record.
-export function withRequestEntry(audit: AuditTrail, requestText: string): readonly AuditEntry[] {
+// the buyer's words at the time of the first record. The caller words the sentence: the record
+// page names the buyer beside it, the timeline does not.
+export function withRequestEntry(audit: AuditTrail, sentence: string): readonly AuditEntry[] {
   const hasRequestRecord = audit.entries.some((entry) => entry.phase === 'request')
   if (hasRequestRecord || audit.startedAt === null) {
     return audit.entries
@@ -38,7 +39,7 @@ export function withRequestEntry(audit: AuditTrail, requestText: string): readon
     id: REQUEST_ENTRY_ID,
     phase: 'request',
     step: null,
-    sentence: `The buyer asked: "${requestText}"`,
+    sentence,
     at: audit.startedAt,
     actor: null,
     input: null,
@@ -101,7 +102,7 @@ export function AuditTimeline({
     return <p className="muted">The timeline could not be loaded.</p>
   }
 
-  const entries = withRequestEntry(audit, requestText)
+  const entries = withRequestEntry(audit, `The buyer asked: "${requestText}"`)
   const elapsed = elapsedText(audit.elapsedSeconds, status)
 
   return (

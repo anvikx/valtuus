@@ -138,7 +138,7 @@ function Elapsed({ cart, audit }: PageData): ReactElement | null {
 }
 
 function RecordLog({ cart, audit }: PageData): ReactElement {
-  const entries = withRequestEntry(audit, cart.requestText)
+  const entries = withRequestEntry(audit, `"${cart.requestText}"`)
   const orderLabel = cart.orderId === null ? 'Append only' : `Order ${cart.orderId} · append only`
 
   return (
@@ -234,7 +234,6 @@ export function RecordPage({ cartId }: RecordPageProps): ReactElement {
 
   return (
     <main className="record-page stack">
-      <a href={`/carts/${encodeURIComponent(cartId)}`}>Back to the order</a>
       <header className="stack-tight">
         <h1 className="title record-title">Record</h1>
         <p className="muted">
@@ -245,7 +244,11 @@ export function RecordPage({ cartId }: RecordPageProps): ReactElement {
       <RecordLog cart={cart} audit={audit} />
       <p className="muted">
         The record shows only what reached the gateway. The buyer&apos;s words are the agent&apos;s
-        report. Open Details to see the exact call and the answer.
+        report. Tap Details to see the exact call and the answer.{' '}
+        {/* The cart page checks the signed order against the published key. */}
+        <a className="record-check" href={`/carts/${encodeURIComponent(cartId)}`}>
+          Check the signatures
+        </a>
       </p>
     </main>
   )
