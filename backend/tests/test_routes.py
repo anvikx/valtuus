@@ -1,5 +1,3 @@
-from fastapi.routing import APIRoute
-
 from app.main import create_app
 
 _API_PREFIX = "/api/"
@@ -21,13 +19,13 @@ def test_all_routes_use_api_prefix() -> None:
     """
     app = create_app()
 
-    # APIRoute skips FastAPI's own /docs and /openapi.json routes.
-    outside = [
-        route.path
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        and not route.path.startswith(_API_PREFIX)
-        and route.path not in _WELL_KNOWN_PATHS
-    ]
+    # FastAPI 0.162 lists an included router as one object with no path, so the router
+    # routes come from the OpenAPI paths. The docs pages and the MCP mount keep a path.
+    paths = set(app.openapi()["paths"]) | {
+        route.path for route in app.routes if hasattr(route, "path")
+    }
+    outside = sorted(
+        path for path in paths if not path.startswith(_API_PREFIX) and path not in _WELL_KNOWN_PATHS
+    )
 
     assert outside == []

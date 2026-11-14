@@ -65,6 +65,8 @@ _logger = logging.getLogger(__name__)
 # Caddy routes /api/* to the backend, so every route must live under this prefix.
 _API_PREFIX = "/api"
 _MCP_PATH = f"{_API_PREFIX}/mcp"
+_DOCS_PATH = f"{_API_PREFIX}/docs"
+_OPENAPI_PATH = f"{_API_PREFIX}/openapi.json"
 _ROUTERS = (
     health.router,
     catalog.router,
@@ -234,6 +236,11 @@ def create_app(
     app = FastAPI(
         title=settings.app_name,
         lifespan=lifespan,
+        docs_url=_DOCS_PATH,
+        openapi_url=_OPENAPI_PATH,
+        # Agents authenticate with a Bearer key, not OAuth2, so Swagger needs no redirect page.
+        swagger_ui_oauth2_redirect_url=None,
+        redoc_url=None,
     )
     install_error_handlers(app)
     for router in _ROUTERS:
