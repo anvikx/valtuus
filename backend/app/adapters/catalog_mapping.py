@@ -96,7 +96,8 @@ def map_product(
         ),
         delivery_reliability=reliability,
         co2_kg_per_kg=carbon,
-        lot_size=Decimal(lot),
+        # Fractional upstream lots do not permit fractional sales units (D37).
+        lot_size=max(Decimal(1), Decimal(lot)),
         is_variable_weight=synkka.get("variableUnit") is True,
         deposits=tuple(record.get("deposits") or ()),
         ingredients=tuple(synkka.get("ingredients") or ()),

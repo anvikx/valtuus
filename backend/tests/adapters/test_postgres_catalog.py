@@ -37,7 +37,7 @@ def test_catalog_search_and_atomic_replacement(database):
     with database.reader() as connection:
         row = connection.execute(select(products).where(products.c.product_id == "1")).one()
     assert row.name == first.name
-    assert row.lot_size == Decimal("0.01")
+    assert row.lot_size == Decimal(1)
     assert row.name == "Ääni täysmaito UHT"
     assert catalog.get("1").delivery_reliability == Decimal("0.9999999999999999")
     assert [p.product_id for p in catalog.search_names("aani maito")] == ["1"]

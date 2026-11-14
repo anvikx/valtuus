@@ -1,29 +1,22 @@
 """The Valio Aimo price and availability APIs, parsed into domain values."""
 
 import json
-import logging
-import math
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import date, datetime
 from decimal import Decimal
 from http.client import HTTPException
-from time import monotonic, sleep
 from typing import Any
-from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from pydantic import SecretStr
 
-from app.domain.constants import GATEWAY_TIMEZONE, VALIO_COOLDOWN_SECONDS
+from app.adapters.valio_requests import ValioRequests
+from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import StockModel, Unit
-from app.domain.errors import UpstreamRateLimitedError, UpstreamUnavailableError
+from app.domain.errors import UpstreamUnavailableError
 from app.domain.offer import Availability, AvailabilitySnapshot, ComparisonPrice, Price
 
-_LOG = logging.getLogger(__name__)
 _TIMEOUT_SECONDS = 10
-_RETRY_WAIT_SECONDS = 0.5
-_TOO_MANY_REQUESTS = 429
-_SERVER_ERROR = 500
 # The API ignores the customer field and gives every buyer the same price.
 _CUSTOMER = "valtuus"
 _STOCK_MODELS = {"Stock": StockModel.STOCK, "Terminal": StockModel.TERMINAL}
@@ -35,11 +28,10 @@ type _Json = dict[str, Any]
 class ValioClient:
     """The Valio Aimo price and availability APIs. Raises UpstreamUnavailableError."""
 
-    def __init__(self, base_url: str, api_key: SecretStr) -> None:
+    def __init__(self, base_url: str, api_key: SecretStr, requests: ValioRequests) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
-        # Shared by both routes: the mock blocks the caller, not one route.
-        self._paused_until = 0.0
+        self._requests = requests
 
     def prices(self, product_ids: Sequence[str], requested_date: date) -> Mapping[str, Price]:
         answer = self._post("price", product_ids, requested_date)
@@ -54,11 +46,6 @@ class ValioClient:
         return _parsed(_snapshot, answer)
 
     def _post(self, route: str, product_ids: Sequence[str], requested_date: date) -> _Json:
-        # A call during the pause would extend the mock's block, so it fails here at once.
-        wait = math.ceil(self._paused_until - monotonic())
-        if wait > 0:
-            raise UpstreamRateLimitedError(wait)
-
         body = {
             "customer": _CUSTOMER,
             "requestedDate": requested_date.isoformat(),
@@ -75,30 +62,9 @@ class ValioClient:
             },
         )
         try:
-            return _send_with_retry(request)
-        except HTTPError as exc:
-            if exc.code != _TOO_MANY_REQUESTS:
-                raise _unavailable() from exc
-
-            self._paused_until = monotonic() + VALIO_COOLDOWN_SECONDS
-            _LOG.warning("Valio %s answered 429. Pausing all calls.", route)
-            raise UpstreamRateLimitedError(VALIO_COOLDOWN_SECONDS) from exc
+            return self._requests.send(lambda: _send(request))
         except (OSError, HTTPException, ValueError) as exc:
             raise _unavailable() from exc
-
-
-def _send_with_retry(request: Request) -> _Json:
-    """One more try after a server error or a timeout. A 429 or another 4xx is not retried."""
-    try:
-        return _send(request)
-    except HTTPError as exc:
-        if exc.code < _SERVER_ERROR:
-            raise
-    except OSError:
-        pass
-
-    sleep(_RETRY_WAIT_SECONDS)
-    return _send(request)
 
 
 def _send(request: Request) -> _Json:
