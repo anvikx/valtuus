@@ -52,6 +52,7 @@ sessions = Table(
     Column("token_hash", Text, primary_key=True),
     Column("user_id", Text, nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("password_tag", Text, nullable=False, server_default=""),
 )
 
 offers = Table(

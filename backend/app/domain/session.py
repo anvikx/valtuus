@@ -14,6 +14,8 @@ class Session:
     token_hash: str
     user_id: str
     expires_at: datetime
+    # Ties the session to the password it was opened with, so a new password ends it.
+    password_tag: str
 
     def is_live(self, now: datetime) -> bool:
         return now < self.expires_at

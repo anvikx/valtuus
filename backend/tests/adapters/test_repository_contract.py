@@ -159,9 +159,9 @@ def test_user_round_trip(store: _Store) -> None:
 def test_session_remove_and_expiry(store: _Store) -> None:
     """Logout and the prune must remove only their own sessions, so others stay logged in."""
     now = datetime(2026, 11, 14, 12, tzinfo=UTC)
-    live = Session("h_live", "u_1", now + timedelta(hours=1))
-    expired = Session("h_expired", "u_1", now)
-    logged_out = Session("h_out", "u_1", now + timedelta(hours=1))
+    live = Session("h_live", "u_1", now + timedelta(hours=1), "t_1")
+    expired = Session("h_expired", "u_1", now, "t_1")
+    logged_out = Session("h_out", "u_1", now + timedelta(hours=1), "t_1")
     with store.unit_of_work.transaction():
         store.sessions.add(live)
         store.sessions.add(expired)

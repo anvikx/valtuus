@@ -177,6 +177,7 @@ class PostgresSessionRepository:
             "token_hash": session.token_hash,
             "user_id": session.user_id,
             "expires_at": session.expires_at,
+            "password_tag": session.password_tag,
         }
         self._database.writer().execute(insert(sessions).values(row))
 

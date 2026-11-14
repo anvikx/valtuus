@@ -1,18 +1,22 @@
 import dataclasses
 import os
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from sqlalchemy import insert
 
 from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import PostgresAgentKeyRepository
+from app.adapters.postgres.tables import sessions
 from app.adapters.product_store import ProductStore
 from app.config import Settings
 from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus
+from app.domain.session import hash_session_token
 from app.main import create_app
 from tests.conftest import TEST_DATABASE_URL
 
@@ -112,3 +116,36 @@ def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
     with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
         # 501: the session check passed and the stub service ran.
         assert client.get("/api/v1/agents").status_code == HTTPStatus.NOT_IMPLEMENTED
+
+
+def test_password_change_logs_the_main_user_out(database: Database) -> None:
+    """After a leak the password is changed, so a session opened with the old one must end."""
+    settings = Settings(
+        agent_key=SecretStr(_KEY),
+        database_url=SecretStr(TEST_DATABASE_URL),
+    )
+    with TestClient(create_app(settings), base_url=_BASE_URL) as client:
+        client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+        cookies = client.cookies
+
+    rotated = settings.model_copy(update={"main_user_password": SecretStr("a-new-password")})
+    with TestClient(create_app(rotated), base_url=_BASE_URL, cookies=cookies) as client:
+        assert client.get("/api/v1/agents").status_code == HTTPStatus.UNAUTHORIZED
+
+
+def test_old_image_can_still_log_in(database: Database) -> None:
+    """deploy.sh rolls back the image, not the schema. The old login insert has no tag."""
+    old_token = "token-from-the-old-image"
+    old_row = {
+        "token_hash": hash_session_token(old_token),
+        "user_id": "hotel-1-main",
+        "expires_at": datetime.now(UTC) + timedelta(hours=1),
+    }
+    with database.transaction():
+        database.writer().execute(insert(sessions).values(old_row))
+
+    settings = Settings(agent_key=SecretStr(_KEY), database_url=SecretStr(TEST_DATABASE_URL))
+    cookies = {"valtuus_session": old_token}
+    with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
+        # The row has no tag for the current password, so the new image refuses it.
+        assert client.get("/api/v1/agents").status_code == HTTPStatus.UNAUTHORIZED
