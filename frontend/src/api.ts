@@ -127,7 +127,7 @@ export interface WireCart {
 
 export interface WireOrderLine {
   readonly product_id: string
-  readonly gtin: string
+  readonly gtin: string | null
   readonly name: string
   readonly qty: number
   readonly unit_price: string
