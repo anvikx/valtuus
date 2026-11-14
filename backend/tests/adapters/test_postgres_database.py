@@ -7,12 +7,13 @@ from decimal import Decimal
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.exc import DBAPIError
 
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import (
     PostgresAuditRepository,
+    PostgresCartRepository,
     PostgresMandateRepository,
     PostgresOrderRepository,
 )
@@ -146,6 +147,31 @@ def test_racing_mandate_edits_give_one_version(database: Database) -> None:
 
     assert outcomes.count(None) == 1
     assert [type(error) for error in outcomes if error is not None] == [ValueError]
+
+
+def test_locked_cart_blocks_a_second_locker(database: Database) -> None:
+    """Two reads after the deadline must not both expire the cart and write two records."""
+    repository = PostgresCartRepository(database)
+    with database.transaction():
+        repository.add(samples.cart())
+    outcome: list[BaseException] = []
+
+    def lock_again() -> None:
+        try:
+            with database.transaction():
+                database.writer().execute(text("SET LOCAL lock_timeout = '100ms'"))
+                repository.get_locked("c_1")
+        except DBAPIError as error:
+            outcome.append(error)
+
+    with database.transaction():
+        repository.get_locked("c_1")
+        other = threading.Thread(target=lock_again)
+        other.start()
+        other.join()
+
+    assert len(outcome) == 1
+    assert "lock" in str(outcome[0])
 
 
 def test_migrations_match_the_tables(database: Database) -> None:

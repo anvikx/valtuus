@@ -1,3 +1,6 @@
+import hashlib
+import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 
@@ -12,3 +15,9 @@ class IdempotencyRecord:
     key: str
     request_hash: str
     result_id: str
+
+
+def request_hash(operation: str, payload: Mapping[str, object]) -> str:
+    """The operation is in the hash, so one key reused for another call is a conflict."""
+    body = json.dumps({"operation": operation, "payload": payload}, sort_keys=True, default=str)
+    return hashlib.sha256(body.encode()).hexdigest()
