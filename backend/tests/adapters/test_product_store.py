@@ -104,14 +104,15 @@ def test_duplicate_id_has_context(tmp_path):
     ("values", "expected"),
     [
         ([], AllergenStatus.UNKNOWN),
-        ([{"id": "milk", "unit": "FREE_FROM"}], AllergenStatus.UNKNOWN),
+        ([{"id": "milk", "unit": "FREE_FROM"}], AllergenStatus.KNOWN),
         ([{"id": "milk", "unit": "CONTAINS"}], AllergenStatus.KNOWN),
         ([{"id": "nuts", "unit": "MAY_CONTAIN"}], AllergenStatus.KNOWN),
         ([{"id": "", "unit": "CONTAINS"}], AllergenStatus.UNKNOWN),
         ([{"id": 12, "unit": "CONTAINS"}], AllergenStatus.UNKNOWN),
     ],
 )
-def test_allergen_status_requires_positive_declaration(values, expected):
+def test_allergen_status_requires_declaration(values, expected):
+    """Declared absence is known data; missing or malformed declarations cannot imply safety."""
     result = map_allergens([{"name": "allergen", "values": values}])
 
     assert result.status == expected
@@ -174,3 +175,34 @@ def test_missing_translations_keep_available_names(tmp_path, languages, display)
     product = store.get("1")
     assert product.name == display
     assert set(product.names) == set(languages)
+
+
+@pytest.mark.parametrize("group", ["allergen", "nonAllergen"])
+def test_all_free_from_is_known(group):
+    """Products declaring absence for all 14 allergens must not require human approval."""
+    codes = tuple(f"allergen-{index}" for index in range(14))
+    result = map_allergens(
+        [{"name": group, "values": [{"id": code, "unit": "FREE_FROM"} for code in codes]}]
+    )
+
+    assert result.status == AllergenStatus.KNOWN
+    assert result.contains == ()
+    assert set(result.free_from) == set(codes)
+
+
+@pytest.mark.parametrize("invalid", [{"id": "egg", "unit": "OTHER"}, {"id": None}])
+def test_invalid_declaration_keeps_free_from_unknown(invalid):
+    """A valid absence declaration must not hide an unrecognized declaration beside it."""
+    result = map_allergens(
+        [
+            {
+                "name": "allergen",
+                "values": [
+                    {"id": "milk", "unit": "FREE_FROM"},
+                    invalid,
+                ],
+            }
+        ]
+    )
+
+    assert result.status == AllergenStatus.UNKNOWN

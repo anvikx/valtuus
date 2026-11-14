@@ -3,7 +3,6 @@
 from collections.abc import Sequence
 from decimal import Decimal
 
-from pydantic import TypeAdapter
 from sqlalchemy import Select, delete, insert, select
 
 from app.adapters.postgres.database import Database
@@ -12,7 +11,6 @@ from app.adapters.product_store import normalize_name
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
 from app.domain.enums import AllergenStatus, AllergenType
 
-_PRODUCT = TypeAdapter(Product)
 _BATCH_SIZE = 500
 
 
@@ -20,13 +18,6 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
     declarations = {
         kind.value: list(product.allergens.declarations.get(kind, ())) for kind in AllergenType
     }
-    declared = set().union(*declarations.values())
-    untyped = set(product.allergens.contains) - declared
-    # Older domain objects may carry only the merged list; never silently lose their codes.
-    declarations[AllergenType.CONTAINS.value] = sorted(
-        set(declarations[AllergenType.CONTAINS.value]) | untyped
-    )
-    status = product.allergens.status if declared and not untyped else AllergenStatus.UNKNOWN
     row = {
         "product_id": product.product_id,
         "gtin": product.gtin,
@@ -38,9 +29,11 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
         if product.content_per_sales_unit
         else None,
         "attributes": list(product.attributes),
-        "allergen": declarations,
+        "allergen": list(product.allergens.contains),
+        "allergen_declarations": declarations,
+        "names": product.names,
         "non_allergen": list(product.allergens.free_from),
-        "allergen_status": status.value,
+        "allergen_status": product.allergens.status.value,
         "country_of_origin": product.country_of_origin,
         "labels": list(product.labels),
         "substitute_ids": list(product.substitute_ids),
@@ -70,15 +63,18 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
 def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Product:
     name = str(row["name"])
     amount = row["content_per_sales_unit"]
-    declarations = {
-        kind: tuple((row["allergen"] or {}).get(kind.value, ())) for kind in AllergenType
-    }
-    contains = tuple(sorted(set().union(*declarations.values())))
+    stored = row["allergen_declarations"]
+    # An old image writes only the merged array; preserve those codes and its status.
+    declarations = (
+        {kind: tuple(stored.get(kind.value, ())) for kind in AllergenType}
+        if stored is not None
+        else {AllergenType.CONTAINS: tuple(row["allergen"] or ())}
+    )
     return Product(
         product_id=str(row["product_id"]),
         gtin=row["gtin"],
         name=name,
-        names={"en": name},
+        names=dict(row["names"] or {}),
         brand=row["brand"],
         category=str(row["category"]),
         sales_unit=str(row["sales_unit"]),
@@ -87,8 +83,7 @@ def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Produ
         ),
         attributes=tuple(row["attributes"] or ()),
         allergens=Allergens(
-            AllergenStatus(row["allergen_status"]) if contains else AllergenStatus.UNKNOWN,
-            contains,
+            AllergenStatus(row["allergen_status"]),
             tuple(row["non_allergen"] or ()),
             declarations,
         ),

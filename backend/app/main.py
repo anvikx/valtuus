@@ -6,7 +6,6 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from fastapi import FastAPI
-from pydantic import SecretStr
 
 from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.clock import SystemClock
@@ -127,9 +126,10 @@ def _memory_store() -> _Store:
     )
 
 
-def _postgres_store(url: SecretStr) -> _Store:
-    database = Database.from_url(url)
-    database.migrate()
+def _postgres_store(settings: Settings) -> _Store:
+    database = Database.from_url(settings.database_url)
+    if not settings.skip_database_migrations:
+        database.migrate()
     return _Store(
         mandates=PostgresMandateRepository(database),
         agent_keys=PostgresAgentKeyRepository(database),
@@ -147,7 +147,7 @@ def _postgres_store(url: SecretStr) -> _Store:
 
 def _open_store(settings: Settings) -> _Store:
     if settings.database_url.get_secret_value():
-        return _postgres_store(settings.database_url)
+        return _postgres_store(settings)
 
     _logger.warning("DATABASE_URL is empty: in-memory store, all data is lost on restart")
     return _memory_store()

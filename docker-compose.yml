@@ -9,6 +9,7 @@ services:
     environment:
       # Built from the one secret the db container also reads. Fail closed: without it the
       # backend would fall back to memory and lose every order.
+      SKIP_DATABASE_MIGRATIONS: ${SKIP_DATABASE_MIGRATIONS:-false}
       DATABASE_URL: postgresql+psycopg://valtuus:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/valtuus
     depends_on:
       db:

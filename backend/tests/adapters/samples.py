@@ -11,6 +11,7 @@ from app.domain.enums import (
     AgentKeyStatus,
     AgentScope,
     AllergenStatus,
+    AllergenType,
     AuditStep,
     CartState,
     Decision,
@@ -90,7 +91,7 @@ def offer(offer_id: str = "of_1") -> Offer:
         labels=("organic",),
         allergens=Allergens(
             status=AllergenStatus.KNOWN,
-            contains=("oats",),
+            declarations={AllergenType.CONTAINS: ("oats",)},
             free_from=("milk",),
         ),
         delivery_reliability=Decimal("0.97"),

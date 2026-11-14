@@ -25,3 +25,5 @@ class Settings(BaseSettings):
     # postgresql+psycopg://... Empty means the in-memory store, which loses all data on
     # restart; Compose refuses to start without it. Secret: the URL holds the password.
     database_url: SecretStr = SecretStr("")
+    # Rollback images must not resolve migration revisions introduced by a newer image.
+    skip_database_migrations: bool = False

@@ -1,7 +1,4 @@
-"""Preserve allergen declaration types in grouped JSON.
-
-This type change requires the new application image; an image-only rollback is unsupported.
-"""
+"""Add typed declarations and translations while keeping old-image columns writable."""
 
 from collections.abc import Sequence
 
@@ -16,17 +13,10 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.alter_column(
-        "products",
-        "allergen",
-        existing_type=pg.ARRAY(sa.Text()),
-        type_=pg.JSONB(),
-        existing_nullable=False,
-        postgresql_using="jsonb_build_object('CONTAINS', allergen, 'MAY_CONTAIN', '[]'::jsonb)",
-    )
-    # The old array merged both types, so only a source reimport can establish certainty.
-    op.execute("UPDATE products SET allergen_status = 'UNKNOWN'")
+    # Null means a legacy writer: neither types nor translations can be reconstructed.
+    op.add_column("products", sa.Column("allergen_declarations", pg.JSONB(), nullable=True))
+    op.add_column("products", sa.Column("names", pg.JSONB(), nullable=True))
 
 
 def downgrade() -> None:
-    raise RuntimeError("Restore a database backup to reverse the allergen conversion")
+    raise RuntimeError("Migrations are forward only; restore the previous application image")

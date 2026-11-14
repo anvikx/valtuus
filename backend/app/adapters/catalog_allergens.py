@@ -27,8 +27,11 @@ def map_allergens(classifications: list[dict[str, Any]]) -> Allergens:
                 unknown = True
     contains = set().union(*declarations.values())
     return Allergens(
-        status=AllergenStatus.KNOWN if contains and not unknown else AllergenStatus.UNKNOWN,
-        contains=tuple(sorted(contains)),
+        # Explicit FREE_FROM is evidence too; requiring positive codes sent safe products
+        # to human approval merely because their declarations only describe absence.
+        status=(
+            AllergenStatus.KNOWN if (contains or free) and not unknown else AllergenStatus.UNKNOWN
+        ),
         free_from=tuple(sorted(free - contains)),
         declarations={kind: tuple(sorted(codes)) for kind, codes in declarations.items()},
     )
