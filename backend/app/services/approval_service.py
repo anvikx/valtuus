@@ -13,6 +13,9 @@ from app.services.ports.clock import Clock
 from app.services.ports.repositories import CartRepository
 from app.services.ports.unit_of_work import UnitOfWork
 
+# The door's 409 text for these is the cart's own reason sentences.
+_ENDED_WITH_REASON = frozenset({CartState.EXPIRED, CartState.DENIED})
+
 
 class ApprovalService:
     """Approve and reject. Only a main user session reaches it, never an agent key."""
@@ -38,7 +41,16 @@ class ApprovalService:
     def approve(self, user: User, cart_id: str) -> Order | Cart:
         """An Order, or the cart in its new state (EXPIRED, DENIED). A second tap gets the same
         Order."""
-        raise NotImplementedError("ApprovalService.approve")
+        # get_cart owns the buyer check and expiry on read. place locks and reads it again.
+        cart = self._cart_service.get_cart(_buyer_id(user), cart_id)
+        if cart.state is not CartState.PENDING_APPROVAL:
+            return self._settled(cart)
+
+        result = self._orders.place(cart, user)
+        if isinstance(result, Order):
+            return result
+
+        return self._settled(result)
 
     def reject(self, user: User, cart_id: str, reason: str) -> Cart:
         """REJECTED is final. Any other state is a 409, sent after the commit, so an expiry
@@ -55,6 +67,21 @@ class ApprovalService:
         raise ConflictError(
             f"Cart {cart_id} is {cart.state}, so it cannot be rejected.",
             "Only a cart that waits for approval can be rejected. Open the cart to see its state.",
+        )
+
+    def _settled(self, cart: Cart) -> Order | Cart:
+        """The answer for a cart this call did not order. ORDERED gives its order, so a second
+        tap, or one that waited on the lock, gets the first confirmation."""
+        if cart.state is CartState.ORDERED and cart.order_id is not None:
+            return self._orders.get_order(cart.buyer_id, cart.order_id)
+
+        if cart.state in _ENDED_WITH_REASON:
+            return cart
+
+        # The sentences of an AUTO or REJECTED cart do not say why it cannot be approved.
+        raise ConflictError(
+            f"Cart {cart.cart_id} is {cart.state}, so it cannot be approved.",
+            "Only a cart that waits for approval can be approved. Open the cart to see its state.",
         )
 
     def _store_reject(self, user: User, cart_id: str, reason: str) -> Cart:
