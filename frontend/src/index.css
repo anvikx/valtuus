@@ -37,14 +37,21 @@ blockquote {
   outline: none;
 }
 
-/* Page frame: header with the Prototype tag, content, footer. */
+/* Page frame: header with the Prototype tag, content, footer. The page scrolls under a sticky
+   header. The sticky decision and update bars sit below it, so they use its height: padding, the
+   28 px title line and the border. Only the header without nav (the cart pages) has those bars. */
 .app-shell {
+  --app-header-height: calc(2 * var(--space-3) + 28px + var(--border-width));
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -325,7 +332,7 @@ blockquote {
   }
 
   .decision {
-    top: var(--space-4);
+    top: calc(var(--app-header-height) + var(--space-4));
     bottom: auto;
     margin: 0;
     padding: var(--space-4);
@@ -722,7 +729,14 @@ textarea.input {
 .inbox-total {
   grid-column: 2;
   grid-row: 1;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* Column titles show on desktop only, where the cells sit in columns. */
+.inbox-columns {
+  display: none;
 }
 
 .inbox-chevron {
@@ -774,13 +788,59 @@ textarea.input {
     align-self: end;
   }
 
-  .inbox-row-waiting {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) max-content max-content var(--space-3);
-    align-items: start;
+  /* One column grid per list, and every row takes it as a subgrid. A grid per row sized its
+     max-content columns to its own text, so a shorter total shifted that row's columns. The
+     7.5rem floor fits "Sun 15 Nov 17:00" (112 px) and a bold "1010.00 EUR" (102 px), so the
+     decided list (no deadline) gets the same columns as the waiting list. */
+  .inbox-list {
+    display: grid;
+    grid-template-columns:
+      minmax(0, 2fr) minmax(0, 2fr) minmax(7.5rem, max-content) minmax(7.5rem, max-content)
+      var(--space-3);
+    column-gap: var(--space-3);
   }
 
-  .inbox-row-decided {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) max-content var(--space-3);
+  .inbox-item,
+  .inbox-columns,
+  .inbox-row {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+
+  /* Baseline: the bold request and the small cells start on the same text line. */
+  .inbox-columns,
+  .inbox-row {
+    align-items: baseline;
+    padding-inline: var(--space-2);
+  }
+
+  .inbox-columns {
+    padding-block: var(--space-2);
+    color: var(--ink-muted);
+    font: var(--type-label);
+  }
+
+  .inbox-columns > :last-child {
+    justify-self: end;
+  }
+
+  .inbox-row:hover {
+    background: var(--surface-200);
+  }
+
+  .inbox-chevron {
+    align-self: center;
+  }
+
+  /* The column title says it, so only a screen reader reads it in each row. */
+  .inbox-deadline-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .inbox-row-waiting .inbox-why {
@@ -802,62 +862,114 @@ textarea.input {
     grid-column: 5;
   }
 
+  /* The result spans the why and deadline columns, so totals line up with the list above. */
   .inbox-row-decided .inbox-result {
-    grid-column: 2;
+    grid-column: 2 / 4;
     grid-row: 1;
   }
 
   .inbox-row-decided .inbox-total {
-    grid-column: 3;
+    grid-column: 4;
   }
 
   .inbox-row-decided .inbox-chevron {
-    grid-column: 4;
+    grid-column: 5;
   }
 }
 
-/* Record page */
+/* Record page: a dark, append only log, so it never looks like a page where the user decides. */
 .record-page {
   max-width: var(--page-wide-width);
 }
 
-.record-request {
-  font: var(--type-body);
+.record-panel {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--record-surface);
+  color: var(--record-ink);
+}
+
+.record-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--record-line);
+  color: var(--record-ink-muted);
+  font: var(--type-label);
+  font-weight: 400;
+}
+
+.record-command {
+  color: var(--record-ink);
+  font: var(--type-code);
+}
+
+/* The log scrolls inside the panel, so the bar with the cart id stays in view. */
+.record-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-3) var(--space-3);
+}
+
+.record-scroll:focus-visible {
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+/* The brand ring is too dark on the panel (about 2:1), so focus uses the light ink. */
+.record-panel :focus-visible {
+  outline-color: var(--record-ink);
 }
 
 .record-phases,
 .record-lines {
-  display: flex;
-  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.record-phases {
-  gap: var(--space-4);
-}
-
-.record-lines {
-  gap: var(--space-3);
+.record-phase {
+  padding: var(--space-3) 0 var(--space-1);
+  color: var(--record-ink-muted);
+  font: var(--type-label);
 }
 
 .record-line {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--line);
-}
-
-.record-line-time,
-.record-line-who {
-  color: var(--ink-muted);
-  font: var(--type-small);
+  gap: 2px var(--space-2);
+  padding: var(--space-2) 0;
 }
 
 .record-line-time {
-  font-variant-numeric: tabular-nums;
+  color: var(--record-ink-muted);
+  font: var(--type-code);
+}
+
+.record-line-who {
+  font: var(--type-label);
+}
+
+.record-who-buyer {
+  color: var(--record-ink);
+}
+
+.record-who-agent {
+  color: var(--who-agent);
+}
+
+.record-who-supplier {
+  color: var(--who-supplier);
+}
+
+.record-who-rules {
+  color: var(--who-rules);
+}
+
+.record-who-user {
+  color: var(--who-user);
 }
 
 .record-line-body {
@@ -865,33 +977,38 @@ textarea.input {
   min-width: 0;
 }
 
-.record-details {
-  margin-top: var(--space-2);
-}
-
 .record-details summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   min-height: var(--tap-target);
-  color: var(--brand);
+  color: var(--record-ink-muted);
   font: var(--type-label);
+  font-weight: 400;
   cursor: pointer;
 }
 
 .record-code {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  overflow-x: auto;
-  border: var(--border-width) solid var(--line);
   border-radius: var(--radius-sm);
-  background: var(--surface-200);
+  background: var(--record-code-surface);
+  color: var(--record-ink-muted);
   font: var(--type-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.record-empty {
+  padding: var(--space-2) 0;
+  color: var(--record-ink-muted);
+  font: var(--type-small);
 }
 
 .record-elapsed {
+  margin-top: var(--space-3);
   padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--ink);
-  font-weight: 600;
+  border-top: var(--border-width) solid var(--record-line);
+  font: var(--type-small);
 }
 
 .record-link {
@@ -901,8 +1018,24 @@ textarea.input {
 }
 
 @media (min-width: 900px) {
+  .record-title {
+    font: var(--type-display);
+  }
+
+  .record-scroll {
+    max-height: 560px;
+    padding: var(--space-1) var(--space-4) var(--space-4) var(--space-3);
+  }
+
   .record-line {
-    grid-template-columns: 6rem 12rem 1fr;
+    grid-template-columns: 5rem 9.5rem 1fr;
+    gap: var(--space-3);
+    padding: 6px 0;
+  }
+
+  .record-line-time,
+  .record-line-who {
+    line-height: 24px;
   }
 
   .record-line-who {
@@ -912,7 +1045,7 @@ textarea.input {
   .record-line-body {
     grid-column: auto;
     padding-left: var(--space-3);
-    border-left: var(--border-width) solid var(--line);
+    border-left: var(--border-width) solid var(--record-line);
   }
 }
 
@@ -1081,9 +1214,10 @@ textarea.input {
 }
 
 /* Order update: the bar that asks for Review, and the marks on what changed. */
+/* One border width under the header: the header draws on top, so no subpixel gap shows the page. */
 .update-bar {
   position: sticky;
-  top: 0;
+  top: calc(var(--app-header-height) - var(--border-width));
   z-index: 1;
   display: flex;
   align-items: center;

@@ -321,6 +321,8 @@ export type OrderTrust =
 export interface AuditEntry {
   readonly id: string
   readonly phase: FlowPhase
+  // The gateway step (SEARCH, OFFER, ...). Null for the request line the UI builds from the cart.
+  readonly step: string | null
   readonly sentence: string
   readonly at: string
   // Who the gateway recorded. Null for the request line the UI builds from the cart.
@@ -520,6 +522,7 @@ function toAuditEntries(records: readonly WireAuditRecord[]): AuditEntry[] {
       {
         id: record.record_id,
         phase,
+        step: record.step,
         sentence: record.sentence,
         at: record.created_at,
         actor: record.actor,

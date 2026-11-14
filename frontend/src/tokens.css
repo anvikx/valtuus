@@ -41,4 +41,15 @@
   --panel-width: 360px;
   --scrim: rgb(28 35 33 / 0.55);
   --disabled-opacity: 0.6;
+
+  /* Record panel: a dark log, one colour per speaker. */
+  --record-surface: #1d2120;
+  --record-code-surface: #141716;
+  --record-line: #323937;
+  --record-ink: #eef1ef;
+  --record-ink-muted: #a9b3af;
+  --who-agent: #5cc4a8;
+  --who-supplier: #b9c4ff;
+  --who-rules: #f0a65a;
+  --who-user: #7bd394;
 }
