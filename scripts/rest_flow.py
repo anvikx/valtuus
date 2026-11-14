@@ -102,6 +102,10 @@ class Gateway:
     def main_user(self, method: str, path: str, body: Json | None = None) -> Json:
         return self._call(method, path, body, {})
 
+    def anyone(self, method: str, path: str, body: Json | None = None) -> Json:
+        """A call that needs no key, as any client that checks a statement makes it."""
+        return self._call(method, path, body, {})
+
     def _call(self, method: str, path: str, body: Json | None, headers: dict[str, str]) -> Json:
         data = None if body is None else json.dumps(body).encode()
         request = Request(self._base + path, data=data, method=method, headers=headers)
@@ -136,6 +140,22 @@ def _error_text(method: str, path: str, error: HTTPError) -> str:
         f"{method} {path}: HTTP {error.code} {body.get('error')}. {body.get('message')} "
         f"Next step: {body.get('next_step')}"
     )
+
+
+def check_signature(gateway: Gateway, name: str, body: Json) -> None:
+    """Pass only when the gateway signed exactly what it showed. A missing signature fails."""
+    signature = body.get("signature")
+    if not signature:
+        raise FlowError(f"{name} has no signature. Set the gateway signing key.")
+
+    result = gateway.anyone("POST", "/verify", {"jws": signature, "body": body})
+    if not result["valid"]:
+        raise FlowError(f"{name} signature is not valid: {result['reason']}.")
+
+    if result["body_matches"] is not True:
+        raise FlowError(f"{name} shows values that differ from its signed payload.")
+
+    print(f"  {name} signature: valid, key {result['kid']}")
 
 
 def next_monday(gateway_now: str) -> date:
@@ -207,6 +227,8 @@ def _offer(
     )
     for rejected in offer["rejected"]:
         print(f"    not possible: {rejected['product_id']} {rejected['reason_sentence']}")
+
+    check_signature(gateway, f"offer {offer['offer_id']}", offer)
 
     print(
         f"  rank 1: {best['product_id']} {best['name']}, {best['unit_price']} {best['currency']} "
@@ -281,6 +303,7 @@ def run_flow(gateway: Gateway, run: Run, password: str) -> None:
         f"  order {order['order_id']}: {order['status']}, total {order['total_ex_vat']} "
         f"{order['currency']} ex VAT, approved by {order['approved_by'] or 'nobody'}",
     )
+    check_signature(gateway, f"order {order['order_id']}", order)
 
 
 def _secret(name: str) -> str:
