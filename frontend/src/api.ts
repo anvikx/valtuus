@@ -444,12 +444,10 @@ export async function getSession(): Promise<Session> {
   }
 }
 
-// A wrong username or password throws ApiError 'unauthenticated'.
-export async function signIn(username: string, password: string): Promise<void> {
-  await call(HTTP_METHOD.post, '/session', {
-    username,
-    password,
-  })
+// One main user, so the backend asks only for the password. A wrong one throws ApiError
+// 'unauthenticated'.
+export async function signIn(password: string): Promise<void> {
+  await call(HTTP_METHOD.post, '/session', { password })
 }
 
 export async function getCart(cartId: string): Promise<Cart> {

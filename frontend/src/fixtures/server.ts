@@ -1,5 +1,5 @@
 // Fixture backend for VITE_USE_FIXTURES=true. It answers the same routes and status codes as
-// FastAPI, so api.ts runs its normal wire parsing on it. Sign in with main / demo.
+// FastAPI, so api.ts runs its normal wire parsing on it. Sign in with the password demo.
 //
 // Cart ids:
 //   c_demo           waiting; approve gives ORDERED, reject gives REJECTED
@@ -160,12 +160,12 @@ function isSignedIn(): boolean {
 
 function answerSession({ method, body }: WireRequest): WireResponse {
   if (method === 'POST') {
-    const { username, password } = body as { username: string; password: string }
-    if (username !== FIXTURE_USERNAME || password !== FIXTURE_PASSWORD) {
+    const { password } = body as { password: string }
+    if (password !== FIXTURE_PASSWORD) {
       return reply(STATUS.unauthorized)
     }
 
-    writeItem(SESSION_KEY, username)
+    writeItem(SESSION_KEY, FIXTURE_USERNAME)
     return reply(STATUS.noContent)
   }
 

@@ -7,9 +7,8 @@ type LoginState = 'idle' | 'sending' | 'wrongLogin' | 'failed'
 
 const CART_PATH_PREFIX = '/carts/'
 
-// One sentence for both fields: never tell which of the two is wrong.
 const ERROR_TEXT: Readonly<Partial<Record<LoginState, string>>> = {
-  wrongLogin: 'That username or password is not correct.',
+  wrongLogin: 'That password is not correct.',
   failed: 'Sign in did not work. Try again.',
 }
 
@@ -30,7 +29,7 @@ export function LoginPage(): ReactElement {
     const form = new FormData(event.currentTarget)
     setState('sending')
     try {
-      await signIn(String(form.get('username')), String(form.get('password')))
+      await signIn(String(form.get('password')))
     } catch (error: unknown) {
       setState(isSignedOut(error) ? 'wrongLogin' : 'failed')
       return
@@ -49,13 +48,6 @@ export function LoginPage(): ReactElement {
       </p>
 
       <form className="stack" onSubmit={(event) => void submit(event)}>
-        <div className="field">
-          <label className="field-label" htmlFor="username">
-            Username
-          </label>
-          <input className="input" id="username" name="username" autoComplete="username" required />
-        </div>
-
         <div className="field">
           <label className="field-label" htmlFor="password">
             Password
