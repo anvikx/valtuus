@@ -5,7 +5,8 @@ from decimal import Decimal
 from types import MappingProxyType
 from uuid import uuid4
 
-from app.domain.enums import AuditStep, Decision, FlowPhase, ReasonCode
+from app.domain.cart import LineChange
+from app.domain.enums import AuditStep, Decision, FlowPhase, ReasonCode, RevisionAuthor
 from app.domain.reason_text import money_text
 
 # The agent sends a request_id back on get_offers, so the wire checks it has this form.
@@ -32,6 +33,13 @@ _POLICY_OUTCOME = MappingProxyType(
     }
 )
 _WITHIN_MANDATE = "the cart is within the mandate."
+_AUTHOR_TEXT = MappingProxyType(
+    {
+        RevisionAuthor.AGENT: "the agent",
+        RevisionAuthor.MAIN_USER: "the main user",
+    }
+)
+_NO_LINE_CHANGE = "the lines did not change"
 
 
 def new_request_id() -> str:
@@ -48,15 +56,38 @@ def audit_phase(step: AuditStep, cart_id: str | None) -> FlowPhase | None:
 
 
 def cart_sentence(product_ids: Iterable[str], total_ex_vat: Decimal) -> str:
-    # The prices come from the stored offer, never from the agent, so the total is fixed.
     products = ", ".join(product_ids)
-    total = money_text(total_ex_vat)
-    return f"The agent built a cart with {products}. {total} ex VAT, fixed price."
+    return f"The agent built a cart with {products}. {_fixed_total(total_ex_vat)}"
+
+
+def revision_sentence(
+    revision: int,
+    author: RevisionAuthor,
+    changes: Iterable[LineChange],
+    total_ex_vat: Decimal,
+) -> str:
+    """Revision 2 by the agent: Milk 1,000 to 800, added Coffee 6. 12.50 EUR ex VAT, ..."""
+    changed = ", ".join(_change_text(change) for change in changes) or _NO_LINE_CHANGE
+    return f"Revision {revision} by {_AUTHOR_TEXT[author]}: {changed}. {_fixed_total(total_ex_vat)}"
 
 
 def policy_sentence(decision: Decision, reason_sentences: Iterable[str]) -> str:
     reasons = " ".join(reason_sentences) or _WITHIN_MANDATE
     return f"{_POLICY_OUTCOME[decision]}: {reasons}"
+
+
+def _fixed_total(total_ex_vat: Decimal) -> str:
+    # The prices come from the stored offer, never from the agent, so the total is fixed.
+    return f"{money_text(total_ex_vat)} ex VAT, fixed price."
+
+
+def _change_text(change: LineChange) -> str:
+    if change.qty_before is None:
+        return f"added {change.name} {change.qty_after:,}"
+    if change.qty_after is None:
+        return f"removed {change.name}"
+
+    return f"{change.name} {change.qty_before:,} to {change.qty_after:,}"
 
 
 def order_sentence(total_ex_vat: Decimal) -> str:

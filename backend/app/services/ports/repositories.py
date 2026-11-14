@@ -66,7 +66,7 @@ class CartRepository(Protocol):
     def add(self, cart: Cart) -> None: ...
 
     def save(self, cart: Cart) -> None:
-        """Stores a new state of a known cart. Lines and prices must not change."""
+        """Stores a new state of a known cart. Lines and prices change only with a new revision."""
         ...
 
 
