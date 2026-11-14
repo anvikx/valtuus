@@ -186,8 +186,8 @@ def _availability(item: _Json) -> Availability:
     return Availability(
         product_id=_text(item["productId"]),
         stock_model=_STOCK_MODELS.get(item.get("logisticModel")),
-        # The markers 999999 and 9999999999 stay raw numbers. A part of a sales unit cannot be
-        # ordered, so 2.5 is 2.
+        # Keep amounts raw for the domain: 999999 or more means unknown stock.
+        # A part of a sales unit cannot be ordered, so 2.5 is 2.
         amount=None if amount is None else int(_not_negative(amount)),
         available_date=None if available_date is None else date.fromisoformat(available_date),
         closing_time=None if closing_time is None else _helsinki(closing_time),

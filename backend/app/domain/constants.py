@@ -10,8 +10,7 @@ DUPLICATE_WINDOW_MINUTES = 60
 REJECT_MEMORY_MINUTES = 60
 MAX_OVER_REQUEST_PERCENT = 10
 
-# The mock's stock markers: the first means "no limit", the second "amount not known".
-UNLIMITED_STOCK_MARKER = 9_999_999_999
+# This amount or more means the count is not known.
 UNKNOWN_STOCK_MARKER = 999_999
 
 GATEWAY_TIMEZONE = ZoneInfo("Europe/Helsinki")

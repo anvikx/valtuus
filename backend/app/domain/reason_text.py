@@ -1,10 +1,10 @@
 """One sentence per reason code. The page, the agent's reply and the audit use the same text."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from types import MappingProxyType
 
-from app.domain.constants import CURRENCY
+from app.domain.constants import CURRENCY, GATEWAY_TIMEZONE
 from app.domain.enums import ReasonCode
 from app.domain.money import round_money
 
@@ -37,6 +37,12 @@ def reason_sentence(code: ReasonCode, **values: object) -> str:
 def day_text(day: date) -> str:
     """Mon 16 Nov: the style of the order pages."""
     return f"{day:%a} {day.day} {day:%b}"
+
+
+def deadline_text(moment: datetime) -> str:
+    """Sun 15 Nov 17:00 in gateway time, including after a UTC database read."""
+    local = moment.astimezone(GATEWAY_TIMEZONE)
+    return f"{day_text(local.date())} {local:%H:%M}"
 
 
 def money_text(amount: Decimal) -> str:

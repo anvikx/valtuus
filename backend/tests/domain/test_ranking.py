@@ -79,8 +79,9 @@ def test_no_deliver_by_never_makes_a_line_late() -> None:
         pytest.param(None, id="no logistic model"),
     ],
 )
-def test_unconfirmed_stock_is_group_b_with_no_count(model) -> None:
-    unconfirmed = _candidate("unconfirmed", "0.90", model=model, amount=_UNKNOWN_STOCK_MARKER)
+@pytest.mark.parametrize("amount", [10, 999_999, 666_666_666, 9_999_999_999])
+def test_unconfirmed_stock_is_group_b_with_no_count(model, amount) -> None:
+    unconfirmed = _candidate("unconfirmed", "0.90", model=model, amount=amount)
 
     lines = rank_offer_lines([unconfirmed, _candidate()], query())
 
@@ -89,12 +90,26 @@ def test_unconfirmed_stock_is_group_b_with_no_count(model) -> None:
     assert lines[1].available_qty is None
 
 
-def test_stock_at_the_marker_is_in_stock_with_no_count() -> None:
-    """999999 means the count is not known (D35). Comparing it with the need would be noise."""
-    (line,) = rank_offer_lines([_candidate(amount=_UNKNOWN_STOCK_MARKER)], query())
+@pytest.mark.parametrize("amount", [_UNKNOWN_STOCK_MARKER, 1_000_000, 666_666_666, 9_999_999_999])
+def test_stock_at_or_above_the_marker_is_in_stock_with_no_count(amount) -> None:
+    """Unknown amounts must never be compared with the requested quantity (D35)."""
+    (line,) = rank_offer_lines(
+        [_candidate(amount=amount)],
+        query(quantity=str(amount + 1)),
+    )
 
     assert line.reason_codes == ()
     assert line.available_qty is None
+
+
+@pytest.mark.parametrize("amount", [1, 200, 999_998])
+def test_stock_below_the_marker_is_compared_with_the_need(amount) -> None:
+    """A real count below the marker must still reveal insufficient stock."""
+    (line,) = rank_offer_lines([_candidate(amount=amount)], query(quantity=str(amount + 1)))
+
+    assert line.available_qty == amount
+    assert line.reason_codes == (ReasonCode.PARTIAL_AVAILABILITY,)
+    assert line.reason_sentences == (f"Only {amount} of {amount + 1} in stock.",)
 
 
 def test_only_the_first_three_ranks_get_a_tier() -> None:
