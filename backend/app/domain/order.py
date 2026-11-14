@@ -9,7 +9,7 @@ from app.domain.offer import SubstituteFor
 @dataclass(frozen=True)
 class OrderLine:
     product_id: str
-    gtin: str
+    gtin: str | None
     name: str
     qty: int
     unit_price: Decimal

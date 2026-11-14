@@ -38,7 +38,7 @@ def _scored(candidate: Candidate, query: OfferQuery) -> tuple[_Group, Decimal, s
     content = product.content_per_sales_unit
     needed = sales_units_needed(query.quantity, query.unit, content)
     per_unit = price_per_unit(price.unit_price, query.unit, content)
-    available_qty = _counted_stock(availability)
+    available_qty = counted_stock(availability)
     codes, sentences = _reasons(availability, available_qty, needed, query)
     line = OfferLine(
         rank=0,
@@ -81,7 +81,7 @@ def _require_screened(availability: Availability) -> None:
         raise ValueError(f"{availability.product_id} was not screened")
 
 
-def _counted_stock(availability: Availability) -> int | None:
+def counted_stock(availability: Availability) -> int | None:
     """A number only for a real STOCK count. 999999 and more means not known (D35)."""
     if availability.stock_model is not StockModel.STOCK:
         return None

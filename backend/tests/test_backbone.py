@@ -73,7 +73,14 @@ _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
 _OFFERS_PATH = "/api/v1/offers"
 _CARTS_PATH = "/api/v1/carts"
 _MANDATE_PATH = "/api/v1/mandate"
-_LIVE_PATHS = {_OFFERS_PATH, _CARTS_PATH, "/api/v1/carts/c_1", _MANDATE_PATH}
+_LIVE_PATHS = {
+    _OFFERS_PATH,
+    _CARTS_PATH,
+    "/api/v1/carts/c_1",
+    "/api/v1/carts/c_1/checkout",
+    "/api/v1/orders/o_1",
+    _MANDATE_PATH,
+}
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
 _HUMAN_ACTIONS = [
