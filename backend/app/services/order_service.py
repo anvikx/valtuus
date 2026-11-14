@@ -5,8 +5,9 @@ from itertools import groupby
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey, User
+from app.domain.audit import order_sentence, policy_sentence
 from app.domain.cart import OPEN_STATES, STATE_BY_DECISION, Cart, CartLine
-from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, CartState, Decision, ReasonCode
 from app.domain.errors import ConflictError, NotFoundError
 from app.domain.fresh_check import line_holds
 from app.domain.idempotency import IdempotencyRecord, request_hash
@@ -186,9 +187,8 @@ class OrderService:
         self._audit.record(
             AuditStep.POLICY,
             _GATEWAY_ACTOR,
-            " ".join(held.reason_sentences),
+            policy_sentence(result.decision, held.reason_sentences),
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={"state": cart.state},
             output_data={"state": held.state},
             decision=result.decision,
@@ -211,7 +211,6 @@ class OrderService:
             _GATEWAY_ACTOR,
             sentence,
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={"state": cart.state},
             output_data={"state": expired.state},
             reason_codes=expired.reason_codes,
@@ -301,10 +300,8 @@ class OrderService:
         self._audit.record(
             AuditStep.POLICY,
             _GATEWAY_ACTOR,
-            " ".join(reason.sentence for reason in result.reasons)
-            or f"The cart is within mandate version {order.mandate_version}.",
+            policy_sentence(result.decision, (reason.sentence for reason in result.reasons)),
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={"total_ex_vat": str(cart.total_ex_vat)},
             decision=result.decision,
             reason_codes=tuple(reason.reason_code for reason in result.reasons),
@@ -313,9 +310,8 @@ class OrderService:
         self._audit.record(
             AuditStep.ORDER,
             cart.agent_name if approved_by is None else approved_by.user_id,
-            f"Order {order.order_id}: {order.total_ex_vat} {order.currency}.",
+            order_sentence(order.total_ex_vat),
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             output_data={"order_id": order.order_id},
             mandate_version=order.mandate_version,
         )
@@ -336,7 +332,6 @@ class OrderService:
             approved_by.user_id,
             f"Approved by {approved_by.user_id}.",
             cart_id=cart.cart_id,
-            phase=FlowPhase.APPROVAL,
             output_data=None if order_id is None else {"order_id": order_id},
             mandate_version=mandate_version,
         )

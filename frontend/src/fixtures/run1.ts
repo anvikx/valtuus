@@ -15,7 +15,7 @@ export const PENDING_CART: WireCart = {
   state: 'PENDING_APPROVAL',
   decision: 'HUMAN',
   reason_codes: ['OVER_AUTO_LIMIT'],
-  reason_sentences: ["Total is over this agent's 500.00 EUR limit."],
+  reason_sentences: ['1,010.00 EUR is over the 500.00 EUR limit.'],
   current_decision: 'HUMAN',
   current_reason_codes: ['OVER_AUTO_LIMIT'],
   request_text: 'I need 1,000 litres of lactose-free milk by Monday.',

@@ -57,7 +57,7 @@ def test_large_cart_waits_for_a_human():
         CheckResult(
             decision=Decision.HUMAN,
             reason_code=ReasonCode.OVER_AUTO_LIMIT,
-            sentence="Total is over this agent's 500.00 EUR limit.",
+            sentence="1,010.00 EUR is over the 500.00 EUR limit.",
             line_id=None,
         ),
     )

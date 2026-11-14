@@ -25,7 +25,15 @@ from app.adapters.postgres.repositories import (
 )
 from app.domain.agent_key import User
 from app.domain.cart import CartDraft, CartLineInput, PricedLine
-from app.domain.enums import AuditStep, CartState, Decision, ReasonCode, StockModel, UserRole
+from app.domain.enums import (
+    AuditStep,
+    CartState,
+    Decision,
+    FlowPhase,
+    ReasonCode,
+    StockModel,
+    UserRole,
+)
 from app.domain.errors import ConflictError, NotFoundError, UpstreamUnavailableError
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
@@ -449,6 +457,24 @@ def test_place_with_an_approver_orders_a_cart_over_the_limit() -> None:
 
     assert isinstance(order, Order)
     assert order.approved_by == "hotel-1-main"
+
+
+def test_approved_order_records_are_in_the_approval_phase() -> None:
+    """The person's yes, the policy rerun and the order are one approval step on the run page."""
+    world = _World()
+    cart = world.cart(1000)
+    user = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
+
+    world.service.place(cart, user)
+
+    (*_, approval, policy, order) = world.audit.for_cart(cart.cart_id)
+    assert [approval.step, policy.step, order.step] == [
+        AuditStep.APPROVAL,
+        AuditStep.POLICY,
+        AuditStep.ORDER,
+    ]
+    assert {approval.phase, policy.phase, order.phase} == {FlowPhase.APPROVAL}
+    assert order.sentence == "The order was committed at the signed price: 1,010.00 EUR ex VAT."
 
 
 def test_get_order_is_only_for_its_buyer() -> None:

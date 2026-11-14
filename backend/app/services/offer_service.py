@@ -7,7 +7,7 @@ from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
 from app.domain.catalog import Product
 from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES
-from app.domain.enums import AuditStep, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import InvalidRequestError
 from app.domain.offer import (
     AvailabilitySnapshot,
@@ -144,7 +144,6 @@ class OfferService:
             _offer_sentence(offer),
             request_id=offer.request_id,
             buyer_id=offer.buyer_id,
-            phase=FlowPhase.LOOKUP,
             input_data={
                 "product_ids": list(query.product_ids),
                 "quantity": None if query.quantity is None else str(query.quantity),
