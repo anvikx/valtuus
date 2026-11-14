@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 
 import {
+  ApiError,
   approveCart,
   getAudit,
   getCart,
@@ -33,6 +34,12 @@ type LoadState =
 
 // The session comes first, so a signed out user never gets a cart request. The audit only
 // adds the agent name and the timeline: the page still works without it (open question 3).
+type DecisionCall = () => Promise<unknown>
+
+function isConflict(error: unknown): boolean {
+  return error instanceof ApiError && error.kind === 'conflict'
+}
+
 async function loadPage(cartId: string): Promise<PageData> {
   const session = await getSession()
   const [cart, audit] = await Promise.all([getCart(cartId), getAudit(cartId).catch(() => null)])
@@ -48,7 +55,8 @@ async function loadPage(cartId: string): Promise<PageData> {
 export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
   const [isBusy, setIsBusy] = useState(false)
-  const [hasDecisionFailed, setHasDecisionFailed] = useState(false)
+  // The call that failed, so Retry can send the same decision again.
+  const [failedCall, setFailedCall] = useState<DecisionCall | null>(null)
   // A ref, not state: a second tap before React renders still reads the old isBusy.
   const isBusyRef = useRef(false)
 
@@ -76,24 +84,35 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
 
   // The buttons stay disabled until the reload shows the new cart state, so the user cannot
   // send a second decision on a cart that is already decided.
-  async function decide(call: () => Promise<unknown>): Promise<void> {
+  // A 409 means the cart changed first (an expiry, or a decision in another tab). The reload
+  // shows that new state instead of an error.
+  async function onDecideError(error: unknown, call: DecisionCall): Promise<void> {
+    if (isSignedOut(error)) {
+      redirectToLogin()
+      return
+    }
+
+    if (isConflict(error)) {
+      await load()
+      return
+    }
+
+    setFailedCall(() => call)
+  }
+
+  async function decide(call: DecisionCall): Promise<void> {
     if (isBusyRef.current) {
       return
     }
 
     isBusyRef.current = true
     setIsBusy(true)
-    setHasDecisionFailed(false)
+    setFailedCall(null)
     try {
       await call()
       await load()
     } catch (error: unknown) {
-      if (isSignedOut(error)) {
-        redirectToLogin()
-        return
-      }
-
-      setHasDecisionFailed(true)
+      await onDecideError(error, call)
     } finally {
       isBusyRef.current = false
       setIsBusy(false)
@@ -143,11 +162,21 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   return (
     <main className="stack">
       <CartReview cart={cart} buyerId={session.buyerId} agentName={audit?.agentName ?? null} />
-      {hasDecisionFailed ? (
-        <p className="alert" role="alert">
-          Your decision was not saved. Try again.
-        </p>
-      ) : null}
+      {failedCall === null ? null : (
+        <div className="stack-tight">
+          <p className="alert" role="alert">
+            Your decision was not saved.
+          </p>
+          <button
+            className="button button-primary"
+            type="button"
+            disabled={isBusy}
+            onClick={() => void decide(failedCall)}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <DecisionPanel
         isBusy={isBusy}
         onApprove={() => void decide(() => approveCart(cartId))}
