@@ -16,3 +16,5 @@ GATEWAY_TIMEZONE = ZoneInfo("Europe/Helsinki")
 MONEY_DECIMALS = 2
 CURRENCY = "EUR"
 VALIO_CACHE_SECONDS = 60
+# The mock blocks a caller for 30 seconds after a 429.
+VALIO_COOLDOWN_SECONDS = 30
