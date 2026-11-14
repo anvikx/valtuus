@@ -23,12 +23,14 @@ _FIELDS = {
     "hint_category",
     "excluded",
     "missing_fields",
+    "choices",
     "request_id",
 }
 
 
 @pytest.mark.parametrize(
-    "expected", ["READY", "NO_MATCH", "EXCLUDED_ONLY", "MISSING_FIELDS", "GUARD_CUT"]
+    "expected",
+    ["READY", "NO_MATCH", "EXCLUDED_ONLY", "MISSING_FIELDS", "ASK_CHOICES", "GUARD_CUT"],
 )
 @pytest.mark.parametrize("mcp_url", ["/api/mcp", "/api/mcp/"])
 def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp_url):
@@ -39,6 +41,8 @@ def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp
         products = [item(allergens=Allergens(AllergenStatus.UNKNOWN, ()))]
     elif expected == "GUARD_CUT":
         products = [item(str(i)) for i in range(501)]
+    elif expected == "ASK_CHOICES":
+        products = [item("1", attributes=("FREE_FROM_LACTOSE",)), item("2")]
     policy = replace(mandate(), required_attributes=(), allergen_unknown_policy=Decision.DENY)
     monkeypatch.setattr(InMemoryMandateRepository, "latest", lambda self, buyer: policy)
     monkeypatch.setattr(ProductStore, "search_names", lambda self, query: products)
@@ -86,10 +90,12 @@ def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp
     flags = {category["category"]: category["in_list"] for category in body["categories"]}
     if expected in ("READY", "MISSING_FIELDS"):
         assert flags == {"1": True, "2": False}
-    elif expected == "GUARD_CUT":
+    elif expected in ("GUARD_CUT", "ASK_CHOICES"):
         assert flags == {"10400": True}
     else:
         assert flags == {}
+    if expected == "ASK_CHOICES":
+        assert body["choices"] == [{"attribute": "FREE_FROM_LACTOSE", "hits": 1}]
     assert body.pop("request_id") == records.records[0].request_id
     assert tool_body.pop("request_id") == records.records[1].request_id
     assert body == tool_body

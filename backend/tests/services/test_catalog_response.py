@@ -64,6 +64,7 @@ def test_hint_priority(hits, excluded, missing, expected):
         "hint_category": result.hint_category,
         "total_hits": hits,
         "hint": asdict(result.hint),
+        "choices": [],
     }
 
 
@@ -309,3 +310,94 @@ def test_in_list_tracks_the_returned_category(category):
         assert result.hint.code == "NO_MATCH"
         assert flags == {}
         assert result.candidates == ()
+
+
+def _milks():
+    return FakeCatalog(
+        item("plain", attributes=("VEGETARIAN",)),
+        item("lactose-free", attributes=("FREE_FROM_LACTOSE", "VEGETARIAN")),
+        item("lactose-free-low-fat", attributes=("FREE_FROM_LACTOSE", "LOW_FAT")),
+        item("other-type", category="2", attributes=("EU_ORGANIC_FARMING",)),
+    )
+
+
+def test_buyer_chooses_safety_and_type_attributes_before_offers():
+    """'milk' covers lactose free and low fat milk, so the buyer must say which they need."""
+    catalog, records = service(_milks())
+
+    result = catalog.search(agent_key(), query())
+
+    assert result.hint.code == "ASK_CHOICES"
+    assert result.hint.sentence == (
+        "Ask the buyer which choices they need, in one question. Search again with the chosen "
+        "codes in required_attributes and the other codes in declined_attributes."
+    )
+    assert [(c.attribute, c.hits) for c in result.choices] == [
+        ("FREE_FROM_LACTOSE", 2),
+        ("LOW_FAT", 1),
+    ]
+    assert [c.product_id for c in result.candidates] == [
+        "lactose-free",
+        "lactose-free-low-fat",
+        "plain",
+    ]
+    assert records.records[0].output_data["choices"] == [
+        {"attribute": "FREE_FROM_LACTOSE", "hits": 2},
+        {"attribute": "LOW_FAT", "hits": 1},
+    ]
+
+
+def test_answered_choices_are_not_asked_again():
+    """Without this the agent asks forever: a declined code means the buyer does not care."""
+    catalog, _ = service(_milks())
+
+    result = catalog.search(
+        agent_key(),
+        query(required_attributes=("FREE_FROM_LACTOSE",), declined_attributes=("LOW_FAT",)),
+    )
+
+    assert result.hint.code == "READY"
+    assert result.choices == ()
+
+
+def test_required_code_wins_over_a_declined_one():
+    """A safety need must never be dropped because the same code was also declined."""
+    catalog, _ = service(_milks())
+
+    result = catalog.search(
+        agent_key(),
+        query(
+            required_attributes=("LOW_FAT",), declined_attributes=("LOW_FAT", "FREE_FROM_LACTOSE")
+        ),
+    )
+
+    assert [c.product_id for c in result.candidates] == ["lactose-free-low-fat"]
+    assert result.choices == ()
+
+
+def test_mandate_attribute_is_never_a_choice():
+    """The main user already decided it for every search."""
+    catalog, _ = service(_milks(), required_attributes=("FREE_FROM_LACTOSE",))
+
+    result = catalog.search(agent_key(), query())
+
+    assert [c.attribute for c in result.choices] == ["LOW_FAT"]
+
+
+def test_missing_fields_and_choices_go_in_one_question():
+    catalog, _ = service(_milks())
+
+    result = catalog.search(agent_key(), query(quantity=None))
+
+    assert result.hint.code == "MISSING_FIELDS"
+    assert result.hint.sentence == (
+        "Ask the buyer for the missing values and the choices, in one question, before the offers."
+    )
+    assert [c.attribute for c in result.choices] == ["FREE_FROM_LACTOSE", "LOW_FAT"]
+
+
+def test_choices_come_before_a_guard_cut():
+    """A choice narrows the list, so the agent asks before it adds words."""
+    catalog, _ = service(_milks(), candidate_guard=1)
+
+    assert catalog.search(agent_key(), query()).hint.code == "ASK_CHOICES"

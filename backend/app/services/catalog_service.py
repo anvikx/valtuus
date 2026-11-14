@@ -4,7 +4,7 @@ from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
 from app.domain.catalog import ExcludedProduct, Product, SearchQuery, SearchResult
 from app.domain.catalog_candidate import candidate
-from app.domain.catalog_response import search_hint, summarize_categories
+from app.domain.catalog_response import search_choices, search_hint, summarize_categories
 from app.domain.catalog_search import (
     NameMatch,
     NameMatcher,
@@ -73,6 +73,7 @@ class CatalogService:
                     "hint_category": result.hint_category,
                     "total_hits": result.total_hits,
                     "hint": asdict(result.hint),
+                    "choices": [asdict(choice) for choice in result.choices],
                 },
                 mandate_version=mandate.version,
             )
@@ -93,6 +94,7 @@ class CatalogService:
             ((product, match) for product, match in hits if product.category == category),
             key=lambda hit: (hit[1], hit[0].product_id),
         )
+        choices = search_choices([product for product, _ in selected], query)
         missing = tuple(
             field for field in ("quantity", "unit", "deliver_by") if getattr(query, field) is None
         )
@@ -113,11 +115,18 @@ class CatalogService:
             candidates=candidates,
             total_hits=len(hits),
             categories=categories,
-            hint=search_hint(len(candidates), len(selected), eligible_excluded_count, missing),
+            hint=search_hint(
+                len(candidates),
+                len(selected),
+                eligible_excluded_count,
+                missing,
+                choices,
+            ),
             hint_category=category,
             excluded=exclusions,
             missing_fields=missing,
             request_id=request_id,
+            choices=choices,
         )
 
     def _filter(

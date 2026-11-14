@@ -75,6 +75,7 @@ class SearchQuery:
     deliver_by: date | None
     preferred_brands: tuple[str, ...]
     category: str | None = None
+    declined_attributes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -111,6 +112,12 @@ class CategorySummary:
 
 
 @dataclass(frozen=True)
+class SearchChoice:
+    attribute: str
+    hits: int
+
+
+@dataclass(frozen=True)
 class SearchHint:
     code: SearchHintCode
     sentence: str
@@ -127,3 +134,4 @@ class SearchResult:
     excluded: tuple[ExcludedProduct, ...]
     missing_fields: tuple[str, ...]
     request_id: str
+    choices: tuple[SearchChoice, ...]

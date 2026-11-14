@@ -69,6 +69,8 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             f"{HINT_CODE_DESCRIPTION} "
             "Inspect categories and examples to choose a type; use category to reach another. "
             "READY means complete for hint_category, not certainty about the intended type. "
+            "Ask the buyer about choices and missing_fields in one question; search again with "
+            "the chosen codes in required_attributes and the others in declined_attributes. "
             "No price or stock; call get_offers with all candidates and the returned request_id. "
             "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION
         )

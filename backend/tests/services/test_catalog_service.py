@@ -9,7 +9,12 @@ from app.adapters.postgres.catalog import PostgresCatalog
 from app.adapters.product_store import ProductStore
 from app.api.results import search_response
 from app.domain.catalog import Allergens, ContentPerSalesUnit
-from app.domain.catalog_search import VALID_ATTRIBUTES, NameMatcher, validate_query
+from app.domain.catalog_search import (
+    CHOICE_ATTRIBUTES,
+    VALID_ATTRIBUTES,
+    NameMatcher,
+    validate_query,
+)
 from app.domain.enums import AllergenStatus, AllergenType, Decision, Unit
 from app.domain.errors import InvalidRequestError
 from tests.adapters.samples import agent_key
@@ -64,6 +69,11 @@ def test_unknown_attribute_names_all_valid_codes():
 
     assert all(code in caught.value.message for code in VALID_ATTRIBUTES)
     assert validate_query(query("JÄÄTELÖ")) == "jaatelo"
+
+
+def test_unknown_declined_attribute_is_refused():
+    with pytest.raises(InvalidRequestError):
+        validate_query(query(declined_attributes=("ORGANIC",)))
 
 
 @pytest.mark.parametrize(
@@ -259,6 +269,7 @@ def test_real_file_search_counts(database):
                 required_attributes=attributes,
                 unit=unit,
                 category=category,
+                declined_attributes=CHOICE_ATTRIBUTES,
             ),
         )
         assert (result.hint_category, len(result.candidates)) == (expected_category, count), words

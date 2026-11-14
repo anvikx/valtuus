@@ -40,6 +40,21 @@ VALID_ATTRIBUTES = (
     "MARINE_STEWARDSHIP_COUNCIL_LABEL",
     "FAIR_TRADE_MARK",
 )
+# Safety and type attributes that the buyer must choose when the list holds both kinds. Labels
+# and origin marks are not here, and VEGETARIAN is left out because the data marks only half of
+# the plain milks with it.
+CHOICE_ATTRIBUTES = (
+    "FREE_FROM_LACTOSE",
+    "LOW_LACTOSE",
+    "FREE_FROM_GLUTEN",
+    "FREE_FROM_WHEAT",
+    "FREE_FROM_EGGS",
+    "FREE_FROM_SOY",
+    "VEGAN",
+    "FREE_FROM_FAT",
+    "LOW_FAT",
+    "EU_ORGANIC_FARMING",
+)
 ATTRIBUTE_DESCRIPTION = "Valid attribute codes: " + ", ".join(VALID_ATTRIBUTES) + "."
 QUERY_RULE = f"1 to {MAX_QUERY_WORDS} words, each with at least {MIN_QUERY_LETTERS} letters"
 _NEGATIONS = ("free", "fri", "ton", "vapaa")
@@ -62,7 +77,8 @@ def validate_query(query: SearchQuery) -> str:
             f"Search needs {QUERY_RULE}.",
             f"Use fewer words or words with at least {MIN_QUERY_LETTERS} letters.",
         )
-    if set(query.required_attributes) - set(VALID_ATTRIBUTES):
+    codes = {*query.required_attributes, *query.declined_attributes}
+    if codes - set(VALID_ATTRIBUTES):
         raise InvalidRequestError(
             "Unknown attribute code. " + ATTRIBUTE_DESCRIPTION,
             "Use one of the valid attribute codes.",
