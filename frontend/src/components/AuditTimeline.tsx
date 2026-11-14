@@ -37,6 +37,7 @@ export function withRequestEntry(audit: AuditTrail, requestText: string): readon
   const requestEntry: AuditEntry = {
     id: REQUEST_ENTRY_ID,
     phase: 'request',
+    step: null,
     sentence: `The buyer asked: "${requestText}"`,
     at: audit.startedAt,
     actor: null,

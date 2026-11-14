@@ -877,48 +877,99 @@ textarea.input {
   }
 }
 
-/* Record page */
+/* Record page: a dark, append only log, so it never looks like a page where the user decides. */
 .record-page {
   max-width: var(--page-wide-width);
 }
 
-.record-request {
-  font: var(--type-body);
+.record-panel {
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--record-surface);
+  color: var(--record-ink);
+}
+
+.record-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--record-line);
+  color: var(--record-ink-muted);
+  font: var(--type-label);
+  font-weight: 400;
+}
+
+.record-command {
+  color: var(--record-ink);
+  font: var(--type-code);
+}
+
+/* The log scrolls inside the panel, so the bar with the cart id stays in view. */
+.record-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-3) var(--space-3);
+}
+
+.record-scroll:focus-visible {
+  outline-offset: calc(-1 * var(--focus-ring-width));
+}
+
+/* The brand ring is too dark on the panel (about 2:1), so focus uses the light ink. */
+.record-panel :focus-visible {
+  outline-color: var(--record-ink);
 }
 
 .record-phases,
 .record-lines {
-  display: flex;
-  flex-direction: column;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.record-phases {
-  gap: var(--space-4);
-}
-
-.record-lines {
-  gap: var(--space-3);
+.record-phase {
+  padding: var(--space-3) 0 var(--space-1);
+  color: var(--record-ink-muted);
+  font: var(--type-label);
 }
 
 .record-line {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--line);
-}
-
-.record-line-time,
-.record-line-who {
-  color: var(--ink-muted);
-  font: var(--type-small);
+  gap: 2px var(--space-2);
+  padding: var(--space-2) 0;
 }
 
 .record-line-time {
-  font-variant-numeric: tabular-nums;
+  color: var(--record-ink-muted);
+  font: var(--type-code);
+}
+
+.record-line-who {
+  font: var(--type-label);
+}
+
+.record-who-buyer {
+  color: var(--record-ink);
+}
+
+.record-who-agent {
+  color: var(--who-agent);
+}
+
+.record-who-supplier {
+  color: var(--who-supplier);
+}
+
+.record-who-rules {
+  color: var(--who-rules);
+}
+
+.record-who-user {
+  color: var(--who-user);
 }
 
 .record-line-body {
@@ -926,33 +977,38 @@ textarea.input {
   min-width: 0;
 }
 
-.record-details {
-  margin-top: var(--space-2);
-}
-
 .record-details summary {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   min-height: var(--tap-target);
-  color: var(--brand);
+  color: var(--record-ink-muted);
   font: var(--type-label);
+  font-weight: 400;
   cursor: pointer;
 }
 
 .record-code {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-  overflow-x: auto;
-  border: var(--border-width) solid var(--line);
   border-radius: var(--radius-sm);
-  background: var(--surface-200);
+  background: var(--record-code-surface);
+  color: var(--record-ink-muted);
   font: var(--type-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.record-empty {
+  padding: var(--space-2) 0;
+  color: var(--record-ink-muted);
+  font: var(--type-small);
 }
 
 .record-elapsed {
+  margin-top: var(--space-3);
   padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--ink);
-  font-weight: 600;
+  border-top: var(--border-width) solid var(--record-line);
+  font: var(--type-small);
 }
 
 .record-link {
@@ -962,8 +1018,24 @@ textarea.input {
 }
 
 @media (min-width: 900px) {
+  .record-title {
+    font: var(--type-display);
+  }
+
+  .record-scroll {
+    max-height: 560px;
+    padding: var(--space-1) var(--space-4) var(--space-4) var(--space-3);
+  }
+
   .record-line {
-    grid-template-columns: 6rem 12rem 1fr;
+    grid-template-columns: 5rem 9.5rem 1fr;
+    gap: var(--space-3);
+    padding: 6px 0;
+  }
+
+  .record-line-time,
+  .record-line-who {
+    line-height: 24px;
   }
 
   .record-line-who {
@@ -973,7 +1045,7 @@ textarea.input {
   .record-line-body {
     grid-column: auto;
     padding-left: var(--space-3);
-    border-left: var(--border-width) solid var(--line);
+    border-left: var(--border-width) solid var(--record-line);
   }
 }
 
