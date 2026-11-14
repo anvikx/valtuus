@@ -72,7 +72,8 @@ _SHARED_READS = [
 _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
 _OFFERS_PATH = "/api/v1/offers"
 _CARTS_PATH = "/api/v1/carts"
-_LIVE_PATHS = {_OFFERS_PATH, _CARTS_PATH, "/api/v1/carts/c_1"}
+_MANDATE_PATH = "/api/v1/mandate"
+_LIVE_PATHS = {_OFFERS_PATH, _CARTS_PATH, "/api/v1/carts/c_1", _MANDATE_PATH}
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
 _HUMAN_ACTIONS = [
@@ -151,6 +152,18 @@ def test_agent_route_reaches_its_service(method, path, headers, body) -> None:
     response = _client().request(method, path, headers={**_AUTH, **headers}, json=body)
 
     assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+
+
+def test_mandate_answers_with_rules_and_gateway_time() -> None:
+    """The agent plans from these rules and resolves "Monday" from the gateway time."""
+    response = _client().get(_MANDATE_PATH, headers=_AUTH)
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["mandate"]["version"] == 1
+    assert body["mandate"]["summary"][0].startswith("This agent may place orders up to")
+    assert body["timezone"] == "Europe/Helsinki"
+    assert datetime.fromisoformat(body["now"]).utcoffset() is not None
 
 
 def test_offers_answer_with_a_stored_offer() -> None:
