@@ -111,4 +111,6 @@ class CartResponse(Reasons):
     decided_by: str | None = Field(description="Main user who approved or rejected.")
     decided_at: datetime | None = Field(description="Time of that decision.")
     reject_reason: str | None = Field(description="Why the main user rejected the cart.")
-    approve_url: str = Field(description="Page where the main user approves or rejects.")
+    approve_url: str | None = Field(
+        description="Page where the main user approves or rejects. null unless PENDING_APPROVAL.",
+    )
