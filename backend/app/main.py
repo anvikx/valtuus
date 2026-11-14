@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.adapters.memory import (
+from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryMandateRepository,
     InMemoryUserRepository,

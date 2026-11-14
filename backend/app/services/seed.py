@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from app.domain.access import AgentKey, User, hash_agent_key
+from app.domain.agent_key import AgentKey, User, hash_agent_key
 from app.domain.enums import AgentKeyStatus, AgentScope, Decision, UserRole
 from app.domain.mandate import Mandate, RankingWeights
 from app.services.ports.repositories import (

@@ -1,6 +1,6 @@
 from typing import Protocol
 
-from app.domain.access import AgentKey, User
+from app.domain.agent_key import AgentKey, User
 from app.domain.mandate import Mandate
 
 
