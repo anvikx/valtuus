@@ -85,7 +85,7 @@ class CatalogService:
         request_id: str,
     ) -> SearchResult:
         hits, excluded = self._filter(query, mandate)
-        categories = summarize_categories(tuple(product for product, _ in hits))
+        categories = summarize_categories(tuple(product for product, _ in hits), query.category)
         category = query.category
         if category is None and categories:
             category = categories[0].category
@@ -107,10 +107,6 @@ class CatalogService:
             fits_search(product, query.unit)
             for product, _ in excluded
             if category is None or product.category == category
-        )
-        categories = tuple(
-            replace(summary, in_list=bool(candidates) and summary.category == category)
-            for summary in categories
         )
         return SearchResult(
             understood=query,

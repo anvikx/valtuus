@@ -47,12 +47,18 @@ def _examples(products: Sequence[Product]) -> tuple[str, ...]:
     return tuple(names)[:SEARCH_CATEGORY_EXAMPLES]
 
 
-def summarize_categories(products: Sequence[Product]) -> tuple[CategorySummary, ...]:
+def summarize_categories(
+    products: Sequence[Product],
+    requested: str | None,
+) -> tuple[CategorySummary, ...]:
     grouped: dict[str, list[Product]] = defaultdict(list)
     for product in products:
         grouped[product.category].append(product)
     ordered = sorted(grouped, key=lambda code: (-len(grouped[code]), category_key(code)))
+
+    # With no requested category, the search lists the category with the most hits.
+    listed = requested if requested is not None else next(iter(ordered), None)
     return tuple(
-        CategorySummary(code, len(grouped[code]), _examples(grouped[code]))
+        CategorySummary(code, len(grouped[code]), _examples(grouped[code]), code == listed)
         for code in ordered[:SEARCH_CATEGORY_COUNT]
     )

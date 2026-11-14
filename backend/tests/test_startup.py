@@ -46,6 +46,13 @@ def test_app_refuses_to_start_without_main_user_password() -> None:
         create_app(settings)
 
 
+@pytest.mark.parametrize("guard", [0, -1])
+def test_settings_refuse_a_guard_that_returns_no_candidates(guard: int) -> None:
+    """A guard below 1 empties every search while in_list still names a category."""
+    with pytest.raises(ValueError, match="greater than 0"):
+        Settings(candidate_guard=guard)
+
+
 def test_refused_start_closes_the_database(
     database: Database,
     monkeypatch: pytest.MonkeyPatch,

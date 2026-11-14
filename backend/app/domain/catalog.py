@@ -107,7 +107,7 @@ class CategorySummary:
     category: str
     hits: int
     examples: tuple[str, ...]
-    in_list: bool = False
+    in_list: bool
 
 
 @dataclass(frozen=True)
