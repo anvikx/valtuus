@@ -38,6 +38,7 @@ from app.domain.errors import ConflictError, NotFoundError, UpstreamUnavailableE
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
+from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
@@ -125,7 +126,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
-            PolicyEngine([OrderLimit(), self.deny]),
+            PolicyEngine([AutoOrderSwitch(), OrderLimit(), self.deny]),
             self.clock,
             audit,
             unit_of_work,
@@ -264,6 +265,21 @@ def test_auto_cart_over_a_lowered_limit_waits_and_the_change_is_kept() -> None:
         CartState.PENDING_APPROVAL
     )
     assert world.steps(cart.cart_id)[-1] is AuditStep.POLICY
+    assert world.orders.by_cart(cart.cart_id) is None
+
+
+def test_auto_cart_waits_after_automatic_orders_are_turned_off() -> None:
+    """The main user turns the switch off to stop the agent. A cart made before must stop too."""
+    world = _World()
+    cart = world.cart(100)
+    switched_off = dataclasses.replace(world.mandates.latest(samples.BUYER_ID), version=2)
+    with world.unit_of_work.transaction():
+        world.mandates.add(dataclasses.replace(switched_off, can_auto_order=False))
+
+    result = world.checkout(cart.cart_id)
+
+    assert result.state is CartState.PENDING_APPROVAL
+    assert result.reason_codes == (ReasonCode.AUTO_ORDERS_OFF,)
     assert world.orders.by_cart(cart.cart_id) is None
 
 

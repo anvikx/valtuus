@@ -57,6 +57,16 @@ def test_seed_starts_hotel_1_at_the_500_limit() -> None:
     assert mandate.max_auto_value_per_delivery_date == Decimal("500.00")
 
 
+def test_seed_starts_hotel_1_with_automatic_orders_off() -> None:
+    """The main user must turn on automatic orders before the agent may spend alone."""
+    mandates, _, _ = _seeded()
+
+    mandate = mandates.latest(DEMO_BUYER_ID)
+
+    assert mandate is not None
+    assert mandate.can_auto_order is False
+
+
 def test_seed_stores_the_agent_key_only_as_a_hash() -> None:
     """A leaked store must not give an attacker a working key."""
     _, agent_keys, _ = _seeded()
