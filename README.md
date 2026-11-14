@@ -99,8 +99,21 @@ Open http://localhost. To run the parts on their own with reload, use `make dev-
 
 ### Product data
 
-The Valio Aimo product data is challenge data and is not part of this repository. Put the files
-in `backend/data/` (gitignored).
+The Valio Aimo product data is challenge data and is not part of this repository. The backend
+downloads fresh files into `backend/data/` (gitignored) and loads them before accepting requests.
+`VALIO_API_KEY` must be set in `.env`. A product download or parsing error prevents startup;
+unavailable enrichment files are omitted from that import. With `make dev-be`, a code reload
+also downloads the files again.
+
+Inspect existing files without downloading or starting the app:
+
+```bash
+cd backend
+uv run python -m app.commands.check_catalog
+uv run python -m app.commands.check_catalog 460994
+```
+
+Pass `--data-dir PATH` to inspect files in a different directory.
 
 ## Architecture
 

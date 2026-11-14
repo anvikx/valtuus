@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 from app.domain.enums import AllergenStatus, Decision, ReasonCode, SearchStatus, Unit
 
@@ -17,7 +18,8 @@ class Allergens:
 @dataclass(frozen=True)
 class ContentPerSalesUnit:
     value: Decimal
-    unit: Unit
+    unit: Unit | None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -25,10 +27,10 @@ class Product:
     """One product of the challenge file, with the fields the gateway uses."""
 
     product_id: str
-    gtin: str
+    gtin: str | None
     name: str
-    names: tuple[str, ...]
-    brand: str
+    names: dict[str, str]
+    brand: str | None
     category: str
     sales_unit: str
     content_per_sales_unit: ContentPerSalesUnit | None
@@ -39,6 +41,18 @@ class Product:
     substitute_ids: tuple[str, ...]
     delivery_reliability: Decimal | None
     co2_kg_per_kg: Decimal | None
+    lot_size: Decimal | None = None
+    is_variable_weight: bool = False
+    deposits: tuple[dict[str, Any], ...] = ()
+    ingredients: tuple[dict[str, Any], ...] = ()
+    ingredient_texts: tuple[dict[str, Any], ...] = ()
+    nutrition: tuple[dict[str, Any], ...] = ()
+    nutritional_claims: tuple[str, ...] = ()
+    packaging_labels: tuple[str, ...] = ()
+    key_ingredients: str | None = None
+    fat: Decimal | None = None
+    sugar: Decimal | None = None
+    protein: Decimal | None = None
 
 
 @dataclass(frozen=True)

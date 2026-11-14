@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import logging
 from collections.abc import AsyncIterator, Callable
@@ -7,6 +8,7 @@ from dataclasses import dataclass
 from fastapi import FastAPI
 from pydantic import SecretStr
 
+from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.clock import SystemClock
 from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
@@ -19,6 +21,7 @@ from app.adapters.memory.repositories import (
     InMemoryUnitOfWork,
     InMemoryUserRepository,
 )
+from app.adapters.postgres.catalog import PostgresCatalog
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import (
     PostgresAgentKeyRepository,
@@ -47,6 +50,7 @@ from app.services.catalog_service import CatalogService
 from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
+from app.services.ports.catalog import ProductCatalog
 from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
@@ -89,6 +93,7 @@ class _Store:
     idempotency: IdempotencyRepository
     unit_of_work: UnitOfWork
     close: Callable[[], None]
+    database: Database | None = None
 
 
 def _memory_store() -> _Store:
@@ -120,6 +125,7 @@ def _postgres_store(url: SecretStr) -> _Store:
         idempotency=PostgresIdempotencyRepository(database),
         unit_of_work=database,
         close=database.close,
+        database=database,
     )
 
 
@@ -131,10 +137,9 @@ def _open_store(settings: Settings) -> _Store:
     return _memory_store()
 
 
-def _build_services(settings: Settings, store: _Store) -> Services:
+def _build_services(settings: Settings, store: _Store, catalog_store: ProductCatalog) -> Services:
     clock = SystemClock()
     signer = NullSigner()
-    catalog_store = ProductStore(settings.data_dir)
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
 
     audit_service = AuditService(store.audit, clock)
@@ -216,7 +221,9 @@ def create_app(
         store.close()
         raise
 
-    services = _build_services(settings, store)
+    loader = ProductStore(settings.data_dir)
+    catalog_store = PostgresCatalog(store.database) if store.database else loader
+    services = _build_services(settings, store, catalog_store)
 
     mcp_server = create_mcp_server(services, settings.public_url)
     mcp_app = build_mcp_app(mcp_server)
@@ -226,6 +233,14 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
+            downloader = CatalogDownloader(
+                settings.valio_base_url, settings.valio_api_key, settings.data_dir
+            )
+            files = await asyncio.to_thread(downloader.download)
+            await asyncio.to_thread(loader.load, files)
+            if isinstance(catalog_store, PostgresCatalog):
+                await asyncio.to_thread(catalog_store.replace, loader.products())
+                loader.clear()
             async with mcp_server.session_manager.run():
                 yield
         finally:

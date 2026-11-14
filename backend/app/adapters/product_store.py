@@ -1,20 +1,81 @@
+"""Coordinate local catalog loading and retain only mapped products."""
+
+import re
+import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
 
+from app.adapters.catalog_downloader import DownloadedCatalog
+from app.adapters.catalog_enrichment import load_enrichment
+from app.adapters.catalog_loading import load_records
+from app.adapters.catalog_mapping import map_product
 from app.domain.catalog import Product
 
 
+def normalize_name(name: str) -> str:
+    return "".join(
+        char
+        for char in unicodedata.normalize("NFKD", name.casefold())
+        if not unicodedata.combining(char)
+    )
+
+
 class ProductStore:
-    """The challenge product file, indexed in memory.
-
-    Loads nothing at construction: CI has no challenge data, so the app must start without it.
-    """
-
     def __init__(self, data_dir: Path) -> None:
         self._data_dir = data_dir
+        self._products: dict[str, Product] = {}
+        self._name_index: dict[str, tuple[str, ...]] = {}
+        self.skipped = 0
+
+    def local_files(self) -> DownloadedCatalog:
+        return DownloadedCatalog(
+            self._data_dir / "valio_products.json",
+            self._data_dir / "valio_delivery_reliability.csv",
+            self._data_dir / "valio_carbon_foot_print.csv",
+        )
+
+    def load(self, files: DownloadedCatalog) -> None:
+        reliability = (
+            load_enrichment(files.reliability, "deliveryReliability") if files.reliability else {}
+        )
+        carbon = load_enrichment(files.carbon, "AVG kg CO2-eq/kg") if files.carbon else {}
+        products: dict[str, Product] = {}
+        index: dict[str, list[str]] = {}
+        skipped = 0
+        records = load_records(files.products)
+        for position, record in enumerate(records, 1):
+            if not isinstance(record, dict):
+                raise ValueError(f"{files.products}: record {position}: expected object")
+            if record.get("deleted") is True:
+                skipped += 1
+                continue
+            product_id = record.get("id")
+            try:
+                product = map_product(record, reliability.get(product_id), carbon.get(product_id))
+                if product.product_id in products:
+                    raise ValueError("duplicate product id")
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ValueError(
+                    f"{files.products}: record {position}, product {product_id!r}: {exc}"
+                ) from exc
+            products[product.product_id] = product
+            words = {
+                word
+                for name in product.names.values()
+                for word in re.findall(r"\w+", normalize_name(name))
+            }
+            for word in words:
+                index.setdefault(word, []).append(product.product_id)
+        self._products = products
+        self._name_index = {name: tuple(ids) for name, ids in index.items()}
+        self.skipped = skipped
 
     def get(self, product_id: str) -> Product | None:
-        raise NotImplementedError("ProductStore.get")
+        return self._products.get(product_id)
 
     def products(self) -> Sequence[Product]:
-        raise NotImplementedError("ProductStore.products")
+        return tuple(self._products.values())
+
+    def clear(self) -> None:
+        self._products.clear()
+        self._name_index.clear()
