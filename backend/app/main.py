@@ -50,6 +50,11 @@ from app.api.mcp_server import build_mcp_app, create_mcp_server
 from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
 from app.config import Settings
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
+from app.domain.policy.checks.cutoff import Cutoff
+from app.domain.policy.checks.envelope import KnownProduct, Quantity
+from app.domain.policy.checks.line_limit import LineLimit
+from app.domain.policy.checks.product_rules import Allergen, Brand, RequiredAttributes, Substitute
+from app.domain.policy.checks.request_rules import Delivery, RequestQuantity
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
@@ -223,7 +228,17 @@ def _build_services(
         PolicyEngine(
             [
                 AutoOrderSwitch(),
+                KnownProduct(),
+                Quantity(),
                 OrderLimit(),
+                LineLimit(),
+                Allergen(),
+                RequiredAttributes(),
+                Brand(),
+                Substitute(),
+                Delivery(),
+                RequestQuantity(),
+                Cutoff(),
                 DailyLimit(),
                 StockCheck(),
                 DuplicateOrder(),
@@ -233,6 +248,7 @@ def _build_services(
         clock,
         audit_service,
         store.unit_of_work,
+        catalog=catalog_store,
     )
     order_service = OrderService(
         cart_service,

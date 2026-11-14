@@ -7,6 +7,11 @@ class Decision(StrEnum):
     DENY = "DENY"
 
 
+class EnvelopeMode(StrEnum):
+    HUMAN = "HUMAN"
+    OFF = "OFF"
+
+
 class CartState(StrEnum):
     AUTO = "AUTO"
     PENDING_APPROVAL = "PENDING_APPROVAL"
@@ -104,6 +109,8 @@ class UserRole(StrEnum):
 
 
 class ReasonCode(StrEnum):
+    NEW_PRODUCT = "NEW_PRODUCT"
+    QUANTITY_UNUSUAL = "QUANTITY_UNUSUAL"
     AUTO_ORDERS_OFF = "AUTO_ORDERS_OFF"
     OVER_AUTO_LIMIT = "OVER_AUTO_LIMIT"
     OVER_LINE_LIMIT = "OVER_LINE_LIMIT"

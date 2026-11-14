@@ -325,6 +325,17 @@ class PostgresOrderRepository:
         )
         return _all(self._database, _ORDER, query)
 
+    def list_confirmed(self, buyer_id: str) -> Sequence[Order]:
+        query = (
+            select(orders.c.body)
+            .where(
+                orders.c.buyer_id == buyer_id,
+                orders.c.body["approved_by"].astext.is_not(None),
+            )
+            .order_by(orders.c.order_id)
+        )
+        return _all(self._database, _ORDER, query)
+
     def lock_days(self, buyer_id: str, days: Iterable[date]) -> None:
         # Sorted, so two checkouts with the same dates take the locks in the same order and
         # cannot deadlock. A hash collision only makes two days wait on each other.

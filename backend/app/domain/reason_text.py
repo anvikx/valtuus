@@ -10,6 +10,18 @@ from app.domain.money import round_money
 
 REASON_TEXT = MappingProxyType(
     {
+        ReasonCode.NEW_PRODUCT: "Product {product} has 0 confirmed orders; this cart adds it.",
+        ReasonCode.QUANTITY_UNUSUAL: "Quantity {quantity} sales units is more than {factor} times "
+        "the largest confirmed quantity, {baseline} sales units.",
+        ReasonCode.OVER_LINE_LIMIT: "Line {total} is over the {limit} line limit.",
+        ReasonCode.ALLERGEN_UNKNOWN: "Allergen data is missing under the buyer allergen rules.",
+        ReasonCode.FORBIDDEN_ALLERGEN: "Product contains a forbidden allergen: {allergens}.",
+        ReasonCode.MISSING_ATTRIBUTE: "Product lacks required attributes: {attributes}.",
+        ReasonCode.SUBSTITUTE_OUTSIDE_PREFERENCE: "Brand {brand} is outside preferences: "
+        "{preferred}.",
+        ReasonCode.SUBSTITUTE_FOR_REQUESTED: "{product} replaces the requested {requested}.",
+        ReasonCode.QUANTITY_OVER_REQUEST: "Quantity {delivered} {unit} exceeds the request "
+        "{requested} {unit} by more than 10%.",
         ReasonCode.PRODUCT_NOT_FOUND: "This product is not in the Valio Aimo catalog.",
         ReasonCode.NO_PRICE: "Valio Aimo has no price for this product.",
         ReasonCode.NOT_AVAILABLE: "Valio Aimo cannot deliver this product.",

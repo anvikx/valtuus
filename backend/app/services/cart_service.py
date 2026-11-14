@@ -24,6 +24,7 @@ from app.domain.mandate import Mandate
 from app.domain.money import line_total, total_ex_vat
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
+from app.domain.policy.baseline import build_baseline
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.daily_limit import auto_day_total
 from app.domain.policy.duplicate_order import duplicate_order
@@ -32,6 +33,7 @@ from app.domain.policy.previously_rejected import rejected_cart
 from app.domain.reason_text import day_text, deadline_text, reason_sentence
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateService
+from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
 from app.services.ports.repositories import (
     CartRepository,
@@ -71,7 +73,10 @@ class CartService:
         clock: Clock,
         audit: AuditService,
         unit_of_work: UnitOfWork,
+        *,
+        catalog: ProductCatalog | None = None,
     ) -> None:
+        self._catalog = catalog
         self._offers = offers
         self._carts = carts
         self._revisions = revisions
@@ -263,6 +268,14 @@ class CartService:
         )
         return PolicyContext(
             mandate=mandate,
+            baseline=build_baseline(self._orders.list_confirmed(buyer_id)),
+            offers={line.offer_id: self._offer(buyer_id, line.offer_id) for line in lines},
+            products={
+                line.product_id: product
+                for line in lines
+                if self._catalog is not None
+                and (product := self._catalog.get(line.product_id)) is not None
+            },
             day_orders=tuple(day_orders.values()),
             recent_rejects=recent_rejects,
             now=now,

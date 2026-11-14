@@ -43,7 +43,9 @@ from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
-from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.check import CheckResult, PolicyCheck, PolicyContext
+from app.domain.policy.checks.envelope import KnownProduct, Quantity
+from app.domain.policy.checks.product_rules import Allergen
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
@@ -122,6 +124,8 @@ class _World:
         self,
         source: FakePriceSource | None = None,
         database: Database | None = None,
+        *,
+        checks: Sequence[PolicyCheck] = (),
     ) -> None:
         self.clock = _Clock(NOW)
         self.source = source or FakePriceSource([price()], [stock()])
@@ -161,6 +165,7 @@ class _World:
             PolicyEngine(
                 [
                     AutoOrderSwitch(),
+                    *checks,
                     OrderLimit(),
                     DailyLimit(),
                     DuplicateOrder(),
@@ -639,7 +644,8 @@ def test_second_auto_cart_for_the_day_waits_at_checkout() -> None:
 
 def test_postgres_racing_checkouts_never_pass_the_day_limit(database: Database) -> None:
     """Without the day lock both checkouts read no order for the day, and both place one."""
-    world = _World(database=database)
+    world = _World(database=database, checks=(KnownProduct(), Quantity()))
+    _confirm_history(world, 200)
     carts = [world.cart(qty) for qty in _HALF_DAY_QTYS]
     world.rendezvous.barrier = threading.Barrier(len(carts))
     results: list[Order | Cart | Exception] = []
@@ -662,3 +668,55 @@ def test_postgres_racing_checkouts_never_pass_the_day_limit(database: Database) 
     (held,) = [result for result in results if not isinstance(result, Order)]
     assert held.reason_codes == (ReasonCode.OVER_DAILY_AUTO_LIMIT,)
     assert world.orders.for_day(samples.BUYER_ID, MONDAY) == [order]
+
+
+def _confirm_history(world: _World, qty: int) -> None:
+    line = dataclasses.replace(
+        samples.order().lines[0],
+        product_id=MILK_ID,
+        qty=qty,
+        delivery_date=MONDAY - timedelta(days=7),
+    )
+    order = dataclasses.replace(
+        samples.order("history", "history-cart"), lines=(line,), placed_at=NOW - timedelta(days=7)
+    )
+    with world.unit_of_work.transaction():
+        world.orders.add(order)
+
+
+def test_auto_order_does_not_expand_confirmed_envelope() -> None:
+    """A 40-unit AUTO order cannot turn a human-confirmed 20 into permission for 80."""
+    world = _World(checks=(KnownProduct(), Quantity()))
+    user = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
+    first = world.cart(20)
+    assert first.reason_codes == (ReasonCode.NEW_PRODUCT,)
+
+    confirmed = world.service.place(first, user)
+    automatic = world.checkout(world.cart(40).cart_id)
+    held = world.checkout(world.cart(80).cart_id, key="third-checkout")
+
+    assert isinstance(confirmed, Order) and confirmed.approved_by == user.user_id
+    assert isinstance(automatic, Order) and automatic.approved_by is None
+    assert held.state is CartState.PENDING_APPROVAL
+    assert held.reason_codes == (ReasonCode.QUANTITY_UNUSUAL,)
+    assert held.lines[0].reason_codes == held.reason_codes
+    assert "80" in held.lines[0].reason_sentences[0]
+    assert "20" in held.lines[0].reason_sentences[0]
+    assert world.orders.list_confirmed(samples.BUYER_ID) == [confirmed]
+
+
+def test_approval_cannot_override_new_allergen_rule() -> None:
+    """An offer that predates a mandate edit must still obey the new forbidden allergens."""
+    world = _World(checks=(Allergen(),))
+    cart = world.cart(100)
+    user = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
+    with world.unit_of_work.transaction():
+        mandate = world.mandates.latest(samples.BUYER_ID)
+        world.mandates.add(dataclasses.replace(mandate, version=2, forbidden_allergens=("oats",)))
+
+    held = world.service.place(cart, user)
+
+    assert held.state is CartState.DENIED
+    assert held.reason_codes == (ReasonCode.FORBIDDEN_ALLERGEN,)
+    assert held.lines[0].reason_codes == held.reason_codes
+    assert world.orders.by_cart(cart.cart_id) is None

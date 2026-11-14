@@ -131,6 +131,16 @@ class InMemoryOrderRepository:
             and any(line.delivery_date == delivery_date for line in order.lines)
         ]
 
+    def list_confirmed(self, buyer_id: str) -> Sequence[Order]:
+        return sorted(
+            (
+                order
+                for order in self._by_id.values()
+                if order.buyer_id == buyer_id and order.approved_by is not None
+            ),
+            key=lambda order: (order.placed_at, order.order_id),
+        )
+
     def lock_days(self, buyer_id: str, days: Iterable[date]) -> None:
         # The unit of work lock already serializes every transaction here.
         pass

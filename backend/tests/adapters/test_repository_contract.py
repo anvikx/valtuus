@@ -325,3 +325,19 @@ def test_used_idempotency_key_is_refused(store: _Store) -> None:
 
     assert store.idempotency.get(samples.BUYER_ID, "k_1") == record
     assert store.idempotency.get(samples.BUYER_ID, "k_2") is None
+
+
+def test_confirmed_history_is_scoped_to_buyer_and_excludes_auto(store: _Store) -> None:
+    """All human confirmations count, even old ones; no other buyer or AUTO order counts."""
+    confirmed = dataclasses.replace(
+        samples.order("confirmed", "c_confirmed"), placed_at=samples.NOW - timedelta(days=1000)
+    )
+    automatic = dataclasses.replace(samples.order("automatic", "c_auto"), approved_by=None)
+    other = dataclasses.replace(samples.order("other", "c_other"), buyer_id="buyer-b")
+    with store.unit_of_work.transaction():
+        for order in (confirmed, automatic, other):
+            store.orders.add(order)
+
+    assert store.orders.list_confirmed(samples.BUYER_ID) == [confirmed]
+    assert store.orders.list_confirmed("buyer-b") == [other]
+    assert store.orders.list_confirmed("new-buyer") == []
