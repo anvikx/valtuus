@@ -11,6 +11,8 @@ from app.config import Settings
 router = APIRouter()
 
 _TIMEOUT_SECONDS = 10
+# The mock API returns 403 for the default Python-urllib user agent, before it checks the key.
+_USER_AGENT = "valtuus-gateway/0.1"
 
 
 @router.get("/debug/valio-ping")
@@ -19,7 +21,10 @@ def get_valio_ping(response: Response) -> dict[str, str]:
     settings = Settings()
     request = urllib.request.Request(
         f"{settings.valio_base_url}/api/ping",
-        headers={"X-API-Key": settings.valio_api_key.get_secret_value()},
+        headers={
+            "X-API-Key": settings.valio_api_key.get_secret_value(),
+            "User-Agent": _USER_AGENT,
+        },
     )
     try:
         with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as upstream:
