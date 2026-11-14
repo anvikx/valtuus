@@ -267,8 +267,8 @@ def test_session_opens_human_action(method, path, body) -> None:
 
     response = client.request(method, path, headers=_AUTH, json=body)
 
-    # 501: the session check passed and the stub service ran.
-    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+    # The service answers (a stub 501, or 404 for the made up cart): the door let it through.
+    assert response.status_code not in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
 
 
 @pytest.mark.parametrize(("method", "path", "headers", "body"), _SHARED_READS)

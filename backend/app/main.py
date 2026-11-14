@@ -186,6 +186,17 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         audit_service,
         store.unit_of_work,
     )
+    cart_service = CartService(
+        store.offers,
+        store.carts,
+        store.orders,
+        store.idempotency,
+        mandate_service,
+        PolicyEngine([OrderLimit()]),
+        clock,
+        audit_service,
+        store.unit_of_work,
+    )
     return Services(
         agent_keys=AgentKeyService(store.agent_keys),
         catalog=CatalogService(
@@ -203,20 +214,11 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
             store.unit_of_work,
             settings.candidate_guard,
         ),
-        carts=CartService(
-            store.offers,
-            store.carts,
-            store.orders,
-            store.idempotency,
-            mandate_service,
-            PolicyEngine([OrderLimit()]),
-            clock,
-            audit_service,
-            store.unit_of_work,
-        ),
+        carts=cart_service,
         orders=order_service,
         approvals=ApprovalService(
             store.carts,
+            cart_service,
             order_service,
             mandate_service,
             clock,
