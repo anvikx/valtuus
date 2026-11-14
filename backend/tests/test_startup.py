@@ -131,8 +131,7 @@ def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
         cookies = client.cookies
 
     with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
-        # 501: the session check passed and the stub service ran.
-        assert client.get("/api/v1/agents").status_code == HTTPStatus.NOT_IMPLEMENTED
+        assert client.get("/api/v1/agents").status_code == HTTPStatus.OK
 
 
 def test_password_change_logs_the_main_user_out(database: Database) -> None:
