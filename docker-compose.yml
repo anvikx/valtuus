@@ -6,6 +6,29 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      # Built from the one secret the db container also reads. Fail closed: without it the
+      # backend would fall back to memory and lose every order.
+      DATABASE_URL: postgresql+psycopg://valtuus:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/valtuus
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: valtuus
+      POSTGRES_DB: valtuus
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    # No ports: only the backend on the compose network reaches the database.
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "valtuus", "-d", "valtuus"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     restart: unless-stopped
 
   web:
@@ -27,5 +50,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  pg_data:
   caddy_data:
   caddy_config:

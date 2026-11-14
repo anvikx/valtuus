@@ -72,6 +72,8 @@ App.tsx (UI) --> src/api.ts --> fetch --> Caddy /api/* --> FastAPI router --> se
 * Do not move or rename `GET /api/health`. The container health check and the deploy rollback
   depend on it.
 * The backend runs one worker. In memory state must stay in one process.
+* Migrations are forward only. A rollback restores the image, not the schema, so each migration
+  must keep the previous image working (see `backend/app/adapters/postgres/migrations/env.py`).
 * No speculative code. Add an interface, config or extension point only when something uses it.
 * Handle error paths and edge cases in the same change, not later.
 

@@ -22,3 +22,6 @@ class Settings(BaseSettings):
     public_url: str = "https://junction.anvik.fi"
     # The challenge product file. Gitignored: the data stays inside the challenge.
     data_dir: Path = Path("data")
+    # postgresql+psycopg://... Empty means the in-memory store, which loses all data on
+    # restart; Compose refuses to start without it. Secret: the URL holds the password.
+    database_url: SecretStr = SecretStr("")

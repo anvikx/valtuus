@@ -1,8 +1,24 @@
+import dataclasses
+
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from app.adapters.postgres.database import Database
+from app.adapters.postgres.repositories import PostgresAgentKeyRepository
 from app.config import Settings
+from app.domain.agent_key import hash_agent_key
+from app.domain.enums import AgentKeyStatus
 from app.main import create_app
+from tests.conftest import TEST_DATABASE_URL
+
+_KEY = "test-agent-key-0123456789"
+
+
+def _start_and_stop(settings: Settings) -> None:
+    """The lifespan runs on enter and exit, so the engine closes as on a real stop."""
+    with TestClient(create_app(settings)):
+        pass
 
 
 def test_app_refuses_to_start_without_agent_key() -> None:
@@ -11,3 +27,23 @@ def test_app_refuses_to_start_without_agent_key() -> None:
 
     with pytest.raises(ValueError, match="empty"):
         create_app(settings)
+
+
+def test_restart_keeps_a_revoked_key_revoked(database: Database) -> None:
+    """A revoke must survive a deploy; else the restart gives a leaked key its access back."""
+    settings = Settings(
+        agent_key=SecretStr(_KEY),
+        database_url=SecretStr(TEST_DATABASE_URL),
+    )
+    _start_and_stop(settings)
+    agent_keys = PostgresAgentKeyRepository(database)
+    agent = agent_keys.by_hash(hash_agent_key(_KEY))
+    assert agent is not None
+    with database.transaction():
+        agent_keys.add(dataclasses.replace(agent, status=AgentKeyStatus.REVOKED))
+
+    _start_and_stop(settings)
+
+    restarted = agent_keys.by_hash(hash_agent_key(_KEY))
+    assert restarted is not None
+    assert restarted.status is AgentKeyStatus.REVOKED

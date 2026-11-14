@@ -1,7 +1,11 @@
-from collections.abc import AsyncIterator
+import dataclasses
+import logging
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 from fastapi import FastAPI
+from pydantic import SecretStr
 
 from app.adapters.clock import SystemClock
 from app.adapters.memory.repositories import (
@@ -14,6 +18,17 @@ from app.adapters.memory.repositories import (
     InMemoryOrderRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
+)
+from app.adapters.postgres.database import Database
+from app.adapters.postgres.repositories import (
+    PostgresAgentKeyRepository,
+    PostgresAuditRepository,
+    PostgresCartRepository,
+    PostgresIdempotencyRepository,
+    PostgresMandateRepository,
+    PostgresOfferRepository,
+    PostgresOrderRepository,
+    PostgresUserRepository,
 )
 from app.adapters.product_store import ProductStore
 from app.adapters.signer import NullSigner
@@ -32,7 +47,20 @@ from app.services.catalog_service import CatalogService
 from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
+from app.services.ports.repositories import (
+    AgentKeyRepository,
+    AuditRepository,
+    CartRepository,
+    IdempotencyRepository,
+    MandateRepository,
+    OfferRepository,
+    OrderRepository,
+    UserRepository,
+)
+from app.services.ports.unit_of_work import UnitOfWork
 from app.services.seed import seed_demo
+
+_logger = logging.getLogger(__name__)
 
 # Caddy routes /api/* to the backend, so every route must live under this prefix.
 _API_PREFIX = "/api"
@@ -49,72 +77,117 @@ _ROUTERS = (
 )
 
 
-def _build_services(
-    settings: Settings,
-    mandate_repo: InMemoryMandateRepository,
-    agent_key_repo: InMemoryAgentKeyRepository,
-) -> Services:
+@dataclass(frozen=True)
+class _Store:
+    mandates: MandateRepository
+    agent_keys: AgentKeyRepository
+    users: UserRepository
+    offers: OfferRepository
+    carts: CartRepository
+    orders: OrderRepository
+    audit: AuditRepository
+    idempotency: IdempotencyRepository
+    unit_of_work: UnitOfWork
+    close: Callable[[], None]
+
+
+def _memory_store() -> _Store:
+    return _Store(
+        mandates=InMemoryMandateRepository(),
+        agent_keys=InMemoryAgentKeyRepository(),
+        users=InMemoryUserRepository(),
+        offers=InMemoryOfferRepository(),
+        carts=InMemoryCartRepository(),
+        orders=InMemoryOrderRepository(),
+        audit=InMemoryAuditRepository(),
+        idempotency=InMemoryIdempotencyRepository(),
+        unit_of_work=InMemoryUnitOfWork(),
+        close=lambda: None,
+    )
+
+
+def _postgres_store(url: SecretStr) -> _Store:
+    database = Database.from_url(url)
+    database.migrate()
+    return _Store(
+        mandates=PostgresMandateRepository(database),
+        agent_keys=PostgresAgentKeyRepository(database),
+        users=PostgresUserRepository(database),
+        offers=PostgresOfferRepository(database),
+        carts=PostgresCartRepository(database),
+        orders=PostgresOrderRepository(database),
+        audit=PostgresAuditRepository(database),
+        idempotency=PostgresIdempotencyRepository(database),
+        unit_of_work=database,
+        close=database.close,
+    )
+
+
+def _open_store(settings: Settings) -> _Store:
+    if settings.database_url.get_secret_value():
+        return _postgres_store(settings.database_url)
+
+    _logger.warning("DATABASE_URL is empty: in-memory store, all data is lost on restart")
+    return _memory_store()
+
+
+def _build_services(settings: Settings, store: _Store) -> Services:
     clock = SystemClock()
     signer = NullSigner()
     catalog_store = ProductStore(settings.data_dir)
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
-    offer_repo = InMemoryOfferRepository()
-    cart_repo = InMemoryCartRepository()
-    order_repo = InMemoryOrderRepository()
-    idempotency_repo = InMemoryIdempotencyRepository()
-    unit_of_work = InMemoryUnitOfWork()
 
-    audit_service = AuditService(InMemoryAuditRepository(), clock)
+    audit_service = AuditService(store.audit, clock)
     mandate_service = MandateService(
-        mandate_repo,
+        store.mandates,
         clock,
         audit_service,
-        unit_of_work,
+        store.unit_of_work,
     )
     order_service = OrderService(
-        cart_repo,
-        order_repo,
-        idempotency_repo,
+        store.carts,
+        store.orders,
+        store.idempotency,
         mandate_service,
         valio,
         signer,
         clock,
         audit_service,
-        unit_of_work,
+        store.unit_of_work,
     )
     return Services(
-        agent_keys=AgentKeyService(agent_key_repo),
+        agent_keys=AgentKeyService(store.agent_keys),
         catalog=CatalogService(
             catalog_store,
-            mandate_repo,
+            store.mandates,
             audit_service,
         ),
         offers=OfferService(
             catalog_store,
             valio,
-            offer_repo,
+            store.offers,
             signer,
             clock,
             audit_service,
         ),
         carts=CartService(
-            offer_repo,
-            cart_repo,
-            order_repo,
-            idempotency_repo,
+            store.offers,
+            store.carts,
+            store.orders,
+            store.idempotency,
             mandate_service,
             clock,
             audit_service,
-            unit_of_work,
+            store.unit_of_work,
         ),
         orders=order_service,
         approvals=ApprovalService(
-            cart_repo,
+            store.carts,
             order_service,
             mandate_service,
             clock,
             audit_service,
-            unit_of_work,
+            store.unit_of_work,
         ),
         mandates=mandate_service,
         audit=audit_service,
@@ -123,20 +196,27 @@ def _build_services(
 
 def create_app(
     settings: Settings | None = None,
-    agent_keys: InMemoryAgentKeyRepository | None = None,
+    agent_keys: AgentKeyRepository | None = None,
 ) -> FastAPI:
     """agent_keys lets a test change the seeded key without reaching into the app."""
     settings = settings or Settings()
-    agent_keys = InMemoryAgentKeyRepository() if agent_keys is None else agent_keys
-    mandates = InMemoryMandateRepository()
-    users = InMemoryUserRepository()
-    seed_demo(
-        mandates,
-        agent_keys,
-        users,
-        agent_key=settings.agent_key.get_secret_value(),
-    )
-    services = _build_services(settings, mandates, agent_keys)
+    store = _open_store(settings)
+    if agent_keys is not None:
+        store = dataclasses.replace(store, agent_keys=agent_keys)
+
+    try:
+        seed_demo(
+            store.mandates,
+            store.agent_keys,
+            store.users,
+            store.unit_of_work,
+            agent_key=settings.agent_key.get_secret_value(),
+        )
+    except Exception:
+        store.close()
+        raise
+
+    services = _build_services(settings, store)
 
     mcp_server = create_mcp_server(services, settings.public_url)
     mcp_app = build_mcp_app(mcp_server)
@@ -145,8 +225,11 @@ def create_app(
     # starts here.
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        async with mcp_server.session_manager.run():
-            yield
+        try:
+            async with mcp_server.session_manager.run():
+                yield
+        finally:
+            store.close()
 
     app = FastAPI(
         title=settings.app_name,

@@ -13,6 +13,10 @@ _ALLOWED = {
     "app.adapters": ("app.adapters", "app.services.ports", "app.domain"),
     "app.api": ("app.api", "app.services", "app.domain"),
 }
+# Only this package may touch the database libraries, so swapping or mocking the store
+# never reaches the services or the API. The rule covers modules outside any ring too.
+_DATABASE_LIBRARIES = frozenset({"alembic", "psycopg", "sqlalchemy"})
+_DATABASE_ADAPTER = "app.adapters.postgres"
 
 
 def _module_name(path: Path) -> str:
@@ -73,3 +77,17 @@ def test_imports_point_inward(path: Path):
     violations = _violations(path)
 
     assert violations == []
+
+
+def _database_imports(path: Path) -> list[str]:
+    if _is_allowed(_module_name(path), (_DATABASE_ADAPTER,)):
+        return []
+
+    names = [name for node in _imports(path) for name in _imported_names(node)]
+    return [name for name in names if name.split(".")[0] in _DATABASE_LIBRARIES]
+
+
+@pytest.mark.parametrize("path", _MODULES, ids=[_module_name(path) for path in _MODULES])
+def test_database_stays_in_its_adapter(path: Path):
+    """A SQLAlchemy type outside the adapter would tie that code to Postgres."""
+    assert _database_imports(path) == []
