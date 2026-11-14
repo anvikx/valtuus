@@ -47,6 +47,7 @@ blockquote {
 .app-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3);
   border-bottom: var(--border-width) solid var(--line);
@@ -54,7 +55,53 @@ blockquote {
 }
 
 .app-name {
-  font: var(--type-heading);
+  font: var(--type-title);
+}
+
+/* Phone: the nav wraps to its own row, and its underline sits on the header border. */
+.app-header-nav {
+  flex-wrap: wrap;
+  padding-bottom: 0;
+}
+
+.app-nav {
+  display: flex;
+  flex-basis: 100%;
+  order: 1;
+  gap: var(--space-4);
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  color: var(--brand);
+  font: var(--type-small);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-nav-link[aria-current='page'] {
+  color: var(--ink);
+  box-shadow: inset 0 calc(-2 * var(--border-width)) 0 var(--brand);
+}
+
+/* Desktop: name, nav and tag on one row. */
+@media (min-width: 900px) {
+  .app-header-nav {
+    padding-block: 0;
+  }
+
+  .app-nav {
+    flex-basis: auto;
+    order: 0;
+    margin: 0 auto 0 var(--space-4);
+    gap: var(--space-1);
+  }
+
+  .app-nav-link {
+    padding: 0 var(--space-3);
+  }
 }
 
 .app-footer {
@@ -69,9 +116,9 @@ blockquote {
 .tag {
   display: inline-block;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--brand-tint);
-  color: var(--brand);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-muted);
   font: var(--type-label);
 }
 
@@ -119,28 +166,33 @@ blockquote {
   font: var(--type-label);
 }
 
-/* Approval page: facts, quote, chips, reason banners, lines, total, trust mark. */
-.facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-1) var(--space-3);
+/* Approval page: reason box, trust mark, two columns on desktop, bottom bar on phone. */
+.why-waits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--decide-tint);
+}
+
+.why-waits-title {
+  color: var(--decide);
+  font: var(--type-label);
+}
+
+.why-waits-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   margin: 0;
-  font: var(--type-small);
+  padding-left: var(--space-4);
 }
 
-.facts dt {
-  color: var(--ink-muted);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.quote {
-  padding: var(--space-2) var(--space-3);
-  border-left: var(--space-1) solid var(--brand);
-  font: var(--type-heading);
+.line-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .chips {
@@ -152,50 +204,13 @@ blockquote {
   list-style: none;
 }
 
-.chip {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--brand-tint);
-  color: var(--brand);
-  font: var(--type-label);
-}
-
-/* Text stays ink: decide on decide-tint is only 4.63:1, so the colour goes on the frame. */
-.banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--decide);
-  border-radius: var(--radius-md);
-  background: var(--decide-tint);
-}
-
-.banner-icon {
-  flex: none;
-  color: var(--decide);
-}
-
-.line-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.line-head {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.total {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.clarifications {
+  padding-left: var(--space-4);
 }
 
 .trust-mark {
   align-self: flex-start;
+  width: fit-content;
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) dashed var(--ink-muted);
   border-radius: var(--radius-pill);
@@ -203,26 +218,120 @@ blockquote {
   font: var(--type-label);
 }
 
-/* Result card: the icon colour says the outcome, the sentence says it in words. */
-.result {
+.summary-total {
+  font: var(--type-display);
+}
+
+.summary-deadline {
+  color: var(--decide);
+  font-weight: 600;
+}
+
+.approval {
+  display: flex;
+  flex-direction: column;
+  /* The action bar ends the page, with no gap above the footer. */
+  padding-bottom: 0;
+}
+
+.approval-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.desktop-only {
+  display: none;
+}
+
+/* Phone: the decision bar sticks to the viewport bottom. Sticky, not fixed: it keeps its
+   own height in the flow, so a Retry alert in it never covers the last section. */
+.decision {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  margin: 0 calc(var(--space-3) * -1);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  padding: var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+  background: var(--surface-200);
 }
 
-.result-icon {
-  width: var(--tap-target);
-  height: var(--tap-target);
-  color: var(--ink-muted);
+/* Bottom sheet for the reject reason. A native dialog gives the focus trap and Escape. */
+.sheet {
+  box-sizing: border-box;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--surface-200);
+  color: var(--ink);
 }
 
-.result-ordered .result-icon {
-  color: var(--done);
+.sheet::backdrop {
+  background: var(--scrim);
 }
 
-.result-rejected .result-icon,
-.result-denied .result-icon {
-  color: var(--deny);
+.sheet-grip {
+  align-self: center;
+  width: var(--space-5);
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--line);
+}
+
+.sheet-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sheet-actions .button-deny,
+.sheet-actions .button-primary {
+  flex: 1;
+  width: auto;
+}
+
+/* 900 px is the layout switch of the design boards. A media query cannot read a token. */
+@media (min-width: 900px) {
+  .approval {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--panel-width);
+    align-items: start;
+    gap: var(--space-5);
+    max-width: var(--page-wide-width);
+    padding-bottom: var(--space-4);
+  }
+
+  .phone-only {
+    display: none;
+  }
+
+  .desktop-only {
+    display: flex;
+  }
+
+  .decision {
+    top: var(--space-4);
+    bottom: auto;
+    margin: 0;
+    padding: var(--space-4);
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .sheet {
+    inset: 0;
+    width: var(--page-max-width);
+    max-width: 100%;
+    height: fit-content;
+    margin: auto;
+    border-radius: var(--radius-md);
+  }
 }
 
 /* Audit timeline: 4 numbered groups, the time in front of each sentence. */
@@ -251,8 +360,164 @@ blockquote {
   font-variant-numeric: tabular-nums;
 }
 
-.timeline-elapsed {
+/* Record: the timeline folds away under its summary line. */
+.record {
+  border-top: var(--border-width) solid var(--line);
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.record-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+
+.record-chevron {
+  flex: none;
+  color: var(--ink-muted);
+}
+
+.record[open] .record-chevron {
+  transform: rotate(180deg);
+}
+
+.record-summary::-webkit-details-marker {
+  display: none;
+}
+
+.record[open] > .record-summary {
+  margin-bottom: var(--space-2);
+}
+
+/* Ordered result: flow steps, badge, summary rows and order lines. */
+.flow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--done);
   font: var(--type-label);
+}
+
+.flow-step::before {
+  content: '';
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: currentColor;
+}
+
+.flow-step-current {
+  color: var(--decide);
+}
+
+.flow-step-upcoming {
+  color: var(--ink-muted);
+}
+
+.flow-step-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.flow-step-deny {
+  color: var(--deny);
+}
+
+.flow-step-muted {
+  color: var(--ink-muted);
+}
+
+.flow-step-icon {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.result-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.result-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--done);
+  color: var(--on-brand);
+}
+
+.result-badge-deny {
+  background: var(--deny);
+}
+
+.result-badge-muted {
+  background: var(--ink-muted);
+}
+
+.summary-rows {
+  margin: 0;
+}
+
+.summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--line);
+}
+
+.summary-row:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.summary-row dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.order-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.order-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--line);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .actions {
@@ -294,10 +559,10 @@ blockquote {
   color: var(--on-brand);
 }
 
-.button-text-quiet {
-  background: none;
-  color: var(--ink);
-  text-decoration: underline;
+.button-outline {
+  border: var(--border-width) solid var(--line);
+  background: var(--surface-200);
+  color: var(--brand);
 }
 
 .field-error {
@@ -314,6 +579,12 @@ blockquote {
   color: var(--ink);
   font: var(--type-small);
   cursor: pointer;
+}
+
+.button-quiet[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand-tint);
+  color: var(--brand);
 }
 
 .field {
@@ -354,4 +625,548 @@ textarea.input {
   border-radius: var(--radius-sm);
   background: var(--surface-200);
   color: var(--ink);
+}
+
+/* Inbox: one list per section. Phone rows stack, desktop rows are columns. */
+.inbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.inbox-head,
+.inbox-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.inbox-count {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.inbox-limits-link {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.inbox-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-top: var(--border-width) solid var(--line);
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.inbox-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.inbox-item {
+  border-top: var(--border-width) solid var(--line);
+}
+
+.inbox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--space-3);
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  min-height: var(--tap-target);
+  padding: var(--space-3) 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.inbox-row:hover .inbox-request {
+  text-decoration: underline;
+}
+
+.inbox-row-waiting .inbox-request,
+.inbox-row-waiting .inbox-total {
+  font-weight: 600;
+}
+
+.inbox-why,
+.inbox-result,
+.inbox-deadline {
+  grid-column: 1;
+  font: var(--type-small);
+}
+
+.inbox-why {
+  color: var(--decide);
+  font-weight: 600;
+}
+
+.inbox-more,
+.inbox-deadline {
+  color: var(--ink-muted);
+  font-weight: 400;
+}
+
+.inbox-total {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
+}
+
+.inbox-chevron {
+  grid-column: 3;
+  grid-row: 1;
+  width: var(--space-3);
+  height: var(--space-3);
+  color: var(--ink-muted);
+  transform: rotate(-90deg);
+}
+
+.inbox-outcome {
+  font-weight: 600;
+}
+
+.inbox-outcome-done {
+  color: var(--done);
+}
+
+.inbox-outcome-deny {
+  color: var(--deny);
+}
+
+.inbox-outcome-muted {
+  color: var(--ink-muted);
+}
+
+@media (min-width: 900px) {
+  /* The limits line comes last on a phone, and sits beside the title on desktop. */
+  .inbox {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    max-width: var(--page-wide-width);
+    gap: var(--space-5);
+    padding: var(--space-5);
+  }
+
+  .inbox > * {
+    grid-column: 1 / -1;
+  }
+
+  .inbox > .inbox-head {
+    grid-column: 1;
+  }
+
+  .inbox > .inbox-limits {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+  }
+
+  .inbox-row-waiting {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) max-content max-content var(--space-3);
+    align-items: start;
+  }
+
+  .inbox-row-decided {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) max-content var(--space-3);
+  }
+
+  .inbox-row-waiting .inbox-why {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .inbox-row-waiting .inbox-deadline {
+    grid-column: 3;
+    grid-row: 1;
+    white-space: nowrap;
+  }
+
+  .inbox-row-waiting .inbox-total {
+    grid-column: 4;
+  }
+
+  .inbox-row-waiting .inbox-chevron {
+    grid-column: 5;
+  }
+
+  .inbox-row-decided .inbox-result {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .inbox-row-decided .inbox-total {
+    grid-column: 3;
+  }
+
+  .inbox-row-decided .inbox-chevron {
+    grid-column: 4;
+  }
+}
+
+/* Record page */
+.record-page {
+  max-width: var(--page-wide-width);
+}
+
+.record-request {
+  font: var(--type-body);
+}
+
+.record-phases,
+.record-lines {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.record-phases {
+  gap: var(--space-4);
+}
+
+.record-lines {
+  gap: var(--space-3);
+}
+
+.record-line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+}
+
+.record-line-time,
+.record-line-who {
+  color: var(--ink-muted);
+  font: var(--type-small);
+}
+
+.record-line-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.record-line-body {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.record-details {
+  margin-top: var(--space-2);
+}
+
+.record-details summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  color: var(--brand);
+  font: var(--type-label);
+  cursor: pointer;
+}
+
+.record-code {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-200);
+  font: var(--type-code);
+}
+
+.record-elapsed {
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--ink);
+  font-weight: 600;
+}
+
+.record-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+}
+
+@media (min-width: 900px) {
+  .record-line {
+    grid-template-columns: 6rem 12rem 1fr;
+  }
+
+  .record-line-who {
+    text-align: right;
+  }
+
+  .record-line-body {
+    grid-column: auto;
+    padding-left: var(--space-3);
+    border-left: var(--border-width) solid var(--line);
+  }
+}
+
+/* Permissions page */
+.mandate,
+.mandate-form,
+.mandate-column,
+.mandate-section,
+.mandate-head,
+.mandate-saved {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.mandate {
+  gap: var(--space-4);
+}
+
+.mandate-head,
+.mandate-section {
+  gap: var(--space-1);
+}
+
+.mandate-columns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.mandate-column {
+  gap: var(--space-4);
+}
+
+.mandate-rows {
+  margin: 0;
+  border-bottom: var(--border-width) solid var(--line);
+}
+
+.mandate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--line);
+}
+
+.mandate-row dd {
+  margin: 0;
+  text-align: right;
+}
+
+.mandate-bullets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.mandate-edit {
+  align-self: flex-start;
+}
+
+.mandate-saved {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--brand-tint);
+  gap: var(--space-2);
+}
+
+.mandate-saved p {
+  margin: 0;
+}
+
+.mandate-form {
+  gap: var(--space-5);
+}
+
+.mandate-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mandate-group legend {
+  padding: 0 0 var(--space-2);
+}
+
+.mandate-money .input {
+  text-align: right;
+}
+
+.mandate-unit {
+  display: flex;
+  align-items: center;
+  min-width: var(--tap-target);
+  color: var(--ink-muted);
+}
+
+.mandate-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mandate-checks {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: var(--space-3);
+}
+
+.mandate-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+}
+
+.mandate-choice input {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  margin: 0;
+  accent-color: var(--brand);
+}
+
+.mandate-cancel {
+  width: 100%;
+  text-decoration: none;
+  color: var(--brand);
+}
+
+/* 900 px is the layout switch of the design boards. A media query cannot read a token. */
+@media (min-width: 900px) {
+  .mandate {
+    max-width: var(--page-wide-width);
+  }
+
+  .mandate-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-5);
+    align-items: start;
+  }
+
+  .mandate-form {
+    max-width: var(--page-max-width);
+  }
+
+  .mandate-checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mandate-cancel {
+    width: auto;
+    align-self: flex-start;
+  }
+}
+
+/* Order update: the bar that asks for Review, and the marks on what changed. */
+.update-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--ink);
+  color: var(--surface-200);
+  font: var(--type-label);
+}
+
+.button-light {
+  flex: none;
+  padding: 0 var(--space-3);
+  background: var(--surface-200);
+  color: var(--ink);
+  font: var(--type-label);
+}
+
+.update-note {
+  color: var(--brand);
+  font: var(--type-label);
+}
+
+.change-mark {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.change-new {
+  margin-left: var(--space-2);
+  font: var(--type-label);
+}
+
+.summary-was {
+  display: block;
+}
+
+.actions-secondary {
+  display: flex;
+  justify-content: space-between;
+}
+
+.button-change {
+  background: none;
+  color: var(--brand);
+  text-decoration: underline;
+}
+
+.button-compact {
+  padding: 0 var(--space-2);
+}
+
+/* Change sheet: one box per line, quantity as minus, number, plus. */
+.change-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.change-line-name {
+  display: flex;
+  flex-direction: column;
+}
+
+.qty-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.qty-step {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-200);
+  color: var(--brand);
+  font: var(--type-title);
+  cursor: pointer;
+}
+
+.qty-input {
+  width: 7.5rem;
+  padding: 0;
+  text-align: center;
+  font-weight: 600;
 }

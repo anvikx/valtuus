@@ -13,7 +13,12 @@
 //   c_conflict       waiting; approve and reject answer 409, and the cart is then EXPIRED
 //   c_approve_fails  waiting; approve answers 503
 //   c_unavailable    every read answers 503
-import type { WireAuditRecord, WireCart, WireRequest, WireResponse } from '../api.ts'
+//   c_revised        waiting, revision 2: the agent changed the milk and added coffee
+//   c_revised_stale  like c_revised, but approve and reject answer 409 and a revision 3 shows
+//
+// Permissions: /permissions. /permissions?save=fail makes a save answer 503.
+// Inbox: /inbox lists the carts above. /inbox?inbox=empty hides the waiting ones.
+import type { WireAuditRecord, WireCart, WireMandate, WireRequest, WireResponse } from '../api.ts'
 import {
   ORDER_CONFIRMATION,
   PENDING_CART,
@@ -31,6 +36,7 @@ import {
   waitingRecords,
   withdrawnCart,
 } from './run1.ts'
+import { MILK_ID, REVISED_EXTRAS, reviseCart, type LineChange } from './revised.ts'
 
 const STATUS = {
   ok: 200,
@@ -54,9 +60,21 @@ const CONFLICT_ID = 'c_conflict'
 const APPROVE_FAILS_ID = 'c_approve_fails'
 const UNAVAILABLE_ID = 'c_unavailable'
 const ANSWERS_ID = 'c_answers'
+const REVISED_ID = 'c_revised'
+const STALE_ID = 'c_revised_stale'
+const AGENT_UPDATER = 'AGENT'
+const USER_UPDATER = 'MAIN_USER'
+const STALE_MILK_QTY = 700
 
 const AUTH_PATH = /^\/v1\/auth\/(login|logout|me)$/
-const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject))?$/
+const CARTS_PATH = '/v1/carts'
+const WAITING_STATE = 'PENDING_APPROVAL'
+const EMPTY_INBOX_PARAM = 'inbox'
+const EMPTY_INBOX_VALUE = 'empty'
+const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject|changes))?$/
+const MANDATE_PATH = '/v1/mandate'
+const SAVE_FAILS_PARAM = 'save'
+const SAVE_FAILS_VALUE = 'fail'
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 
 type Outcome =
@@ -65,6 +83,8 @@ type Outcome =
 interface CartRecord {
   readonly outcome: Outcome
   readonly rejectReason: string
+  // The cart after a change. It replaces the lines and total of the start cart.
+  readonly revised?: WireCart
 }
 
 // Fields the run 1 cart leaves empty. They stay on the cart after a decision.
@@ -73,6 +93,8 @@ const CART_EXTRAS: Readonly<Record<string, Partial<WireCart>>> = {
     clarifications: ['Order it even if it is over the limit?', 'Yes, order it.'],
     delivery_day_total_ex_vat: '1415.00',
   },
+  [REVISED_ID]: REVISED_EXTRAS,
+  [STALE_ID]: REVISED_EXTRAS,
 }
 
 const START_OUTCOME: Readonly<Record<string, Outcome>> = {
@@ -86,6 +108,8 @@ const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   c_withdrawn: 'withdrawn',
   [CONFLICT_ID]: 'waiting',
   [APPROVE_FAILS_ID]: 'waiting',
+  [REVISED_ID]: 'waiting',
+  [STALE_ID]: 'waiting',
 }
 
 // Storage helpers. sessionStorage keeps a decision over a reload. It can throw in a private
@@ -146,9 +170,24 @@ function reply(status: number, body: unknown = null): WireResponse {
 }
 
 function wireCart(cartId: string, cart: CartRecord): WireCart {
-  return {
+  const { revised } = cart
+  const base = {
     ...baseCart(cartId, cart),
     ...CART_EXTRAS[cartId],
+  }
+  if (revised === undefined) {
+    return base
+  }
+
+  return {
+    ...base,
+    revision: revised.revision,
+    lines: revised.lines,
+    total_ex_vat: revised.total_ex_vat,
+    delivery_day_total_ex_vat: revised.delivery_day_total_ex_vat,
+    reason_sentences:
+      base.state === WAITING_STATE ? revised.reason_sentences : base.reason_sentences,
+    previous_version: revised.previous_version,
   }
 }
 
@@ -215,6 +254,44 @@ function answerAuth(action: string, body: unknown): WireResponse {
   })
 }
 
+// The decision names the revision the user saw. A different one means the cart changed since.
+function isStaleRevision(cartId: string, cart: CartRecord, body: unknown): boolean {
+  const { revision } = body as { revision?: number }
+  return revision !== wireCart(cartId, cart).revision
+}
+
+// The agent sends a newer revision while the user reads the old one: the decision is refused,
+// and the reload shows the update bar again.
+function answerStale(cartId: string, cart: CartRecord): WireResponse {
+  const revised = reviseCart(
+    wireCart(cartId, cart),
+    { quantities: { [MILK_ID]: STALE_MILK_QTY } },
+    AGENT_UPDATER,
+  )
+  saveCart(cartId, { ...cart, revised })
+  return reply(STATUS.conflict)
+}
+
+// A note alone changes no line, so the cart stays at its revision: the agent answers later.
+function change(cartId: string, cart: CartRecord, body: unknown): WireResponse {
+  const current = wireCart(cartId, cart)
+  if (cart.outcome !== 'waiting' || isStaleRevision(cartId, cart, body)) {
+    return reply(STATUS.conflict)
+  }
+
+  const lineChange = body as LineChange
+  const isLineChanged =
+    Object.keys(lineChange.quantities ?? {}).length > 0 ||
+    (lineChange.removed_product_ids ?? []).length > 0
+  if (!isLineChanged) {
+    return reply(STATUS.ok, current)
+  }
+
+  const revised = reviseCart(current, lineChange, USER_UPDATER)
+  saveCart(cartId, { ...cart, revised })
+  return reply(STATUS.ok, revised)
+}
+
 // A wrong state answers 409 and leaves the cart as it is, like the backend. c_conflict
 // expires first, to act out a deadline that passes while the page is open.
 function decide(cartId: string, cart: CartRecord, action: string, body: unknown): WireResponse {
@@ -223,8 +300,12 @@ function decide(cartId: string, cart: CartRecord, action: string, body: unknown)
     return reply(STATUS.conflict)
   }
 
-  if (cart.outcome !== 'waiting') {
+  if (cart.outcome !== 'waiting' || isStaleRevision(cartId, cart, body)) {
     return reply(STATUS.conflict)
+  }
+
+  if (cartId === STALE_ID && cart.revised === undefined) {
+    return answerStale(cartId, cart)
   }
 
   if (action === 'approve') {
@@ -244,7 +325,11 @@ function decide(cartId: string, cart: CartRecord, action: string, body: unknown)
     return reply(STATUS.unprocessable)
   }
 
-  const rejected: CartRecord = { outcome: 'rejected', rejectReason: reason }
+  const rejected: CartRecord = {
+    outcome: 'rejected',
+    rejectReason: reason,
+    revised: cart.revised,
+  }
   saveCart(cartId, rejected)
   return reply(STATUS.ok, wireCart(cartId, rejected))
 }
@@ -267,7 +352,32 @@ function answerCart(
     return reply(STATUS.ok, wireCart(cartId, cart))
   }
 
+  if (action === 'changes') {
+    return change(cartId, cart, request.body)
+  }
+
   return decide(cartId, cart, action, request.body)
+}
+
+// The fixture decisions carry a fixed date. Moving them to now keeps "Decided today" filled
+// whatever day the demo runs.
+function answerList(): WireResponse {
+  const isEmpty =
+    new URLSearchParams(window.location.search).get(EMPTY_INBOX_PARAM) === EMPTY_INBOX_VALUE
+  const now = new Date().toISOString()
+  const carts = Object.keys(START_OUTCOME).flatMap((cartId) => {
+    const wire = wireCart(cartId, findCart(cartId) as CartRecord)
+    if (wire.state === WAITING_STATE) {
+      return isEmpty ? [] : [wire]
+    }
+
+    return [wire.decided_at === null ? wire : { ...wire, decided_at: now }]
+  })
+
+  return reply(STATUS.ok, [
+    ...carts.filter((cart) => cart.state === WAITING_STATE),
+    ...carts.filter((cart) => cart.state !== WAITING_STATE),
+  ])
 }
 
 function answerAudit(cartId: string): WireResponse {
@@ -282,6 +392,36 @@ function answerAudit(cartId: string): WireResponse {
   })
 }
 
+// In memory, so a reload resets the mandate to version 1. /permissions?save=fail makes
+// every save answer 503.
+let mandate: WireMandate = {
+  buyer_id: 'hotel-1',
+  version: 1,
+  max_auto_order_value: '500.00',
+  max_auto_value_per_delivery_date: '500.00',
+  preferred_brands: [],
+  forbidden_allergens: [],
+  allergen_unknown_policy: 'HUMAN',
+}
+
+function answerMandate(request: WireRequest): WireResponse {
+  if (request.method === 'GET') {
+    return reply(STATUS.ok, { mandate })
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  if (params.get(SAVE_FAILS_PARAM) === SAVE_FAILS_VALUE) {
+    return reply(STATUS.unavailable)
+  }
+
+  mandate = {
+    ...mandate,
+    ...(request.body as Partial<WireMandate>),
+    version: mandate.version + 1,
+  }
+  return reply(STATUS.ok, { mandate })
+}
+
 function route(request: WireRequest): WireResponse {
   const authMatch = AUTH_PATH.exec(request.path)
   if (authMatch !== null) {
@@ -292,9 +432,17 @@ function route(request: WireRequest): WireResponse {
     return reply(STATUS.unauthorized)
   }
 
+  if (request.path === CARTS_PATH) {
+    return answerList()
+  }
+
   const cartMatch = CART_PATH.exec(request.path)
   if (cartMatch !== null) {
     return answerCart(request, decodeURIComponent(cartMatch[1]), cartMatch[2])
+  }
+
+  if (request.path === MANDATE_PATH) {
+    return answerMandate(request)
   }
 
   const auditMatch = AUDIT_PATH.exec(request.path)

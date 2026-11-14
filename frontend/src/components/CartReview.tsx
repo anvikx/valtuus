@@ -1,138 +1,160 @@
 import type { ReactElement } from 'react'
 
-import type { Cart, CartLine, UnderstoodRequest } from '../api.ts'
-import { formatAttribute, formatCount, formatDate, formatDateTime } from '../format.ts'
-import { Icon } from './Icon.tsx'
+import type { Cart, CartUpdate, UnderstoodRequest } from '../api.ts'
+import {
+  formatAttribute,
+  formatCount,
+  formatDate,
+  formatDateTime,
+  formatHourMinute,
+} from '../format.ts'
+import { FlowSteps } from './FlowSteps.tsx'
+import { OrderLines, deliveryDays, money } from './ResultScreen.tsx'
+import { TrustMark } from './TrustMark.tsx'
 
-// The cart has no signature field and the UI has no verify call yet.
-const TRUST_MARK = 'Not signed (development)'
+export const UPDATE_NOTE_ID = 'update-note'
 
 interface CartReviewProps {
   readonly cart: Cart
   readonly buyerId: string
   readonly agentName: string | null
+  // Set once the user has reviewed the update: it turns on the change marks.
+  readonly update?: CartUpdate
 }
 
-function money(amount: string, currency: string): string {
-  return `${amount} ${currency}`
+interface ApprovalSummaryProps {
+  readonly cart: Cart
+  readonly update?: CartUpdate
 }
 
-function requestChips(understood: UnderstoodRequest | null): string[] {
+function understoodParts(understood: UnderstoodRequest | null): string[] {
   if (understood === null) {
     return []
   }
 
   const { quantity, unit, attributes, deliverBy } = understood
-  const chips = attributes.map(formatAttribute)
+  const parts = attributes.map(formatAttribute)
   if (quantity !== null) {
-    chips.unshift(unit === null ? formatCount(quantity) : `${formatCount(quantity)} ${unit}`)
+    parts.unshift(unit === null ? formatCount(quantity) : `${formatCount(quantity)} ${unit}`)
   }
 
   if (deliverBy !== null) {
-    chips.push(`By ${formatDate(deliverBy)}`)
+    parts.push(`By ${formatDate(deliverBy)}`)
   }
 
-  return chips
+  return parts
 }
 
-function LineCard({ line, currency }: { line: CartLine; currency: string }): ReactElement {
+export function ApprovalSummary({ cart, update }: ApprovalSummaryProps): ReactElement {
+  const delivery = deliveryDays(cart.lines)
+
   return (
-    <li className="card line-card">
-      <div className="line-head">
-        <h3 className="heading">{line.name}</h3>
-        <p className="heading">{money(line.lineTotal, currency)} ex VAT</p>
-      </div>
-      <p className="muted">Product {line.productId}</p>
-      <p>
-        {formatCount(line.qty)} x {money(line.unitPrice, currency)} ex VAT
-      </p>
-      <p className="muted">Delivery {formatDate(line.deliveryDate)}</p>
-    </li>
+    <div className="stack">
+      <dl className="summary-rows">
+        <div className="summary-row">
+          <dt>Total</dt>
+          <dd>
+            <strong className="summary-total">{money(cart.total, cart.currency)}</strong>{' '}
+            <span className="muted">ex VAT</span>
+            {update === undefined ? null : (
+              <span className="summary-was muted">
+                <s>{money(update.previousTotal, cart.currency)}</s>
+                <span className="sr-only"> was {money(update.previousTotal, cart.currency)}</span>
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="summary-row">
+          <dt>Approve before</dt>
+          <dd className="summary-deadline">{formatDateTime(cart.approveBefore)}</dd>
+        </div>
+        {delivery === '' ? null : (
+          <div className="summary-row">
+            <dt>Delivery</dt>
+            <dd>{delivery}</dd>
+          </div>
+        )}
+      </dl>
+      {/* A string compare, not arithmetic: equal means no other automatic orders that day. */}
+      {cart.deliveryDayTotal === cart.total ? null : (
+        <p className="muted">
+          With the automatic orders for the same delivery day:{' '}
+          {money(cart.deliveryDayTotal, cart.currency)} ex VAT
+        </p>
+      )}
+    </div>
+  )
+}
+
+function WhyItWaits({ reasons }: { reasons: readonly string[] }): ReactElement | null {
+  if (reasons.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="why-waits" aria-labelledby="why-waits-title">
+      <h2 className="why-waits-title" id="why-waits-title">
+        Why it waits for you
+      </h2>
+      {reasons.length === 1 ? (
+        <p>{reasons[0]}</p>
+      ) : (
+        <ul className="why-waits-list">
+          {reasons.map((reason) => (
+            <li key={reason}>{reason}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function RequestSection({ cart }: { cart: Cart }): ReactElement {
+  const parts = understoodParts(cart.understood)
+
+  return (
+    <section className="stack-tight" aria-labelledby="request-title">
+      <h2 className="heading" id="request-title">
+        Request
+      </h2>
+      <p>&ldquo;{cart.requestText}&rdquo;</p>
+      {parts.length === 0 ? null : <p className="muted">Understood as {parts.join(' · ')}</p>}
+      {cart.clarifications.length === 0 ? null : (
+        <ol className="stack-tight clarifications" aria-label="Questions and answers">
+          {cart.clarifications.map((text, index) => (
+            <li key={index}>{text}</li>
+          ))}
+        </ol>
+      )}
+    </section>
   )
 }
 
 // Everything the main user needs to decide on a waiting cart, top to bottom as in the UI spec.
-export function CartReview({ cart, buyerId, agentName }: CartReviewProps): ReactElement {
-  const chips = requestChips(cart.understood)
-
+export function CartReview({ cart, buyerId, agentName, update }: CartReviewProps): ReactElement {
   return (
     <>
+      <FlowSteps currentPhase="approval" />
       <header className="stack-tight">
-        <h1 className="page-title">Approval needed</h1>
-        <dl className="facts">
-          <dt>Buyer</dt>
-          <dd>{buyerId}</dd>
-          <dt>Cart</dt>
-          <dd>{cart.id}</dd>
-          <dt>Agent</dt>
-          <dd>{agentName ?? 'Not known'}</dd>
-        </dl>
-      </header>
-
-      <blockquote className="quote">{cart.requestText}</blockquote>
-
-      {cart.clarifications.length === 0 ? null : (
-        <section className="stack-tight" aria-labelledby="clarifications-title">
-          <h2 className="label" id="clarifications-title">
-            Questions and answers
-          </h2>
-          <ol className="stack-tight">
-            {cart.clarifications.map((text, index) => (
-              <li key={index}>{text}</li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {chips.length === 0 ? null : (
-        <section className="stack-tight" aria-labelledby="understood-title">
-          <h2 className="label" id="understood-title">
-            Understood as
-          </h2>
-          <ul className="chips">
-            {chips.map((chip) => (
-              <li className="chip" key={chip}>
-                {chip}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {cart.reasons.map((reason) => (
-        <p className="banner" key={reason}>
-          <Icon className="banner-icon" name="attention" />
-          {reason}
+        <h1 className="title">Approve this order?</h1>
+        <p className="muted">
+          {buyerId} &middot; {agentName === null ? 'agent not known' : `from ${agentName}`}
         </p>
-      ))}
-
-      <section className="stack-tight" aria-labelledby="lines-title">
-        <h2 className="label" id="lines-title">
-          Order lines
-        </h2>
-        <ul className="stack-tight">
-          {cart.lines.map((line) => (
-            <LineCard key={line.productId} line={line} currency={cart.currency} />
-          ))}
-        </ul>
-      </section>
-
-      <section className="card total" aria-label="Total">
-        <p className="label">Total</p>
-        <p>
-          <span className="title">{money(cart.total, cart.currency)}</span> ex VAT
-        </p>
-        {/* A string compare, not arithmetic: equal means no other automatic orders that day. */}
-        {cart.deliveryDayTotal === cart.total ? null : (
-          <p>
-            With the automatic orders for the same delivery day:{' '}
-            {money(cart.deliveryDayTotal, cart.currency)} ex VAT
+        {update === undefined ? null : (
+          <p className="update-note" id={UPDATE_NOTE_ID} tabIndex={-1}>
+            Updated {formatHourMinute(update.at)} by {update.by}: {update.summary}.
           </p>
         )}
-        <p>Approve before {formatDateTime(cart.approveBefore)}</p>
-      </section>
-
-      <p className="trust-mark">{TRUST_MARK}</p>
+      </header>
+      <WhyItWaits reasons={cart.reasons} />
+      <div className="phone-only">
+        <ApprovalSummary cart={cart} update={update} />
+      </div>
+      <OrderLines cart={cart} update={update} />
+      <div className="phone-only">
+        <TrustMark />
+      </div>
+      <RequestSection cart={cart} />
     </>
   )
 }

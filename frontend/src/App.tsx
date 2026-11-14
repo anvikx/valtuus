@@ -7,28 +7,52 @@ import { InboxPage } from './pages/InboxPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { OrderPage } from './pages/OrderPage.tsx'
 import { PermissionsPage } from './pages/PermissionsPage.tsx'
+import { RecordPage } from './pages/RecordPage.tsx'
 
 type BackendStatus = 'loading' | BackendHealth
 
 // The approve_url in a cart is /carts/{id}. Caddy serves index.html for every path.
 const CART_PATH = /^\/carts\/([^/]+)$/
+const RECORD_PATH = /^\/carts\/([^/]+)\/record$/
 const ORDER_PATH = /^\/orders\/([^/]+)$/
 const STATIC_PAGES: Readonly<Record<string, () => ReactElement>> = {
+  // The main user comes to decide on orders, so the root opens the inbox.
+  '/': InboxPage,
+  '/health': HealthPage,
   '/login': LoginPage,
   '/inbox': InboxPage,
   '/permissions': PermissionsPage,
 }
 
-// ponytail: plain path match, no router dependency. Add one when pages need links and history.
-function pageFor(path: string): ReactElement | null {
-  const cartId = CART_PATH.exec(path)?.[1]
-  if (cartId !== undefined) {
-    return <ApprovalPage cartId={decodeURIComponent(cartId)} />
+// A bad percent escape makes decodeURIComponent throw during render. The path then shows the
+// not found page instead of a blank one.
+function decodeId(raw: string | undefined): string | null {
+  if (raw === undefined) {
+    return null
   }
 
-  const orderId = ORDER_PATH.exec(path)?.[1]
-  if (orderId !== undefined) {
-    return <OrderPage orderId={decodeURIComponent(orderId)} />
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return null
+  }
+}
+
+// ponytail: plain path match, no router dependency. Add one when pages need links and history.
+function pageFor(path: string): ReactElement | null {
+  const recordId = decodeId(RECORD_PATH.exec(path)?.[1])
+  if (recordId !== null) {
+    return <RecordPage cartId={recordId} />
+  }
+
+  const cartId = decodeId(CART_PATH.exec(path)?.[1])
+  if (cartId !== null) {
+    return <ApprovalPage cartId={cartId} />
+  }
+
+  const orderId = decodeId(ORDER_PATH.exec(path)?.[1])
+  if (orderId !== null) {
+    return <OrderPage orderId={orderId} />
   }
 
   const Page = STATIC_PAGES[path]
@@ -57,5 +81,6 @@ function HealthPage(): ReactElement {
 }
 
 export function App(): ReactElement {
-  return <Shell>{pageFor(window.location.pathname) ?? <HealthPage />}</Shell>
+  const path = window.location.pathname
+  return <Shell path={path}>{pageFor(path) ?? <HealthPage />}</Shell>
 }
