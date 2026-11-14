@@ -30,17 +30,18 @@ from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
-from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.check import CheckResult, PolicyCheck, PolicyContext
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
+from app.domain.policy.product_safety import ProductSafety
 from app.domain.policy.stock_check import StockCheck
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
 from tests.adapters import samples
-from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW
+from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW, FakeCatalog, product
 
 _LIMIT = Decimal("500.00")
 _KEY = "k-1"
@@ -87,7 +88,7 @@ class _World:
         self,
         idempotency: InMemoryIdempotencyRepository | None = None,
         mandates: Sequence[Mandate] | None = None,
-        extra_check: _SpyCheck | None = None,
+        extra_check: PolicyCheck | None = None,
     ) -> None:
         self.clock = _Clock(NOW)
         self.offers = InMemoryOfferRepository()
@@ -116,6 +117,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
+            FakeCatalog(product()),
             PolicyEngine(checks),
             self.clock,
             audit,
@@ -502,6 +504,38 @@ def test_policy_sees_the_day_orders_and_recent_rejects() -> None:
     assert [order.order_id for order in context.day_orders] == ["o_1"]
     assert [cart.cart_id for cart in context.recent_rejects] == ["c_recent"]
     assert context.now == NOW
+    assert list(context.products) == [MILK_ID]
+
+
+def _milk_rules(version: int, *forbidden: str) -> Mandate:
+    return dataclasses.replace(
+        _mandate(version, _LIMIT),
+        required_attributes=(),
+        forbidden_allergens=forbidden,
+    )
+
+
+def test_cart_with_a_forbidden_allergen_is_denied() -> None:
+    """The agent can skip search and send any product id, so the cart applies the rules."""
+    world = _world_with_offer(mandates=[_milk_rules(1, "AM")], extra_check=ProductSafety())
+
+    cart = world.create(_buy(10))
+
+    assert cart.state is CartState.DENIED
+    assert cart.reason_codes == (ReasonCode.FORBIDDEN_ALLERGEN,)
+
+
+def test_rerun_applies_an_allergen_forbidden_after_the_cart() -> None:
+    """Checkout and approve use the mandate of now, not the one of the cart."""
+    world = _world_with_offer(mandates=[_milk_rules(1)], extra_check=ProductSafety())
+    cart = world.create(_buy(10))
+    world.mandates.add(_milk_rules(2, "AM"))
+
+    result = world.service.current_policy(world.carts.get(cart.cart_id), NOW).result
+
+    assert cart.state is CartState.AUTO
+    assert result.decision is Decision.DENY
+    assert [reason.reason_code for reason in result.reasons] == [ReasonCode.FORBIDDEN_ALLERGEN]
 
 
 def test_other_buyers_cart_is_not_found() -> None:
