@@ -35,7 +35,13 @@ function decidedText({ decidedBy, decidedAt }: Cart): string {
 function resultSentence(cart: Cart, status: ClosedStatus): string {
   if (status === 'ordered') {
     const order = cart.orderId === null ? 'order' : `order ${cart.orderId}`
-    return `Approved${decidedText(cart)}: ${order}, ${cart.total} ${cart.currency} ex VAT.`
+    const amount = `${cart.total} ${cart.currency} ex VAT`
+    // No approver: the agent's checkout placed it under the rules, for example after a limit raise.
+    if (cart.decidedBy === null) {
+      return `Ordered with no approval needed: ${order}, ${amount}.`
+    }
+
+    return `Approved${decidedText(cart)}: ${order}, ${amount}.`
   }
 
   if (status === 'rejected') {

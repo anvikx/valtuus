@@ -104,6 +104,15 @@ export function orderedCart(cartId: string): WireCart {
   }
 }
 
+// The limit raise: the agent's second checkout placed the order with no approver.
+export function agentOrderedCart(cartId: string): WireCart {
+  return {
+    ...orderedCart(cartId),
+    decided_by: null,
+    decided_at: null,
+  }
+}
+
 export function rejectedCart(cartId: string, reason: string): WireCart {
   return {
     ...cartWithId(PENDING_CART, cartId),
@@ -197,6 +206,32 @@ export function orderedRecords(cartId: string): WireAuditRecord[] {
       step: 'ORDER',
       phase: 'APPROVAL',
       actor: MAIN_USER,
+      sentence: 'The order was committed at the signed price.',
+      created_at: DECIDED_AT,
+    }),
+  ]
+}
+
+// After the limit raise, POLICY runs again under mandate version 2 and gives AUTO.
+export function agentOrderedRecords(cartId: string): WireAuditRecord[] {
+  return [
+    ...waitingRecords(cartId),
+    {
+      ...record(cartId, 'policy_v2', {
+        step: 'POLICY',
+        phase: 'APPROVAL',
+        actor: GATEWAY,
+        sentence:
+          'The limit is now 1,500.00 EUR (mandate version 2), so the agent may place this order.',
+        created_at: DECIDED_AT,
+      }),
+      decision: 'AUTO',
+      mandate_version: 2,
+    },
+    record(cartId, 'order', {
+      step: 'ORDER',
+      phase: 'APPROVAL',
+      actor: AGENT,
       sentence: 'The order was committed at the signed price.',
       created_at: DECIDED_AT,
     }),

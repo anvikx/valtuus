@@ -207,10 +207,13 @@ export interface Cart {
   readonly id: string
   readonly status: CartStatus
   readonly requestText: string
+  readonly clarifications: readonly string[]
   readonly understood: UnderstoodRequest | null
   readonly reasons: readonly string[]
   readonly lines: readonly CartLine[]
   readonly total: string
+  // Automatic orders for the same delivery day plus this cart.
+  readonly deliveryDayTotal: string
   readonly currency: string
   readonly approveBefore: string
   readonly orderId: string | null
@@ -352,10 +355,12 @@ function toCart(wire: WireCart): Cart {
     id: wire.cart_id,
     status: WIRE_STATE_TO_STATUS[wire.state] ?? 'closed',
     requestText: wire.request_text,
+    clarifications: wire.clarifications,
     understood: toUnderstood(wire.interpreted_request),
     reasons: wire.reason_sentences,
     lines: wire.lines.map(toCartLine),
     total: wire.total_ex_vat,
+    deliveryDayTotal: wire.delivery_day_total_ex_vat,
     currency: wire.currency,
     approveBefore: wire.approve_before,
     orderId: wire.order_id,

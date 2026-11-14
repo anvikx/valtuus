@@ -71,6 +71,19 @@ export function CartReview({ cart, buyerId, agentName }: CartReviewProps): React
 
       <blockquote className="quote">{cart.requestText}</blockquote>
 
+      {cart.clarifications.length === 0 ? null : (
+        <section className="stack-tight" aria-labelledby="clarifications-title">
+          <h2 className="label" id="clarifications-title">
+            Questions and answers
+          </h2>
+          <ol className="stack-tight">
+            {cart.clarifications.map((text, index) => (
+              <li key={index}>{text}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       {chips.length === 0 ? null : (
         <section className="stack-tight" aria-labelledby="understood-title">
           <h2 className="label" id="understood-title">
@@ -109,6 +122,13 @@ export function CartReview({ cart, buyerId, agentName }: CartReviewProps): React
         <p>
           <span className="title">{money(cart.total, cart.currency)}</span> ex VAT
         </p>
+        {/* A string compare, not arithmetic: equal means no other automatic orders that day. */}
+        {cart.deliveryDayTotal === cart.total ? null : (
+          <p>
+            With the automatic orders for the same delivery day:{' '}
+            {money(cart.deliveryDayTotal, cart.currency)} ex VAT
+          </p>
+        )}
         <p>Approve before {formatDateTime(cart.approveBefore)}</p>
       </section>
 

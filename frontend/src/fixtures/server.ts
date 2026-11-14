@@ -4,6 +4,8 @@
 // Cart ids:
 //   c_demo           waiting; approve gives ORDERED, reject gives REJECTED
 //   c_ordered        ORDERED
+//   c_no_approval    ORDERED by the agent's checkout, no approver (the limit raise)
+//   c_answers        waiting, with the buyer's answers and other automatic orders that day
 //   c_rejected       REJECTED
 //   c_expired        EXPIRED
 //   c_conflict       waiting; approve and reject answer 409, and the cart is then EXPIRED
@@ -13,6 +15,8 @@ import type { WireAuditRecord, WireCart, WireRequest, WireResponse } from '../ap
 import {
   ORDER_CONFIRMATION,
   PENDING_CART,
+  agentOrderedCart,
+  agentOrderedRecords,
   cartWithId,
   expiredCart,
   expiredRecords,
@@ -44,21 +48,32 @@ const DEFAULT_REJECT_REASON = 'Too expensive'
 const CONFLICT_ID = 'c_conflict'
 const APPROVE_FAILS_ID = 'c_approve_fails'
 const UNAVAILABLE_ID = 'c_unavailable'
+const ANSWERS_ID = 'c_answers'
 
 const SESSION_PATH = '/v1/session'
 const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject))?$/
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 
-type Outcome = 'waiting' | 'ordered' | 'rejected' | 'expired'
+type Outcome = 'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired'
 
 interface CartRecord {
   readonly outcome: Outcome
   readonly rejectReason: string
 }
 
+// Fields the run 1 cart leaves empty. They stay on the cart after a decision.
+const CART_EXTRAS: Readonly<Record<string, Partial<WireCart>>> = {
+  [ANSWERS_ID]: {
+    clarifications: ['Order it even if it is over the limit?', 'Yes, order it.'],
+    delivery_day_total_ex_vat: '1415.00',
+  },
+}
+
 const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   c_demo: 'waiting',
   c_ordered: 'ordered',
+  c_no_approval: 'agentOrdered',
+  [ANSWERS_ID]: 'waiting',
   c_rejected: 'rejected',
   c_expired: 'expired',
   [CONFLICT_ID]: 'waiting',
@@ -122,9 +137,20 @@ function reply(status: number, body: unknown = null): WireResponse {
   }
 }
 
-function wireCart(cartId: string, { outcome, rejectReason }: CartRecord): WireCart {
+function wireCart(cartId: string, cart: CartRecord): WireCart {
+  return {
+    ...baseCart(cartId, cart),
+    ...CART_EXTRAS[cartId],
+  }
+}
+
+function baseCart(cartId: string, { outcome, rejectReason }: CartRecord): WireCart {
   if (outcome === 'ordered') {
     return orderedCart(cartId)
+  }
+
+  if (outcome === 'agentOrdered') {
+    return agentOrderedCart(cartId)
   }
 
   if (outcome === 'rejected') {
@@ -141,6 +167,10 @@ function wireCart(cartId: string, { outcome, rejectReason }: CartRecord): WireCa
 function wireRecords(cartId: string, { outcome, rejectReason }: CartRecord): WireAuditRecord[] {
   if (outcome === 'ordered') {
     return orderedRecords(cartId)
+  }
+
+  if (outcome === 'agentOrdered') {
+    return agentOrderedRecords(cartId)
   }
 
   if (outcome === 'rejected') {
