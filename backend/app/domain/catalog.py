@@ -3,7 +3,15 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from app.domain.enums import AllergenStatus, AllergenType, Decision, ReasonCode, SearchStatus, Unit
+from app.domain.enums import (
+    AllergenStatus,
+    AllergenType,
+    Decision,
+    ReasonCode,
+    SearchMatch,
+    SearchStatus,
+    Unit,
+)
 
 
 @dataclass(frozen=True)
@@ -67,16 +75,17 @@ class SearchQuery:
     unit: Unit | None
     deliver_by: date | None
     preferred_brands: tuple[str, ...]
+    category: str | None = None
 
 
 @dataclass(frozen=True)
 class SearchCandidate:
     product_id: str
-    gtin: str
+    gtin: str | None
     name: str
-    brand: str
+    brand: str | None
     sales_unit: str
-    content_per_sales_unit: ContentPerSalesUnit
+    content_per_sales_unit: ContentPerSalesUnit | None
     sales_units_needed: int | None
     quantity_delivered: Decimal | None
     quantity_over_request: Decimal | None
@@ -85,6 +94,7 @@ class SearchCandidate:
     country_of_origin: str | None
     labels: tuple[str, ...]
     is_substitute_for: str | None
+    match: SearchMatch = SearchMatch.WHOLE_WORD
 
 
 @dataclass(frozen=True)
@@ -120,3 +130,4 @@ class SearchResult:
     candidates: tuple[SearchCandidate, ...]
     excluded: tuple[ExcludedProduct, ...]
     request_id: str
+    hint_category: str | None = None

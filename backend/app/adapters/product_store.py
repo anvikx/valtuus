@@ -1,7 +1,6 @@
 """Coordinate local catalog loading and retain only mapped products."""
 
 import re
-import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -10,14 +9,7 @@ from app.adapters.catalog_enrichment import load_enrichment
 from app.adapters.catalog_loading import load_records
 from app.adapters.catalog_mapping import map_product
 from app.domain.catalog import Product
-
-
-def normalize_name(name: str) -> str:
-    return "".join(
-        char
-        for char in unicodedata.normalize("NFKD", name.casefold())
-        if not unicodedata.combining(char)
-    )
+from app.domain.catalog_search import normalize_name
 
 
 class ProductStore:
@@ -69,6 +61,17 @@ class ProductStore:
         self._products = products
         self._name_index = {name: tuple(ids) for name, ids in index.items()}
         self.skipped = skipped
+
+    def search_names(self, query: str) -> Sequence[Product]:
+        # Use the same tokens as the index; the service checks the full name afterwards.
+        words = re.findall(r"\w+", normalize_name(query))
+        if not words:
+            return ()
+        matched = [
+            {pid for word, ids in self._name_index.items() if token in word for pid in ids}
+            for token in words
+        ]
+        return tuple(self._products[pid] for pid in sorted(set.intersection(*matched)))
 
     def get(self, product_id: str) -> Product | None:
         return self._products.get(product_id)

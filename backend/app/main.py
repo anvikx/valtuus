@@ -210,6 +210,8 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
             catalog_store,
             store.mandates,
             audit_service,
+            store.unit_of_work,
+            settings.candidate_guard,
         ),
         offers=OfferService(
             catalog_store,

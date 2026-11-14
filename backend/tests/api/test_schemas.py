@@ -22,6 +22,7 @@ _INTERPRETED = {
 _ALLERGENS = {"status": "KNOWN", "contains": ["AM"], "free_from": []}
 
 _SEARCH = {
+    "hint_category": "10400",
     "status": "OK",
     "truncated": False,
     "interpreted_request": _INTERPRETED,
@@ -32,6 +33,7 @@ _SEARCH = {
             "product_id": "464306",
             "gtin": "6408430000258",
             "name": "Valio Arki Eila 1 l",
+            "match": "WHOLE_WORD",
             "brand": "Valio",
             "sales_unit": "ST",
             "content_per_sales_unit": {"value": 1, "unit": "L"},
