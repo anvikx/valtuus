@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "junction-2026"
-    valio_base_url: str = "https://junction26.valioaimo.fi"
+    valio_base_url: str = "https://junction26.valioaimo.fi/api"
     # SecretStr keeps the key out of reprs and logs.
     valio_api_key: SecretStr = SecretStr("")
     # Bearer key of the demo buyer agent. Only its hash is kept after startup.

@@ -5,8 +5,10 @@ import pytest
 from pydantic import SecretStr
 from sqlalchemy import text
 
+from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.memory.repositories import InMemoryAgentKeyRepository
 from app.adapters.postgres.database import Database
+from app.adapters.product_store import ProductStore
 
 # Tests never read the real key or database from .env. app.main builds the app at import
 # time, so the values must be set before any test module imports it.
@@ -14,10 +16,18 @@ os.environ["AGENT_KEY"] = "test-agent-key-0123456789"
 os.environ["DATABASE_URL"] = ""
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
+
+
+@pytest.fixture(autouse=True)
+def no_catalog_network(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(CatalogDownloader, "download", lambda self: None)
+    monkeypatch.setattr(ProductStore, "load", lambda self, files: None)
+
+
 # TRUNCATE, not DELETE: the audit trigger refuses DELETE, and TRUNCATE fires no row trigger.
 _TRUNCATE = text(
     "TRUNCATE mandates, agent_keys, users, offers, carts, orders, audit_records,"
-    " idempotency_keys RESTART IDENTITY",
+    " idempotency_keys, products RESTART IDENTITY",
 )
 
 

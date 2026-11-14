@@ -4,8 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
+from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import PostgresAgentKeyRepository
+from app.adapters.product_store import ProductStore
 from app.config import Settings
 from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus
@@ -27,6 +29,25 @@ def test_app_refuses_to_start_without_agent_key() -> None:
 
     with pytest.raises(ValueError, match="empty"):
         create_app(settings)
+
+
+def test_catalog_is_loaded_before_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    events: list[str] = []
+    monkeypatch.setattr(CatalogDownloader, "download", lambda self: events.append("download"))
+    monkeypatch.setattr(ProductStore, "load", lambda self, files: events.append("load"))
+
+    with TestClient(create_app()) as client:
+        assert events == ["download", "load"]
+        assert client.get("/api/health").status_code == 200
+
+
+def test_catalog_error_prevents_startup(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(self: ProductStore, files: object) -> None:
+        raise ValueError("invalid catalog")
+
+    monkeypatch.setattr(ProductStore, "load", fail)
+    with pytest.raises(ValueError, match="invalid catalog"), TestClient(create_app()):
+        pass
 
 
 def test_restart_keeps_a_revoked_key_revoked(database: Database) -> None:
