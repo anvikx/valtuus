@@ -190,6 +190,8 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
             signer,
             clock,
             audit_service,
+            store.unit_of_work,
+            settings.candidate_guard,
         ),
         carts=CartService(
             store.offers,

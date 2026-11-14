@@ -65,6 +65,8 @@ _SHARED_READS = [
     ("GET", "/api/v1/orders/o_1", {}, None),
 ]
 _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
+_OFFERS_PATH = "/api/v1/offers"
+_STUB_CALLS = [call for call in _AGENT_CALLS if call[1] != _OFFERS_PATH]
 _MAIN_USER_CALLS = [
     ("POST", "/api/v1/carts/c_1/approve", None),
     ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
@@ -120,13 +122,24 @@ def test_agent_route_without_scope_is_forbidden(
     assert response.json()["error"] == "FORBIDDEN"
 
 
-@pytest.mark.parametrize(("method", "path", "headers", "body"), _AGENT_CALLS)
+@pytest.mark.parametrize(("method", "path", "headers", "body"), _STUB_CALLS)
 def test_agent_route_reaches_its_service(method, path, headers, body) -> None:
     """501 means auth and validation passed and the stub service ran."""
     # TODO: expect the real status codes when the services land, and remove this test then.
     response = _client().request(method, path, headers={**_AUTH, **headers}, json=body)
 
     assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+
+
+def test_offers_answer_with_a_stored_offer() -> None:
+    """The test catalog is empty, so the id is rejected and no Valio call is made."""
+    response = _client().post(_OFFERS_PATH, headers=_AUTH, json={"product_ids": ["p_1"]})
+
+    assert response.status_code == HTTPStatus.OK
+    body = response.json()
+    assert body["offer_id"].startswith("o_")
+    assert body["lines"] == []
+    assert body["rejected"][0]["reason_code"] == "PRODUCT_NOT_FOUND"
 
 
 @pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_CALLS)

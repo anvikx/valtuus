@@ -16,7 +16,7 @@ from pydantic import SecretStr
 
 from app.domain.constants import GATEWAY_TIMEZONE, VALIO_COOLDOWN_SECONDS
 from app.domain.enums import StockModel, Unit
-from app.domain.errors import UpstreamUnavailableError
+from app.domain.errors import UpstreamRateLimitedError, UpstreamUnavailableError
 from app.domain.offer import Availability, AvailabilitySnapshot, ComparisonPrice, Price
 
 _LOG = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class ValioClient:
         # A call during the pause would extend the mock's block, so it fails here at once.
         wait = math.ceil(self._paused_until - monotonic())
         if wait > 0:
-            raise _unavailable(f"Try again in {wait} seconds.")
+            raise UpstreamRateLimitedError(wait)
 
         body = {
             "customer": _CUSTOMER,
@@ -82,7 +82,7 @@ class ValioClient:
 
             self._paused_until = monotonic() + VALIO_COOLDOWN_SECONDS
             _LOG.warning("Valio %s answered 429. Pausing all calls.", route)
-            raise _unavailable(f"Try again in {VALIO_COOLDOWN_SECONDS} seconds.") from exc
+            raise UpstreamRateLimitedError(VALIO_COOLDOWN_SECONDS) from exc
         except (OSError, HTTPException, ValueError) as exc:
             raise _unavailable() from exc
 
@@ -171,6 +171,7 @@ def _availability(item: _Json) -> Availability:
     amount = first.get("availableAmount")
     available_date = first.get("availableDate")
     closing_time = item.get("closingTime")
+    sales_unit = first.get("salesUnit")
     return Availability(
         product_id=_text(item["productId"]),
         stock_model=_STOCK_MODELS.get(item.get("logisticModel")),
@@ -180,6 +181,7 @@ def _availability(item: _Json) -> Availability:
         available_date=None if available_date is None else date.fromisoformat(available_date),
         closing_time=None if closing_time is None else _helsinki(closing_time),
         is_sales_blocked=bool(item.get("salesBlock") or first.get("salesBlock")),
+        sales_unit=None if sales_unit is None else _text(sales_unit),
     )
 
 

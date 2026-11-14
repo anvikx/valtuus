@@ -10,7 +10,7 @@ from pydantic import SecretStr
 from app.adapters.valio_client import ValioClient
 from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import StockModel, Unit
-from app.domain.errors import UpstreamUnavailableError
+from app.domain.errors import UpstreamRateLimitedError, UpstreamUnavailableError
 from app.domain.offer import ComparisonPrice
 
 _MONDAY = date(2026, 11, 16)
@@ -58,6 +58,7 @@ _AVAILABILITY_ANSWER = {
                     "salesBlock": False,
                     "availableAmount": 9999999999.0,
                     "availableDate": "2026-11-16",
+                    "salesUnit": "ST",
                 }
             ],
         },
@@ -160,6 +161,7 @@ def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypa
     assert stock.available_date == _MONDAY
     assert stock.closing_time == datetime(2026, 11, 15, 17, tzinfo=GATEWAY_TIMEZONE)
     assert not stock.is_sales_blocked
+    assert stock.sales_unit == "ST"
     terminal = snapshot.items["465039"]
     assert terminal.stock_model is StockModel.TERMINAL
     assert terminal.amount == 999_999
@@ -170,6 +172,7 @@ def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypa
     unknown = snapshot.items["000000"]
     assert (unknown.stock_model, unknown.amount, unknown.available_date) == (None, None, None)
     assert unknown.closing_time is None
+    assert unknown.sales_unit is None
 
 
 def test_a_server_error_is_retried_once(monkeypatch, time):
@@ -209,13 +212,15 @@ def test_a_429_pauses_every_call_for_30_seconds(monkeypatch, time):
     upstream = _Upstream(_http_error(429), _AVAILABILITY_ANSWER)
     client = _client(monkeypatch, upstream)
 
-    with pytest.raises(UpstreamUnavailableError):
+    with pytest.raises(UpstreamRateLimitedError) as blocked:
         client.prices(["464306"], _MONDAY)
     time.now += 10
-    with pytest.raises(UpstreamUnavailableError) as paused:
+    with pytest.raises(UpstreamRateLimitedError) as paused:
         client.availability(["464306"], _MONDAY)
 
+    assert blocked.value.retry_after == 30
     assert len(upstream.calls) == 1
+    assert paused.value.retry_after == 20
     assert paused.value.next_step == "Try again in 20 seconds."
     time.now += 20
     client.availability(["464306"], _MONDAY)
