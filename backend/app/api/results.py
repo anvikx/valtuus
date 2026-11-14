@@ -38,10 +38,23 @@ def cart_response(cart: Cart, public_url: str) -> CartResponse:
     # The link is a web concern, so the domain cart does not carry it. Only a pending cart
     # has one, or the main user opens a page with nothing to approve.
     approve_url = None
+    next_step = None
     if cart.state is CartState.PENDING_APPROVAL:
         approve_url = f"{public_url}{CART_PAGE_PATH}/{cart.cart_id}"
+        # Agents often leave the link out of their reply, so the result says it in words.
+        next_step = (
+            f"Give the buyer this link now: {approve_url}. The main user approves or rejects there "
+            f"before {cart.approve_before.isoformat()}. You cannot approve. Repeat the link in "
+            "each status line while you poll get_cart."
+        )
 
-    return CartResponse.model_validate({**asdict(cart), "approve_url": approve_url})
+    return CartResponse.model_validate(
+        {
+            **asdict(cart),
+            "approve_url": approve_url,
+            "next_step": next_step,
+        },
+    )
 
 
 def order_response(order: Order) -> OrderConfirmation:

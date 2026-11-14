@@ -94,7 +94,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         idempotency_key: IdempotencyKeyValue,
         ctx: Context,
     ) -> CartResponse:
-        """Make a cart from offer lines. The gateway decides AUTO, HUMAN or DENY."""
+        """Make a cart from offer lines. The gateway decides AUTO, HUMAN or DENY.
+
+        PENDING_APPROVAL: follow next_step. Give the buyer approve_url in this reply.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
             cart = services.carts.create_cart(agent, request.to_domain(), idempotency_key)
@@ -102,7 +105,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
 
     @server.tool()
     def get_cart(cart_id: str, ctx: Context) -> CartResponse:
-        """The cart and its current state. Poll it while the main user decides."""
+        """The cart and its current state. Poll it while the main user decides.
+
+        PENDING_APPROVAL: repeat approve_url in each status line to the buyer.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
             return cart_response(services.carts.get_cart(agent.buyer_id, cart_id), public_url)
