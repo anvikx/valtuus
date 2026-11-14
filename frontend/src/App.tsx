@@ -81,5 +81,6 @@ function HealthPage(): ReactElement {
 }
 
 export function App(): ReactElement {
-  return <Shell>{pageFor(window.location.pathname) ?? <HealthPage />}</Shell>
+  const path = window.location.pathname
+  return <Shell path={path}>{pageFor(path) ?? <HealthPage />}</Shell>
 }

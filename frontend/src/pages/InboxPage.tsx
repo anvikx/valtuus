@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react'
 
-import { getSession, listCarts, type Cart, type CartStatus, type Session } from '../api.ts'
+import {
+  getMandate,
+  getSession,
+  listCarts,
+  type Cart,
+  type CartStatus,
+  type Mandate,
+  type Session,
+} from '../api.ts'
 import { Icon } from '../components/Icon.tsx'
 import { money } from '../components/ResultScreen.tsx'
 import { formatDateTime } from '../format.ts'
@@ -9,6 +17,7 @@ import { isSignedOut, redirectToLogin } from '../session.ts'
 interface InboxData {
   readonly session: Session
   readonly carts: readonly Cart[]
+  readonly mandate: Mandate | null
 }
 
 type LoadState =
@@ -31,15 +40,28 @@ const OUTCOME: Readonly<Record<Exclude<CartStatus, 'waiting'>, Outcome>> = {
   closed: { word: 'Closed.', tone: 'muted' },
 }
 
+const CURRENCY = 'EUR'
 const EMPTY_SENTENCE =
   'Your agent orders inside your limits. When an order needs you, it appears here and the agent sends you the link.'
+
+// The limits line only helps, so the inbox still works without it. A sign out still goes to
+// the login page.
+function withoutMandate(error: unknown): null {
+  if (isSignedOut(error)) {
+    throw error
+  }
+
+  return null
+}
 
 async function loadInbox(): Promise<InboxData> {
   // The session comes first, so a signed out user never gets a cart request.
   const session = await getSession()
+  const [carts, mandate] = await Promise.all([listCarts(), getMandate().catch(withoutMandate)])
   return {
     session,
-    carts: await listCarts(),
+    carts,
+    mandate,
   }
 }
 
@@ -71,6 +93,14 @@ function ordererOrWhy(cart: Cart): string | null {
   }
 
   return cart.status === 'rejected' ? cart.rejectReason : (cart.reasons[0] ?? null)
+}
+
+// One amount when both limits match: "up to 500.00 EUR per order and per delivery day".
+function limitsSentence({ maxOrder, maxPerDay }: Mandate): string {
+  const perOrder = money(maxOrder, CURRENCY)
+  const perDay =
+    maxOrder === maxPerDay ? 'per delivery day' : `${money(maxPerDay, CURRENCY)} per delivery day`
+  return `Your agent orders alone up to ${perOrder} per order and ${perDay}.`
 }
 
 function WaitingRow({ cart }: { readonly cart: Cart }): ReactElement {
@@ -144,7 +174,9 @@ function InboxView({ data }: { readonly data: InboxData }): ReactElement {
                 <WaitingRow cart={cart} key={cart.id} />
               ))}
             </ul>
-            <p className="muted">Prices are ex VAT. Open an order to approve or reject it.</p>
+            <p className="muted">
+              Prices are ex VAT. Open an order to approve, change or reject it.
+            </p>
           </>
         )}
       </section>
@@ -160,6 +192,15 @@ function InboxView({ data }: { readonly data: InboxData }): ReactElement {
             ))}
           </ul>
         </section>
+      )}
+
+      {data.mandate === null ? null : (
+        <p className="muted inbox-limits">
+          {limitsSentence(data.mandate)}{' '}
+          <a className="inbox-limits-link" href="/permissions">
+            Agent permissions
+          </a>
+        </p>
       )}
     </main>
   )
