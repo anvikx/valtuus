@@ -103,6 +103,23 @@ def test_restart_keeps_a_revoked_key_revoked(database: Database) -> None:
     assert restarted.status is AgentKeyStatus.REVOKED
 
 
+@pytest.mark.parametrize("should_skip", [False, True])
+def test_rollback_can_skip_newer_revisions(database, monkeypatch, should_skip):
+    """A rollback image must start without asking Alembic to resolve a newer revision."""
+    calls = []
+    monkeypatch.setattr(Database, "migrate", lambda self: calls.append("migrate"))
+    settings = Settings(
+        agent_key=SecretStr(_KEY),
+        database_url=SecretStr(TEST_DATABASE_URL),
+        skip_database_migrations=should_skip,
+    )
+
+    with TestClient(create_app(settings)) as client:
+        assert client.get("/api/health").status_code == HTTPStatus.OK
+
+    assert calls == ([] if should_skip else ["migrate"])
+
+
 def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
     """A deploy must not log the main user out in the middle of an approval."""
     settings = Settings(

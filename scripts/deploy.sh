@@ -37,7 +37,7 @@ rollback() {
   local last_good
   last_good="$(<"${LAST_GOOD_FILE}")"
   echo "Rolling back to ${last_good}" >&2
-  start_tag "${last_good}" || echo "Rollback to ${last_good} failed" >&2
+  SKIP_DATABASE_MIGRATIONS=true start_tag "${last_good}" || echo "Rollback to ${last_good} failed" >&2
 }
 
 main() {
@@ -50,7 +50,7 @@ main() {
 
   IMAGE_TAG="${tag}" docker compose pull
 
-  if ! start_tag "${tag}"; then
+  if ! SKIP_DATABASE_MIGRATIONS=false start_tag "${tag}"; then
     echo "Deploy of ${tag} is not healthy" >&2
     rollback
     exit 1
