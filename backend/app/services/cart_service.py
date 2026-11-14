@@ -24,6 +24,7 @@ from app.domain.money import line_total, total_ex_vat
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.daily_limit import auto_day_total
 from app.domain.policy.engine import PolicyEngine, PolicyResult, strictest
 from app.domain.reason_text import day_text, deadline_text, reason_sentence
 from app.services.audit_service import AuditService
@@ -411,22 +412,13 @@ def _priced_again(line: CartLine) -> PricedLine:
     )
 
 
-def _delivery_day_total(lines: Sequence[PricedLine], day_orders: Iterable[Order]) -> Decimal:
-    """Every placed order on the date, approved ones too, plus this cart.
+def _delivery_day_total(lines: Sequence[PricedLine], day_orders: Sequence[Order]) -> Decimal:
+    """The same AUTO day total the daily limit checks, so the page and the decision agree.
 
     ponytail: with lines on more than one date only the highest date total is shown.
     Enough for tier 1; give one total per date when the page shows a split delivery.
     """
-    placed = [line for order in day_orders for line in order.lines]
-    return max(
-        total_ex_vat(
-            [
-                *(line.line_total for line in placed if line.delivery_date == day),
-                *(line.line_total for line in lines if line.delivery_date == day),
-            ]
-        )
-        for day in _days(lines)
-    )
+    return max(auto_day_total(day, lines, day_orders) for day in _days(lines))
 
 
 def _days(lines: Iterable[PricedLine]) -> set[date]:
