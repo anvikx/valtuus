@@ -1,0 +1,231 @@
+// Run 1 of the demo: 1,000 L lactose free milk, over the 500.00 EUR auto limit.
+// Shapes and values follow the backend's create_cart, OrderConfirmation and AuditRecord bodies.
+import type { WireAuditRecord, WireCart, WireOrderConfirmation } from '../api.ts'
+
+const MAIN_USER = 'main user of hotel-1'
+const AGENT = 'claude-code (agent)'
+const GATEWAY = 'gateway'
+const DECIDED_AT = '2026-11-14T10:04:12+02:00'
+const EXPIRED_AT = '2026-11-15T17:00:02+02:00'
+
+export const PENDING_CART: WireCart = {
+  cart_id: 'c_demo',
+  state: 'PENDING_APPROVAL',
+  decision: 'HUMAN',
+  reason_codes: ['OVER_AUTO_LIMIT'],
+  reason_sentences: ["Total is over this agent's 500.00 EUR limit."],
+  current_decision: 'HUMAN',
+  current_reason_codes: ['OVER_AUTO_LIMIT'],
+  request_text: 'I need 1,000 litres of lactose-free milk by Monday.',
+  clarifications: [],
+  interpreted_request: {
+    query: 'lactose free milk',
+    required_attributes: ['FREE_FROM_LACTOSE'],
+    quantity: 1000,
+    unit: 'L',
+    deliver_by: '2026-11-16',
+    preferred_brands: [],
+  },
+  lines: [
+    {
+      offer_id: 'o_demo',
+      product_id: '464306',
+      name: 'Valio Arki Eila 1 l',
+      qty: 1000,
+      unit_price: '1.01',
+      line_total: '1010.00',
+      delivery_date: '2026-11-16',
+      closing_time: '2026-11-15T17:00:00',
+      decision: 'AUTO',
+      reason_codes: [],
+      reason_sentences: [],
+      substitute_for: null,
+    },
+  ],
+  total_ex_vat: '1010.00',
+  currency: 'EUR',
+  mandate_version: 1,
+  valid_until: '2026-11-14T10:16:00+02:00',
+  approve_before: '2026-11-15T17:00:00',
+  duplicate_of_order_id: null,
+  delivery_day_total_ex_vat: '1010.00',
+  order_id: null,
+  previous_reject_reason: null,
+  decided_by: null,
+  decided_at: null,
+  reject_reason: null,
+  approve_url: 'https://junction.anvik.fi/carts/c_demo',
+}
+
+export const ORDER_CONFIRMATION: WireOrderConfirmation = {
+  order_id: 'ord_demo',
+  cart_id: 'c_demo',
+  buyer_id: 'hotel-1',
+  status: 'CONFIRMED',
+  ledger: 'PROTOTYPE',
+  lines: [
+    {
+      product_id: '464306',
+      gtin: 'gtin_demo',
+      name: 'Valio Arki Eila 1 l',
+      qty: 1000,
+      unit_price: '1.01',
+      line_total: '1010.00',
+      delivery_date: '2026-11-16',
+      substitute_for: null,
+    },
+  ],
+  total_ex_vat: '1010.00',
+  currency: 'EUR',
+  placed_at: DECIDED_AT,
+  placed_by: AGENT,
+  approved_by: MAIN_USER,
+  offer_ids: ['o_demo'],
+  mandate_version: 1,
+  issuer: 'Valio Aimo (mock)',
+  signature: null,
+}
+
+export function cartWithId(cart: WireCart, cartId: string): WireCart {
+  return {
+    ...cart,
+    cart_id: cartId,
+    approve_url: `https://junction.anvik.fi/carts/${cartId}`,
+  }
+}
+
+export function orderedCart(cartId: string): WireCart {
+  return {
+    ...cartWithId(PENDING_CART, cartId),
+    state: 'ORDERED',
+    order_id: ORDER_CONFIRMATION.order_id,
+    decided_by: MAIN_USER,
+    decided_at: DECIDED_AT,
+  }
+}
+
+export function rejectedCart(cartId: string, reason: string): WireCart {
+  return {
+    ...cartWithId(PENDING_CART, cartId),
+    state: 'REJECTED',
+    decided_by: MAIN_USER,
+    decided_at: DECIDED_AT,
+    reject_reason: reason,
+  }
+}
+
+export function expiredCart(cartId: string): WireCart {
+  return {
+    ...cartWithId(PENDING_CART, cartId),
+    state: 'EXPIRED',
+    reason_codes: ['CUTOFF_PASSED'],
+    reason_sentences: ['The order deadline was Sun 15 Nov 17:00.'],
+  }
+}
+
+// cartId is null for SEARCH and OFFER: they happen before a cart exists.
+function record(
+  cartId: string | null,
+  id: string,
+  fields: Pick<WireAuditRecord, 'step' | 'phase' | 'actor' | 'sentence' | 'created_at'>,
+): WireAuditRecord {
+  return {
+    record_id: `a_${id}`,
+    cart_id: cartId,
+    request_id: 'r_demo',
+    input: {},
+    output: {},
+    decision: null,
+    reason_codes: [],
+    mandate_version: null,
+    ...fields,
+  }
+}
+
+// SEARCH, OFFER, CART and POLICY: the records every run 1 cart has while it waits.
+export function waitingRecords(cartId: string): WireAuditRecord[] {
+  return [
+    record(null, 'search', {
+      step: 'SEARCH',
+      phase: 'LOOKUP',
+      actor: AGENT,
+      sentence: 'The agent searched for lactose free milk. 6 products matched.',
+      created_at: '2026-11-14T10:00:05+02:00',
+    }),
+    record(null, 'offer', {
+      step: 'OFFER',
+      phase: 'LOOKUP',
+      actor: AGENT,
+      sentence: 'The gateway gave 3 signed offers and rejected 3 products: order deadline passed.',
+      created_at: '2026-11-14T10:00:41+02:00',
+    }),
+    record(cartId, 'cart', {
+      step: 'CART',
+      phase: 'ORDER',
+      actor: AGENT,
+      sentence:
+        'The agent built a cart with 464306: lowest price, full quantity in stock. 1,010.00 EUR ex VAT, fixed price.',
+      created_at: '2026-11-14T10:01:30+02:00',
+    }),
+    {
+      ...record(cartId, 'policy', {
+        step: 'POLICY',
+        phase: 'APPROVAL',
+        actor: GATEWAY,
+        sentence:
+          'The policy sent the cart to a person: 1,010.00 EUR is over the 500.00 EUR limit.',
+        created_at: '2026-11-14T10:01:31+02:00',
+      }),
+      decision: 'HUMAN',
+      reason_codes: ['OVER_AUTO_LIMIT'],
+      mandate_version: 1,
+    },
+  ]
+}
+
+export function orderedRecords(cartId: string): WireAuditRecord[] {
+  return [
+    ...waitingRecords(cartId),
+    record(cartId, 'approval', {
+      step: 'APPROVAL',
+      phase: 'APPROVAL',
+      actor: MAIN_USER,
+      sentence: 'The main user approved.',
+      created_at: DECIDED_AT,
+    }),
+    record(cartId, 'order', {
+      step: 'ORDER',
+      phase: 'APPROVAL',
+      actor: MAIN_USER,
+      sentence: 'The order was committed at the signed price.',
+      created_at: DECIDED_AT,
+    }),
+  ]
+}
+
+export function rejectedRecords(cartId: string, reason: string): WireAuditRecord[] {
+  return [
+    ...waitingRecords(cartId),
+    record(cartId, 'approval', {
+      step: 'APPROVAL',
+      phase: 'APPROVAL',
+      actor: MAIN_USER,
+      sentence: `The main user rejected the cart: "${reason}".`,
+      created_at: DECIDED_AT,
+    }),
+  ]
+}
+
+export function expiredRecords(cartId: string): WireAuditRecord[] {
+  return [
+    ...waitingRecords(cartId),
+    record(cartId, 'expiry', {
+      step: 'APPROVAL',
+      phase: 'APPROVAL',
+      actor: GATEWAY,
+      sentence:
+        'Nobody decided before the order deadline. The order deadline was Sun 15 Nov 17:00.',
+      created_at: EXPIRED_AT,
+    }),
+  ]
+}
