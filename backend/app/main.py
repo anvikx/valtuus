@@ -55,6 +55,7 @@ from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
+from app.domain.policy.product_safety import ProductSafety
 from app.domain.policy.stock_check import StockCheck
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -221,6 +222,7 @@ def _build_services(
         store.orders,
         store.idempotency,
         mandate_service,
+        catalog_store,
         PolicyEngine(
             [
                 AutoOrderSwitch(),
@@ -229,6 +231,7 @@ def _build_services(
                 StockCheck(),
                 DuplicateOrder(),
                 PreviouslyRejected(),
+                ProductSafety(),
             ]
         ),
         clock,

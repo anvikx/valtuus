@@ -55,7 +55,16 @@ from app.services.mandate_service import MandateService
 from app.services.offer_service import ISSUER
 from app.services.order_service import OrderService
 from tests.adapters import samples
-from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW, FakePriceSource, price, stock
+from tests.fakes.offer_data import (
+    CLOSING,
+    MILK_ID,
+    MONDAY,
+    NOW,
+    FakeCatalog,
+    FakePriceSource,
+    price,
+    stock,
+)
 
 _LIMIT = Decimal("500.00")
 _RAISED = Decimal("1500.00")
@@ -158,6 +167,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
+            FakeCatalog(),
             PolicyEngine(
                 [
                     AutoOrderSwitch(),

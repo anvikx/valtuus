@@ -32,6 +32,7 @@ from app.domain.policy.previously_rejected import rejected_cart
 from app.domain.reason_text import day_text, deadline_text, reason_sentence
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateService
+from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
 from app.services.ports.repositories import (
     CartRepository,
@@ -67,6 +68,7 @@ class CartService:
         orders: OrderRepository,
         idempotency: IdempotencyRepository,
         mandates: MandateService,
+        catalog: ProductCatalog,
         policy: PolicyEngine,
         clock: Clock,
         audit: AuditService,
@@ -78,6 +80,7 @@ class CartService:
         self._orders = orders
         self._idempotency = idempotency
         self._mandates = mandates
+        self._catalog = catalog
         self._policy = policy
         self._clock = clock
         self._audit = audit
@@ -266,6 +269,11 @@ class CartService:
             day_orders=tuple(day_orders.values()),
             recent_rejects=recent_rejects,
             now=now,
+            products={
+                line.product_id: product
+                for line in lines
+                if (product := self._catalog.get(line.product_id)) is not None
+            },
         )
 
     def _with_current_decision(self, cart: Cart, now: datetime) -> Cart:

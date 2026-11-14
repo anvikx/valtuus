@@ -45,7 +45,7 @@ from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
 from app.services.order_service import OrderService
 from tests.adapters import samples
-from tests.fakes.offer_data import FakePriceSource
+from tests.fakes.offer_data import FakeCatalog, FakePriceSource
 
 _MAIN_USER = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
 _BEFORE_DEADLINE = samples.NOW - timedelta(hours=1)
@@ -116,6 +116,7 @@ class _World:
             self.orders,
             idempotency,
             mandate_service,
+            FakeCatalog(),
             PolicyEngine([OrderLimit(), self.deny]),
             self.clock,
             audit,
