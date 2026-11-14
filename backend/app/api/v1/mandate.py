@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import MainUserDep, ServicesDep, require_scope
+from app.api.deps import HumanSessionDep, ServicesDep, require_scope
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import mandate_response
@@ -40,7 +40,7 @@ def get_mandate(
 @router.put("", description=describe(_UPDATE, MandateResponse, MandateUpdateRequest))
 def update_mandate(
     request: MandateUpdateRequest,
-    user: MainUserDep,
+    user: HumanSessionDep,
     services: ServicesDep,
 ) -> MandateResponse:
     mandate = services.mandates.update(user, request.to_domain())

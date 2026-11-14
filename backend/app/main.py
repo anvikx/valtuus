@@ -168,7 +168,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
     signer = NullSigner()
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
 
-    audit_service = AuditService(store.audit, clock)
+    audit_service = AuditService(store.audit, clock, store.unit_of_work)
     mandate_service = MandateService(
         store.mandates,
         clock,
@@ -239,12 +239,16 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
 def create_app(
     settings: Settings | None = None,
     agent_keys: AgentKeyRepository | None = None,
+    audit: AuditRepository | None = None,
 ) -> FastAPI:
-    """agent_keys lets a test change the seeded key without reaching into the app."""
+    """agent_keys and audit let a test change the seeded key or read the records."""
     settings = settings or Settings()
     store = _open_store(settings)
     if agent_keys is not None:
         store = dataclasses.replace(store, agent_keys=agent_keys)
+
+    if audit is not None:
+        store = dataclasses.replace(store, audit=audit)
 
     try:
         seed_demo(
