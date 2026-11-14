@@ -8,8 +8,8 @@ import pytest
 from app.domain.catalog import Allergens, ContentPerSalesUnit
 from app.domain.enums import AllergenStatus, Decision, Unit
 from tests.adapters.samples import agent_key
+from tests.fakes.catalog import item, query, service
 from tests.fakes.offer_data import FakeCatalog
-from tests.services.test_catalog_service import item, query, service
 
 _SENTENCES = {
     "EXCLUDED_ONLY": "Products match, but the buyer's rules remove all of them. Tell the buyer.",
@@ -183,3 +183,94 @@ def test_postgres_persists_one_search_with_the_response_facts(database):
     assert rows[0]["body"]["step"] == "SEARCH"
     assert rows[0]["body"]["output_data"]["total_hits"] == result.total_hits == 2
     assert rows[0]["body"]["output_data"]["hint"]["code"] == "READY"
+
+
+@pytest.mark.parametrize(
+    "excluded_category,requested_category,content,requested_unit,expected",
+    [
+        pytest.param(
+            "2",
+            "1",
+            ContentPerSalesUnit(Decimal(1), Unit.L),
+            Unit.L,
+            "NO_MATCH",
+            id="other-category",
+        ),
+        pytest.param(
+            "1",
+            "1",
+            ContentPerSalesUnit(Decimal(1), Unit.KG),
+            Unit.L,
+            "NO_MATCH",
+            id="kg-for-litres",
+        ),
+        pytest.param(
+            "1",
+            "1",
+            ContentPerSalesUnit(Decimal(1), Unit.L),
+            Unit.KG,
+            "NO_MATCH",
+            id="litres-for-kg",
+        ),
+        pytest.param(
+            "1",
+            None,
+            ContentPerSalesUnit(Decimal(1), Unit.KG),
+            Unit.L,
+            "NO_MATCH",
+            id="opposite-unit-no-category",
+        ),
+        pytest.param(
+            "1",
+            "1",
+            ContentPerSalesUnit(Decimal(1), Unit.L),
+            Unit.L,
+            "EXCLUDED_ONLY",
+            id="eligible",
+        ),
+        pytest.param("1", "1", None, Unit.L, "EXCLUDED_ONLY", id="missing-content-stays"),
+        pytest.param(
+            "1",
+            "1",
+            ContentPerSalesUnit(Decimal(1), Unit.KG),
+            Unit.PCS,
+            "EXCLUDED_ONLY",
+            id="pcs-does-not-restrict-content",
+        ),
+    ],
+)
+def test_hint_uses_only_exclusions_that_otherwise_fit(
+    excluded_category,
+    requested_category,
+    content,
+    requested_unit,
+    expected,
+):
+    excluded = item(
+        "excluded",
+        category=excluded_category,
+        content_per_sales_unit=content,
+        allergens=Allergens(AllergenStatus.UNKNOWN, ()),
+    )
+    catalog, records = service(FakeCatalog(excluded), allergen_unknown_policy=Decision.DENY)
+
+    result = catalog.search(agent_key(), query(category=requested_category, unit=requested_unit))
+
+    assert result.hint.code == expected
+    assert result.candidates == ()
+    assert result.total_hits == 0
+    assert result.categories == ()
+    assert result.hint_category == requested_category
+    assert [p.product_id for p in result.excluded] == ["excluded"]
+    assert records.records[0].output_data["hint"]["code"] == expected
+
+
+def test_unrelated_exclusion_does_not_override_no_match_with_missing_fields():
+    excluded = item("excluded", category="2", allergens=Allergens(AllergenStatus.UNKNOWN, ()))
+    catalog, _ = service(FakeCatalog(excluded), allergen_unknown_policy=Decision.DENY)
+
+    result = catalog.search(agent_key(), query(category="1", quantity=None))
+
+    assert result.hint.code == "NO_MATCH"
+    assert result.missing_fields == ("quantity",)
+    assert [p.product_id for p in result.excluded] == ["excluded"]

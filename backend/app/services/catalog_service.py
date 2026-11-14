@@ -1,4 +1,3 @@
-from collections import Counter
 from dataclasses import asdict, replace
 
 from app.domain.agent_key import AgentKey
@@ -9,7 +8,6 @@ from app.domain.catalog_response import search_hint, summarize_categories
 from app.domain.catalog_search import (
     NameMatch,
     NameMatcher,
-    category_key,
     fits_search,
     validate_query,
 )
@@ -87,10 +85,10 @@ class CatalogService:
         request_id: str,
     ) -> SearchResult:
         hits, excluded = self._filter(query, mandate)
-        counts = Counter(product.category for product, _ in hits)
+        categories = summarize_categories(tuple(product for product, _ in hits))
         category = query.category
-        if category is None and counts:
-            category = min(counts, key=lambda code: (-counts[code], category_key(code)))
+        if category is None and categories:
+            category = categories[0].category
         selected = sorted(
             ((product, match) for product, match in hits if product.category == category),
             key=lambda hit: (hit[1], hit[0].product_id),
@@ -105,12 +103,17 @@ class CatalogService:
             ExcludedProduct(product.product_id, reason)
             for product, reason in sorted(excluded, key=lambda item: item[0].product_id)
         )
+        eligible_excluded_count = sum(
+            fits_search(product, query.unit)
+            for product, _ in excluded
+            if category is None or product.category == category
+        )
         return SearchResult(
             understood=query,
             candidates=candidates,
             total_hits=len(hits),
-            categories=summarize_categories(tuple(product for product, _ in hits)),
-            hint=search_hint(len(candidates), len(selected), len(exclusions), missing),
+            categories=categories,
+            hint=search_hint(len(candidates), len(selected), eligible_excluded_count, missing),
             hint_category=category,
             excluded=exclusions,
             missing_fields=missing,

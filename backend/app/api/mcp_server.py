@@ -26,6 +26,7 @@ from app.api.schemas.mandate import MandateResponse
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
+from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
@@ -65,7 +66,7 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             "Search en/fi/sv names, including inside words, with accents folded. "
             f"Use {QUERY_RULE}. Negated names do not match. "
             "Returns the complete hint category, subject to the safety guard. "
-            "Follow hint.code: EXCLUDED_ONLY, NO_MATCH, MISSING_FIELDS, GUARD_CUT or READY. "
+            f"{HINT_CODE_DESCRIPTION} "
             "Inspect categories and examples to choose a type; use category to reach another. "
             "READY means complete for hint_category, not certainty about the intended type. "
             "No price or stock; call get_offers with all candidates and the returned request_id. "

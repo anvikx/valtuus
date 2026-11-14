@@ -12,7 +12,7 @@ from app.domain.catalog import Allergens
 from app.domain.enums import AllergenStatus, Decision
 from app.main import create_app
 from tests.adapters.samples import mandate
-from tests.services.test_catalog_service import Records, item
+from tests.fakes.catalog import Records, item
 
 _FIELDS = {
     "understood",

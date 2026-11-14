@@ -5,7 +5,9 @@ from pydantic import BaseModel, Field, WithJsonSchema
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
 from app.domain.catalog import SearchQuery
+from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE, VALID_ATTRIBUTES
+from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
 from app.domain.enums import ReasonCode, SearchHintCode, SearchMatch, Unit
 
 # The schema lists the codes, but validate_query rejects a wrong one. A pydantic enum would make
@@ -121,11 +123,13 @@ class UnderstoodRequest(InterpretedRequest):
 class CategorySummary(BaseModel):
     category: str = Field(description="Product category code; names are not available.")
     hits: int = Field(description="All filtered hits in this category, before the safety guard.")
-    examples: list[str] = Field(description="Up to two distinct example product names.")
+    examples: list[str] = Field(
+        description=f"Up to {SEARCH_CATEGORY_EXAMPLES} distinct example product names."
+    )
 
 
 class SearchHint(BaseModel):
-    code: SearchHintCode = Field(description="One deterministic advice code for the next step.")
+    code: SearchHintCode = Field(description=HINT_CODE_DESCRIPTION)
     sentence: str = Field(description="Fixed advice for the agent; never blocks another call.")
 
 
@@ -140,14 +144,17 @@ class SearchResponse(BaseModel):
         description="All filtered hits across categories, before the safety guard."
     )
     categories: list[CategorySummary] = Field(
-        description="Top eight categories from all filtered hits."
+        description=f"Top {SEARCH_CATEGORY_COUNT} categories from all filtered hits."
     )
     hint: SearchHint = Field(description="Exactly one advisory hint, selected by fixed priority.")
     hint_category: str | None = Field(
         description="Requested or selected category; null when neither is available."
     )
     excluded: list[ExcludedProduct] = Field(
-        description="Products removed by mandate allergen rules."
+        description=(
+            "Products removed at the allergen step; may include other categories and products "
+            "that also fail unit fit. The hint considers only otherwise eligible exclusions."
+        )
     )
     missing_fields: list[str] = Field(
         description="Missing quantity, unit or deliver_by for offers."

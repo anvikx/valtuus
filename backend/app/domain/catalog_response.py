@@ -8,6 +8,10 @@ from app.domain.catalog_search import category_key
 from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
 from app.domain.enums import SearchHintCode
 
+HINT_CODE_DESCRIPTION = (
+    "Follow hint.code: " + ", ".join(code.value for code in SearchHintCode) + "."
+)
+
 _HINT_SENTENCES = {
     SearchHintCode.EXCLUDED_ONLY: (
         "Products match, but the buyer's rules remove all of them. Tell the buyer."
@@ -24,11 +28,11 @@ _HINT_SENTENCES = {
 def search_hint(
     candidate_count: int,
     category_hits: int,
-    excluded_count: int,
+    eligible_excluded_count: int,
     missing_fields: tuple[str, ...],
 ) -> SearchHint:
     if candidate_count == 0:
-        code = SearchHintCode.EXCLUDED_ONLY if excluded_count else SearchHintCode.NO_MATCH
+        code = SearchHintCode.EXCLUDED_ONLY if eligible_excluded_count else SearchHintCode.NO_MATCH
     elif missing_fields:
         code = SearchHintCode.MISSING_FIELDS
     elif category_hits > candidate_count:

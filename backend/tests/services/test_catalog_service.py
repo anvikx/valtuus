@@ -5,55 +5,16 @@ from decimal import Decimal
 
 import pytest
 
-from app.adapters.clock import FixedClock
-from app.adapters.memory.repositories import (
-    InMemoryCartRepository,
-    InMemoryMandateRepository,
-    InMemoryOfferRepository,
-    InMemoryUnitOfWork,
-)
 from app.adapters.postgres.catalog import PostgresCatalog
 from app.adapters.product_store import ProductStore
 from app.api.results import search_response
-from app.domain.catalog import Allergens, ContentPerSalesUnit, SearchQuery
+from app.domain.catalog import Allergens, ContentPerSalesUnit
 from app.domain.catalog_search import VALID_ATTRIBUTES, NameMatcher, validate_query
 from app.domain.enums import AllergenStatus, AllergenType, Decision, Unit
 from app.domain.errors import InvalidRequestError
-from app.services.audit_service import AuditService
-from app.services.catalog_service import CatalogService
-from tests.adapters.samples import agent_key, mandate
-from tests.fakes.offer_data import MONDAY, NOW, FakeCatalog, product
-
-
-class Records:
-    def __init__(self):
-        self.records = []
-
-    def append(self, record):
-        self.records.append(record)
-
-
-def query(words="milk", **values):
-    return replace(SearchQuery(words, (), Decimal("10"), Unit.L, MONDAY, ()), **values)
-
-
-def item(pid="1", name="Milk", **values):
-    return replace(product(pid, lot_size=Decimal(1)), names={"en": name}, name=name, **values)
-
-
-def service(catalog, *, candidate_guard=500, **rules):
-    mandates = InMemoryMandateRepository()
-    mandates.add(replace(mandate(), **{"required_attributes": (), **rules}))
-    records = Records()
-    uow = InMemoryUnitOfWork()
-    audit = AuditService(
-        records,
-        InMemoryCartRepository(),
-        InMemoryOfferRepository(),
-        FixedClock(NOW),
-        uow,
-    )
-    return CatalogService(catalog, mandates, audit, uow, candidate_guard), records
+from tests.adapters.samples import agent_key
+from tests.fakes.catalog import item, query, service
+from tests.fakes.offer_data import FakeCatalog
 
 
 @pytest.mark.parametrize(
@@ -234,7 +195,7 @@ def test_complete_category_and_safety_guard():
     catalog, _ = service(FakeCatalog(*(item(str(n)) for n in range(121))))
     result = catalog.search(agent_key(), query())
     assert len(result.candidates) == 121
-    assert result.hint.code != "GUARD_CUT"
+    assert result.hint.code == "READY"
 
 
 def test_postgres_uses_exact_name_rules_after_prefilter(database):
@@ -301,7 +262,11 @@ def test_real_file_search_counts(database):
             ),
         )
         assert (result.hint_category, len(result.candidates)) == (expected_category, count), words
-        assert result.hint.code != "GUARD_CUT"
+        if unit is None:
+            assert result.hint.code == "MISSING_FIELDS"
+            assert result.missing_fields == ("unit",)
+        else:
+            assert result.hint.code == "READY"
     cream = catalog.search(agent_key(), query("cream"))
     whipping = next(summary for summary in cream.categories if summary.category == "10401")
     assert whipping.hits == 43
