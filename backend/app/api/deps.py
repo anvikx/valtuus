@@ -34,7 +34,7 @@ SESSION_COOKIE = "valtuus_session"
 _SESSION_SCHEME = APIKeyCookie(
     name=SESSION_COOKIE,
     auto_error=False,
-    description="The main user session, set by POST /api/v1/session.",
+    description="The main user session, set by POST /api/v1/auth/login.",
 )
 _SessionDep = Annotated[str | None, Security(_SESSION_SCHEME)]
 _UNAUTHENTICATED = ErrorBody(

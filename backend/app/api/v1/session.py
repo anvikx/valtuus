@@ -3,12 +3,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Request, Response
 
-from app.api.deps import SESSION_COOKIE, PublicUrlDep, ServicesDep, session_token
+from app.api.deps import SESSION_COOKIE, MainUserDep, PublicUrlDep, ServicesDep, session_token
 from app.api.errors import ERROR_RESPONSES
-from app.api.schemas.session import LoginRequest
+from app.api.schemas.session import LoginRequest, SessionUser
 from app.services.session_service import SESSION_TTL
 
-router = APIRouter(prefix="/v1/session", tags=["session"], responses=ERROR_RESPONSES)
+router = APIRouter(prefix="/v1/auth", tags=["auth"], responses=ERROR_RESPONSES)
 
 # The cookie goes only to the backend, never to the static frontend files.
 _COOKIE_PATH = "/api"
@@ -24,6 +24,11 @@ End the main user session and clear its cookie.
 
 **Auth:** none. With no session it still answers 204.
 """
+_ME = """
+The user of the session cookie. The UI calls it to show the buyer and to find out it is signed out.
+
+**Auth:** main user session. With no session it answers 401.
+"""
 
 
 def _cookie_flags(public_url: str) -> dict[str, bool | Literal["lax"]]:
@@ -36,7 +41,7 @@ def _cookie_flags(public_url: str) -> dict[str, bool | Literal["lax"]]:
     }
 
 
-@router.post("", status_code=HTTPStatus.NO_CONTENT, description=_LOGIN.strip())
+@router.post("/login", status_code=HTTPStatus.NO_CONTENT, description=_LOGIN.strip())
 def login(body: LoginRequest, public_url: PublicUrlDep, services: ServicesDep) -> Response:
     token = services.sessions.login(body.password)
     response = Response(status_code=HTTPStatus.NO_CONTENT)
@@ -50,9 +55,14 @@ def login(body: LoginRequest, public_url: PublicUrlDep, services: ServicesDep) -
     return response
 
 
-@router.delete("", status_code=HTTPStatus.NO_CONTENT, description=_LOGOUT.strip())
+@router.post("/logout", status_code=HTTPStatus.NO_CONTENT, description=_LOGOUT.strip())
 def logout(request: Request, public_url: PublicUrlDep, services: ServicesDep) -> Response:
     services.sessions.logout(session_token(request))
     response = Response(status_code=HTTPStatus.NO_CONTENT)
     response.delete_cookie(SESSION_COOKIE, path=_COOKIE_PATH, **_cookie_flags(public_url))
     return response
+
+
+@router.get("/me", description=_ME.strip())
+def me(user: MainUserDep) -> SessionUser:
+    return SessionUser(user_id=user.user_id, buyer_id=user.buyer_id, role=user.role)
