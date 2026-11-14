@@ -7,7 +7,7 @@ from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, VALID_ATTRIBUTES
 from app.domain.constants import CURRENCY
 from app.domain.enums import AuditStep, Decision
 from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
-from app.domain.mandate import Mandate
+from app.domain.mandate import ALLERGEN_DESCRIPTION, VALID_ALLERGENS, Mandate
 from app.domain.money import round_money
 from app.services.audit_service import AuditService
 from app.services.ports.clock import Clock
@@ -86,7 +86,7 @@ class MandateService:
         A waiting cart gets the new version when the agent calls checkout again.
         """
         buyer_id = _buyer_id(user)
-        changes = _checked_attributes(changes)
+        changes = _checked_codes(changes)
         with self._unit_of_work.transaction():
             current = self.get(buyer_id)
             changed = _changed_fields(current, changes)
@@ -128,20 +128,36 @@ def _buyer_id(user: User) -> str:
     return user.buyer_id
 
 
-def _checked_attributes(changes: MandateChanges) -> MandateChanges:
-    """Sorted and unique, so a save of the same codes in another order makes no version."""
-    if changes.required_attributes is None:
-        return changes
+def _checked_codes(changes: MandateChanges) -> MandateChanges:
+    """No product has an unknown code: an attribute finds nothing, an allergen blocks nothing."""
+    return replace(
+        changes,
+        required_attributes=_valid_codes(
+            changes.required_attributes, VALID_ATTRIBUTES, "attribute", ATTRIBUTE_DESCRIPTION
+        ),
+        forbidden_allergens=_valid_codes(
+            changes.forbidden_allergens, VALID_ALLERGENS, "allergen", ALLERGEN_DESCRIPTION
+        ),
+    )
 
-    codes = set(changes.required_attributes)
-    # No product has an unknown code, so the agent would find nothing and not know why.
-    if codes - set(VALID_ATTRIBUTES):
+
+def _valid_codes(
+    codes: tuple[str, ...] | None,
+    valid: tuple[str, ...],
+    kind: str,
+    description: str,
+) -> tuple[str, ...] | None:
+    """Sorted and unique, so a save of the same codes in another order makes no version."""
+    if codes is None:
+        return None
+
+    if set(codes) - set(valid):
         raise InvalidRequestError(
-            "Unknown attribute code. " + ATTRIBUTE_DESCRIPTION,
-            "Use one of the valid attribute codes.",
+            f"Unknown {kind} code. {description}",
+            f"Use one of the valid {kind} codes.",
         )
 
-    return replace(changes, required_attributes=tuple(sorted(codes)))
+    return tuple(sorted(set(codes)))
 
 
 def _changed_fields(current: Mandate, changes: MandateChanges) -> dict[str, object]:

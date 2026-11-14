@@ -1,14 +1,22 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
 from app.api.schemas.catalog import AttributeCodeValue
 from app.api.schemas.common import RequestModel
 from app.domain.constants import MAX_MANDATE_LIMIT, MONEY_DECIMALS
 from app.domain.enums import Decision
+from app.domain.mandate import ALLERGEN_DESCRIPTION, VALID_ALLERGENS
 from app.domain.money import round_money
 from app.services.mandate_service import MandateChanges
+
+# An enum in the schema only. The service refuses a wrong code with an error code and next_step.
+AllergenCodeValue = Annotated[
+    str,
+    WithJsonSchema({"type": "string", "enum": list(VALID_ALLERGENS)}),
+]
 
 
 class RankingWeights(BaseModel):
@@ -80,9 +88,9 @@ class MandateUpdateRequest(RequestModel):
         default=None,
         description="New codes every product must have. [] clears the rule.",
     )
-    forbidden_allergens: list[str] | None = Field(
+    forbidden_allergens: list[AllergenCodeValue] | None = Field(
         default=None,
-        description="New forbidden allergen codes.",
+        description="New forbidden allergen codes. [] clears the rule. " + ALLERGEN_DESCRIPTION,
     )
     allergen_unknown_policy: Decision | None = Field(
         default=None,

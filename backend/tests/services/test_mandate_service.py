@@ -164,7 +164,7 @@ def test_update_takes_every_editable_field() -> None:
         max_auto_order_value=_RAISED,
         max_auto_value_per_delivery_date=_RAISED,
         preferred_brands=("Arla",),
-        forbidden_allergens=("fish",),
+        forbidden_allergens=("AF",),
         allergen_unknown_policy=Decision.DENY,
     )
 
@@ -172,7 +172,7 @@ def test_update_takes_every_editable_field() -> None:
 
     assert updated.max_auto_value_per_delivery_date == _RAISED
     assert updated.preferred_brands == ("Arla",)
-    assert updated.forbidden_allergens == ("fish",)
+    assert updated.forbidden_allergens == ("AF",)
     assert updated.allergen_unknown_policy is Decision.DENY
 
 
@@ -217,6 +217,38 @@ def test_unknown_required_attribute_is_refused() -> None:
         service.update(_MAIN_USER, MandateChanges(required_attributes=("ORGANIC",)))
 
     assert mandates.latest(samples.BUYER_ID).version == 1
+
+
+@pytest.mark.parametrize("code", ["am", " AM", "nuts"])
+def test_unknown_forbidden_allergen_is_refused(code: str) -> None:
+    """Products declare upper case GS1 codes. Any other code matches no product."""
+    service, mandates = _service()
+
+    with pytest.raises(InvalidRequestError):
+        service.update(_MAIN_USER, MandateChanges(forbidden_allergens=(code,)))
+
+    assert mandates.latest(samples.BUYER_ID).version == 1
+
+
+def test_allergen_outside_the_eu_list_can_be_forbidden() -> None:
+    """155 products declare only GO (oats). A buyer with an oat allergy must block them."""
+    service, _ = _service()
+
+    updated = service.update(_MAIN_USER, MandateChanges(forbidden_allergens=("GO",)))
+
+    assert updated.forbidden_allergens == ("GO",)
+
+
+def test_same_forbidden_allergens_in_another_order_make_no_version() -> None:
+    """The page sends the codes in click order. That alone is not a change."""
+    service, mandates = _service()
+    first = service.update(_MAIN_USER, MandateChanges(forbidden_allergens=("AN", "AM", "AN")))
+
+    same = service.update(_MAIN_USER, MandateChanges(forbidden_allergens=("AM", "AN")))
+
+    assert first.forbidden_allergens == ("AM", "AN")
+    assert same.version == 2
+    assert mandates.latest(samples.BUYER_ID).version == 2
 
 
 def test_summary_names_the_required_attributes() -> None:
