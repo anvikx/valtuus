@@ -5,7 +5,9 @@ import pytest
 
 from app.adapters.memory.repositories import (
     InMemoryAuditRepository,
+    InMemoryCartRepository,
     InMemoryMandateRepository,
+    InMemoryOfferRepository,
     InMemoryUnitOfWork,
 )
 from app.domain.enums import Decision
@@ -32,7 +34,13 @@ class _Clock:
 
 def _summary(mandate: Mandate) -> tuple[str, ...]:
     unit_of_work = InMemoryUnitOfWork()
-    audit = AuditService(InMemoryAuditRepository(), _Clock(), unit_of_work)
+    audit = AuditService(
+        InMemoryAuditRepository(),
+        InMemoryCartRepository(),
+        InMemoryOfferRepository(),
+        _Clock(),
+        unit_of_work,
+    )
     service = MandateService(InMemoryMandateRepository(), _Clock(), audit, unit_of_work)
     return service.summary(mandate)
 

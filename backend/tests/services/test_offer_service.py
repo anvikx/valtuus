@@ -1,13 +1,19 @@
-from dataclasses import asdict
+import re
+from dataclasses import asdict, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
 from app.adapters.clock import FixedClock
-from app.adapters.memory.repositories import InMemoryOfferRepository, InMemoryUnitOfWork
+from app.adapters.memory.repositories import (
+    InMemoryCartRepository,
+    InMemoryOfferRepository,
+    InMemoryUnitOfWork,
+)
 from app.api.results import offer_response
 from app.api.schemas.offers import OfferResponse
+from app.domain.audit import REQUEST_ID_PATTERN
 from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import (
@@ -33,6 +39,7 @@ from tests.fakes.offer_data import (
 
 _GUARD = 3
 _SIGNATURE = "header.payload.signature"
+_REQUEST_ID = "r_0123456789abcdef0123456789abcdef"
 
 
 class _Records:
@@ -68,7 +75,7 @@ class _World:
             self.offers,
             self.signer,
             clock,
-            AuditService(self.audit, clock, unit_of_work),
+            AuditService(self.audit, InMemoryCartRepository(), self.offers, clock, unit_of_work),
             unit_of_work,
             _GUARD,
         )
@@ -96,6 +103,34 @@ def test_run_1_is_stored_as_returned_with_one_audit_record() -> None:
     (record,) = world.audit.records
     assert record.step is AuditStep.OFFER
     assert record.output_data["offer_id"] == offer.offer_id
+
+
+def test_the_request_id_of_the_search_goes_on_the_offer_and_its_record() -> None:
+    """The audit joins the search and offer records to the cart by this id."""
+    world = _run_1()
+
+    offer = world.service.get_offers(samples.agent_key(), replace(query(), request_id=_REQUEST_ID))
+
+    assert offer.request_id == _REQUEST_ID
+    (record,) = world.audit.records
+    assert record.request_id == _REQUEST_ID
+    assert record.buyer_id == samples.BUYER_ID
+    assert record.sentence == "The gateway offered 1 product."
+
+
+def test_an_offer_with_no_search_starts_a_new_request() -> None:
+    """An agent may skip search. Its offer still needs an id, or the audit cannot find it."""
+    world = _run_1()
+
+    first = world.get_offers()
+    second = world.get_offers()
+
+    assert re.fullmatch(REQUEST_ID_PATTERN, first.request_id)
+    assert first.request_id != second.request_id
+    assert [record.request_id for record in world.audit.records] == [
+        first.request_id,
+        second.request_id,
+    ]
 
 
 def test_one_price_call_and_one_stock_call_for_all_ids() -> None:
@@ -180,7 +215,9 @@ def test_an_offer_with_every_product_rejected_is_still_stored() -> None:
         ReasonCode.NOT_AVAILABLE,
         ReasonCode.NO_PRICE,
     ]
-    assert len(world.audit.records) == 1
+    (record,) = world.audit.records
+    reasons = " ".join(item.reason_sentence for item in offer.rejected)
+    assert record.sentence == f"The gateway offered 0 products and rejected 3: {reasons}"
 
 
 def test_the_signature_covers_the_response_body_once() -> None:

@@ -4,6 +4,7 @@ from datetime import date, datetime, time, timedelta
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey
+from app.domain.audit import new_request_id
 from app.domain.catalog import Product
 from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES
 from app.domain.enums import AuditStep, FlowPhase, ReasonCode
@@ -82,6 +83,7 @@ class OfferService:
                 proposed_split=None,
                 rejected=missing + rejected,
                 signature=None,
+                request_id=query.request_id or new_request_id(),
             )
         )
         with self._unit_of_work.transaction():
@@ -139,7 +141,9 @@ class OfferService:
         self._audit.record(
             AuditStep.OFFER,
             agent.agent_id,
-            f"Offer {offer.offer_id}: {len(offer.lines)} lines, {len(offer.rejected)} rejected.",
+            _offer_sentence(offer),
+            request_id=offer.request_id,
+            buyer_id=offer.buyer_id,
             phase=FlowPhase.LOOKUP,
             input_data={
                 "product_ids": list(query.product_ids),
@@ -153,6 +157,17 @@ class OfferService:
                 "rejected": {item.product_id: item.reason_code for item in offer.rejected},
             },
         )
+
+
+def _offer_sentence(offer: Offer) -> str:
+    """For example: The gateway offered 3 products and rejected 3: Order deadline passed."""
+    count = len(offer.lines)
+    offered = f"The gateway offered {count} product{'' if count == 1 else 's'}"
+    if not offer.rejected:
+        return f"{offered}."
+
+    reasons = " ".join(dict.fromkeys(item.reason_sentence for item in offer.rejected))
+    return f"{offered} and rejected {len(offer.rejected)}: {reasons}"
 
 
 def _split(

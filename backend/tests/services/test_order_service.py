@@ -107,7 +107,7 @@ class _World:
             self.idempotency = PostgresIdempotencyRepository(database)
             self.unit_of_work = database
         unit_of_work = self.unit_of_work
-        audit = AuditService(self.audit, self.clock, unit_of_work)
+        audit = AuditService(self.audit, self.carts, self.offers, self.clock, unit_of_work)
         with unit_of_work.transaction():
             self.mandates.add(_mandate(1, _LIMIT))
             self.offers.add(_offer())

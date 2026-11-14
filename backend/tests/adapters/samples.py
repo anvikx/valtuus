@@ -136,6 +136,7 @@ def offer(offer_id: str = "of_1") -> Offer:
             ),
         ),
         signature=None,
+        request_id="r_1",
     )
 
 
@@ -225,11 +226,16 @@ def order(
     )
 
 
-def audit_record(record_id: str, cart_id: str | None = "c_1") -> AuditRecord:
+def audit_record(
+    record_id: str,
+    cart_id: str | None = "c_1",
+    request_id: str | None = "r_1",
+    buyer_id: str | None = BUYER_ID,
+) -> AuditRecord:
     return AuditRecord(
         record_id=record_id,
         cart_id=cart_id,
-        request_id="r_1",
+        request_id=request_id,
         step=AuditStep.POLICY,
         phase=FlowPhase.ORDER,
         actor="claude-code",
@@ -240,4 +246,5 @@ def audit_record(record_id: str, cart_id: str | None = "c_1") -> AuditRecord:
         mandate_version=1,
         sentence="Over the limit.",
         created_at=NOW,
+        buyer_id=buyer_id,
     )

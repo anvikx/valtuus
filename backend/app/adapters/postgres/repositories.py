@@ -8,8 +8,10 @@ from sqlalchemy import (
     Select,
     Table,
     Update,
+    and_,
     delete,
     func,
+    or_,
     select,
     true,
     update,
@@ -299,17 +301,30 @@ class PostgresAuditRepository:
         row = {
             "record_id": record.record_id,
             "cart_id": record.cart_id,
+            "request_id": record.request_id,
+            "buyer_id": record.buyer_id,
             "created_at": record.created_at,
             "body": _AUDIT.dump_python(record, mode="json"),
         }
         self._database.writer().execute(insert(audit_records).values(row))
 
-    def for_cart(self, cart_id: str) -> Sequence[AuditRecord]:
-        query = (
-            select(audit_records.c.body)
-            .where(audit_records.c.cart_id == cart_id)
-            .order_by(audit_records.c.seq)
-        )
+    def for_cart(
+        self,
+        cart_id: str,
+        *,
+        buyer_id: str | None = None,
+        request_ids: Sequence[str] = (),
+    ) -> Sequence[AuditRecord]:
+        in_trail = audit_records.c.cart_id == cart_id
+        # Checked here: "buyer_id == None" would compile to IS NULL and join the old records.
+        if buyer_id is not None:
+            linked = and_(
+                audit_records.c.buyer_id == buyer_id,
+                audit_records.c.request_id.in_(request_ids),
+            )
+            in_trail = or_(in_trail, linked)
+
+        query = select(audit_records.c.body).where(in_trail).order_by(audit_records.c.seq)
         return _all(self._database, _AUDIT, query)
 
 

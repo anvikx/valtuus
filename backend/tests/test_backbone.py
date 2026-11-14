@@ -21,6 +21,7 @@ _BASE_URL = "https://junction.anvik.fi"
 _AGENT_KEY = os.environ["AGENT_KEY"]
 _AUTH = {"Authorization": f"Bearer {_AGENT_KEY}"}
 _IDEMPOTENCY = {"Idempotency-Key": "k-1"}
+_AUDIT_PATH = "/api/v1/audit/c_1"
 _CART = {
     "lines": [{"offer_id": "o_1", "product_id": "p_1", "qty": 1}],
     "request_text": "milk for Monday",
@@ -62,7 +63,7 @@ _AGENT_ONLY_CALLS = [
     ("POST", "/api/v1/carts", _IDEMPOTENCY, _CART),
     ("POST", "/api/v1/carts/c_1/checkout", _IDEMPOTENCY, None),
     ("GET", "/api/v1/mandate", {}, None),
-    ("GET", "/api/v1/audit/c_1", {}, None),
+    ("GET", _AUDIT_PATH, {}, None),
 ]
 # The agent polls these and the main user opens them on the approve and order pages.
 _SHARED_READS = [
@@ -80,6 +81,7 @@ _LIVE_PATHS = {
     "/api/v1/carts/c_1/checkout",
     "/api/v1/orders/o_1",
     _MANDATE_PATH,
+    _AUDIT_PATH,
 }
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
@@ -173,6 +175,14 @@ def test_mandate_answers_with_rules_and_gateway_time() -> None:
     assert datetime.fromisoformat(body["now"]).utcoffset() is not None
 
 
+def test_audit_of_an_unknown_cart_is_not_found() -> None:
+    """The agent learns the cart id is wrong, not that the cart has an empty history."""
+    response = _client().get(_AUDIT_PATH, headers=_AUTH)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json()["error"] == "NOT_FOUND"
+
+
 def test_offers_answer_with_a_stored_offer() -> None:
     """The test catalog is empty, so the id is rejected and no Valio call is made."""
     response = _client().post(_OFFERS_PATH, headers=_AUTH, json={"product_ids": ["p_1"]})
@@ -182,6 +192,16 @@ def test_offers_answer_with_a_stored_offer() -> None:
     assert body["offer_id"].startswith("o_")
     assert body["lines"] == []
     assert body["rejected"][0]["reason_code"] == "PRODUCT_NOT_FOUND"
+
+
+def test_a_made_up_request_id_is_a_validation_error() -> None:
+    """A guessable id could join this offer to another buyer's search in the audit."""
+    body = {"product_ids": ["p_1"], "request_id": "r_1"}
+
+    response = _client().post(_OFFERS_PATH, headers=_AUTH, json=body)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["error"] == "VALIDATION_ERROR"
 
 
 @pytest.mark.parametrize("quantity", ["1000001", "1e27"])

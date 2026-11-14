@@ -96,6 +96,10 @@ audit_records = Table(
     Column("seq", BigInteger, Identity(), primary_key=True),
     Column("record_id", Text, nullable=False, unique=True),
     Column("cart_id", Text, index=True),
+    # Search and offer records have no cart yet; this links them to the cart they led to.
+    Column("request_id", Text, index=True),
+    # A request id comes back from the agent, so a linked record must also match the buyer.
+    Column("buyer_id", Text),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("body", JSONB, nullable=False),
 )
