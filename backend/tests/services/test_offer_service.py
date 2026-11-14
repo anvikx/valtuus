@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from pydantic_core import to_jsonable_python
 
 from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
@@ -269,6 +270,19 @@ def test_the_signature_covers_the_response_body_once() -> None:
     assert set(payload) == set(OfferResponse.model_fields) - {"signature"}
     assert offer.signature == _SIGNATURE
     assert world.offers.get(offer.offer_id).signature == _SIGNATURE
+
+
+@pytest.mark.parametrize("quantity", ["1000", "2.5"])
+def test_the_signed_json_equals_the_response_json(quantity: str) -> None:
+    """The agent compares the signed JSON with the body. A quantity is a number, not "2.5"."""
+    world = _run_1()
+
+    offer = world.get_offers(quantity=quantity)
+
+    (payload,) = world.signer.payloads
+    expected = offer_response(offer).model_dump(mode="json")
+    del expected["signature"]
+    assert to_jsonable_python(payload) == expected
 
 
 def test_more_ids_than_the_guard_is_refused_before_any_call() -> None:

@@ -1,7 +1,11 @@
 // Single place that talks to the backend. Caddy (prod) and the Vite proxy (dev)
 // route /api/* to FastAPI, so relative paths work in both.
 // Wire shapes (snake_case, status strings) stay in this file. The UI gets the domain types below.
+import { verifyJws, type JwsPayload, type SigningKey } from './jws.ts'
+
 const API_BASE = '/api'
+// Agents look the key up at this fixed root path, so it is outside /api.
+const JWKS_PATH = '/.well-known/jwks.json'
 const API_V1 = '/v1'
 const HEALTHY_STATUS = 'ok'
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
@@ -306,6 +310,13 @@ export interface OrderConfirmation {
   readonly approvedBy: string | null
   readonly placedAt: string
 }
+
+// unchecked: the keys or the order could not be loaded, or the browser has no Ed25519.
+export type OrderTrust =
+  | { readonly kind: 'verified'; readonly issuer: string }
+  | { readonly kind: 'unsigned' }
+  | { readonly kind: 'invalid' }
+  | { readonly kind: 'unchecked' }
 
 export interface AuditEntry {
   readonly id: string
@@ -622,6 +633,44 @@ export async function getAudit(cartId: string): Promise<AuditTrail> {
 export async function approveCart(cartId: string, revision: number): Promise<OrderConfirmation> {
   const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/approve`, { revision })
   return toConfirmation(wire as WireOrderConfirmation)
+}
+
+// The fixture backend never gets here: its orders are unsigned.
+async function getSigningKeys(): Promise<readonly SigningKey[]> {
+  const response = await fetch(JWKS_PATH)
+  if (!response.ok) {
+    throw new Error(`Signing keys failed: ${response.status}`)
+  }
+
+  const body = (await response.json()) as { readonly keys: readonly SigningKey[] }
+  return body.keys
+}
+
+// The page shows the cart, so the signed statement must be about that cart: a valid signature
+// on another order proves nothing here.
+function isSignedCart(payload: JwsPayload, orderId: string, cart: Cart): boolean {
+  return (
+    payload.order_id === orderId &&
+    payload.cart_id === cart.id &&
+    payload.total_ex_vat === cart.total &&
+    typeof payload.issuer === 'string'
+  )
+}
+
+// Throws when the check cannot run. The issuer comes from the signed payload, not the body.
+export async function getOrderTrust(orderId: string, cart: Cart): Promise<OrderTrust> {
+  const path = `/orders/${encodeURIComponent(orderId)}`
+  const order = (await call(HTTP_METHOD.get, path)) as WireOrderConfirmation
+  if (order.signature === null) {
+    return { kind: 'unsigned' }
+  }
+
+  const payload = await verifyJws(order.signature, await getSigningKeys())
+  if (payload === null || !isSignedCart(payload, orderId, cart)) {
+    return { kind: 'invalid' }
+  }
+
+  return { kind: 'verified', issuer: String(payload.issuer) }
 }
 
 export async function rejectCart(cartId: string, revision: number, reason: string): Promise<Cart> {

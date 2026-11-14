@@ -6,11 +6,13 @@ import {
   changeCart,
   getAudit,
   getCart,
+  getOrderTrust,
   getSession,
   rejectCart,
   type AuditTrail,
   type Cart,
   type CartChange,
+  type OrderTrust,
   type Session,
 } from '../api.ts'
 import { AuditTimeline } from '../components/AuditTimeline.tsx'
@@ -29,6 +31,8 @@ interface PageData {
   readonly session: Session
   readonly cart: Cart
   readonly audit: AuditTrail | null
+  // null until the cart has an order.
+  readonly trust: OrderTrust | null
 }
 
 type LoadState =
@@ -44,14 +48,27 @@ function isConflict(error: unknown): boolean {
   return error instanceof ApiError && error.kind === 'conflict'
 }
 
+const UNCHECKED: OrderTrust = { kind: 'unchecked' }
+
+// Like the audit, a failed check must not hide the order. The mark says it was not checked.
+function checkOrder(cart: Cart): Promise<OrderTrust | null> {
+  if (cart.orderId === null) {
+    return Promise.resolve(null)
+  }
+
+  return getOrderTrust(cart.orderId, cart).catch(() => UNCHECKED)
+}
+
 async function loadPage(cartId: string): Promise<PageData> {
   const session = await getSession()
   const [cart, audit] = await Promise.all([getCart(cartId), getAudit(cartId).catch(() => null)])
+  const trust = await checkOrder(cart)
 
   return {
     session,
     cart,
     audit,
+    trust,
   }
 }
 
@@ -195,7 +212,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     )
   }
 
-  const { session, cart: latest, audit } = state.data
+  const { session, cart: latest, audit, trust } = state.data
   const { update } = latest
   // Only a waiting cart holds the old version back. A decided cart shows what was decided, even
   // after a reload resets reviewedRevision.
@@ -224,7 +241,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   if (cart.status === 'ordered') {
     return (
       <main className="stack">
-        <OrderedResult cart={cart} />
+        <OrderedResult cart={cart} trust={trust ?? UNCHECKED} />
         {timeline}
       </main>
     )

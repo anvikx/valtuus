@@ -76,6 +76,7 @@ const MANDATE_PATH = '/v1/mandate'
 const SAVE_FAILS_PARAM = 'save'
 const SAVE_FAILS_VALUE = 'fail'
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
+const ORDER_PATH = /^\/v1\/orders\/([^/]+)$/
 
 type Outcome =
   'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired' | 'denied' | 'withdrawn'
@@ -448,6 +449,15 @@ function route(request: WireRequest): WireResponse {
   const auditMatch = AUDIT_PATH.exec(request.path)
   if (auditMatch !== null) {
     return answerAudit(decodeURIComponent(auditMatch[1]))
+  }
+
+  // Fixture orders are unsigned, so the page shows the development mark.
+  const orderMatch = ORDER_PATH.exec(request.path)
+  if (orderMatch !== null) {
+    return reply(STATUS.ok, {
+      ...ORDER_CONFIRMATION,
+      order_id: decodeURIComponent(orderMatch[1]),
+    })
   }
 
   return reply(STATUS.notFound)

@@ -50,6 +50,11 @@ def price_per_unit(
     return unit_price / _per_sales_unit(unit, content)
 
 
+def json_number(value: Decimal) -> int | float:
+    """Quantities are JSON numbers (1000, 2.5). Only money and rates are strings."""
+    return int(value) if value == value.to_integral_value() else float(value)
+
+
 def comparison_unit(unit: Unit | None) -> Unit:
     return Unit.PCS if unit in _COUNTED else unit
 

@@ -4,14 +4,9 @@ from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints
 
 from app.domain.enums import AllergenStatus, ErrorCode, ReasonCode
+from app.domain.units import json_number
 
-
-def _json_number(value: Decimal) -> int | float:
-    # Quantities are JSON numbers (1000, 2.5). Only money and rates are strings.
-    return int(value) if value == value.to_integral_value() else float(value)
-
-
-Quantity = Annotated[Decimal, PlainSerializer(_json_number, when_used="json")]
+Quantity = Annotated[Decimal, PlainSerializer(json_number, when_used="json")]
 # Far above any kitchen order. Without a cap, 1e27 overflowed the cent rounding into a 500.
 _MAX_QUANTITY = 1_000_000
 PositiveQuantity = Annotated[Quantity, Field(gt=0, le=_MAX_QUANTITY)]
