@@ -41,6 +41,8 @@ VALID_ATTRIBUTES = (
     "FAIR_TRADE_MARK",
 )
 ATTRIBUTE_DESCRIPTION = "Valid attribute codes: " + ", ".join(VALID_ATTRIBUTES) + "."
+QUERY_RULE = f"1 to {MAX_QUERY_WORDS} words, each with at least {MIN_QUERY_LETTERS} letters"
+_NEGATIONS = ("free", "fri", "ton", "vapaa")
 
 
 def normalize_name(name: str) -> str:
@@ -57,8 +59,8 @@ def validate_query(query: SearchQuery) -> str:
         sum(char.isalpha() for char in word) < MIN_QUERY_LETTERS for word in words
     ):
         raise InvalidRequestError(
-            "Search needs 1 to 5 words, each with at least 3 letters.",
-            "Use fewer words or words with at least 3 letters.",
+            f"Search needs {QUERY_RULE}.",
+            f"Use fewer words or words with at least {MIN_QUERY_LETTERS} letters.",
         )
     if set(query.required_attributes) - set(VALID_ATTRIBUTES):
         raise InvalidRequestError(
@@ -82,9 +84,11 @@ class NameMatcher:
     def __init__(self, query: str) -> None:
         self._words = query.split()
         self._whole = [re.compile(rf"\b{re.escape(word)}\b") for word in self._words]
+        # "gluten free bread" asks for the free-from product, so "gluten" is not negated there.
         self._negated = [
-            re.compile(rf"{re.escape(word)}\w*[\s-]*(?:free|fri|ton|vapaa)\b")
-            for word in self._words
+            re.compile(rf"{re.escape(word)}\w*[\s-]*(?:{'|'.join(_NEGATIONS)})\b")
+            for word, following in zip(self._words, [*self._words[1:], None], strict=True)
+            if following not in _NEGATIONS
         ]
 
     def match(self, product: Product) -> NameMatch | None:

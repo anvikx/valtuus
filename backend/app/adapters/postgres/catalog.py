@@ -7,8 +7,8 @@ from sqlalchemy import Select, delete, insert, select
 
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.tables import product_deposits, products
-from app.adapters.product_store import normalize_name
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
+from app.domain.catalog_search import normalize_name
 from app.domain.enums import AllergenStatus, AllergenType, Unit
 
 _BATCH_SIZE = 500

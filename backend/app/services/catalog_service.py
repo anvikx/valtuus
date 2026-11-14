@@ -32,6 +32,18 @@ def _allergen_reason(product: Product, mandate: Mandate) -> ReasonCode | None:
     return None
 
 
+def _excluded_in(
+    excluded: list[tuple[Product, ReasonCode]],
+    category: str | None,
+) -> tuple[ExcludedProduct, ...]:
+    # No category means no candidate, so every exclusion explains the NO_MATCH.
+    return tuple(
+        ExcludedProduct(product.product_id, reason)
+        for product, reason in sorted(excluded, key=lambda item: item[0].product_id)
+        if category is None or product.category == category
+    )
+
+
 class CatalogService:
     """Search the local catalog, with no price source or language model dependency."""
 
@@ -65,7 +77,7 @@ class CatalogService:
             self._audit.record(
                 AuditStep.SEARCH,
                 agent.agent_id,
-                "NO_MATCH"
+                "No product matched."
                 if result.status == SearchStatus.NO_MATCH
                 else "Catalog search completed.",
                 request_id=result.request_id,
@@ -111,7 +123,7 @@ class CatalogService:
                 candidate(product, match, query)
                 for product, match in selected[: self._candidate_guard]
             ),
-            excluded=tuple(excluded),
+            excluded=_excluded_in(excluded, category),
             hint_category=category,
             request_id=request_id,
         )
@@ -120,7 +132,7 @@ class CatalogService:
         self,
         query: SearchQuery,
         mandate: Mandate,
-    ) -> tuple[list[tuple[Product, NameMatch]], list[ExcludedProduct]]:
+    ) -> tuple[list[tuple[Product, NameMatch]], list[tuple[Product, ReasonCode]]]:
         matcher = NameMatcher(query.query)
         hits = []
         excluded = []
@@ -129,11 +141,10 @@ class CatalogService:
             if match is None or not set(query.required_attributes).issubset(product.attributes):
                 continue
             if reason := _allergen_reason(product, mandate):
-                excluded.append(ExcludedProduct(product.product_id, reason))
+                excluded.append((product, reason))
                 continue
             if query.category is not None and product.category != query.category:
                 continue
             if fits_search(product, query.unit):
                 hits.append((product, match))
-        excluded.sort(key=lambda item: item.product_id)
         return hits, excluded

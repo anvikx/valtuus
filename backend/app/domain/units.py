@@ -6,7 +6,8 @@ from decimal import Decimal
 from app.domain.catalog import ContentPerSalesUnit
 from app.domain.enums import Unit
 
-# A request in pieces, or with no unit, counts sales units: 1 sales unit is 1 piece.
+# A request in pieces, or with no unit, counts sales units: 1 sales unit is 1 piece,
+# unless the content gives the pieces in a pack.
 _COUNTED = (None, Unit.PCS)
 
 
@@ -32,6 +33,15 @@ def sales_units_needed(
     return math.ceil(quantity / _per_sales_unit(unit, content))
 
 
+def quantity_delivered(
+    count: int,
+    unit: Unit | None,
+    content: ContentPerSalesUnit | None,
+) -> Decimal:
+    """3 boxes of 5 x 1 l deliver 15 L. 3 packs of 10 eggs deliver 30 pieces."""
+    return count * _per_sales_unit(unit, content)
+
+
 def price_per_unit(
     unit_price: Decimal,
     unit: Unit | None,
@@ -50,7 +60,7 @@ def _per_sales_unit(unit: Unit | None, content: ContentPerSalesUnit | None) -> D
     if not fits_request(content, unit):
         raise ValueError(f"content {content} does not fit a request in {unit}")
 
-    if unit in _COUNTED:
-        return Decimal(1)
+    if unit is not None and content is not None and content.unit is unit:
+        return content.value
 
-    return content.value
+    return Decimal(1)

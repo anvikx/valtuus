@@ -1,11 +1,8 @@
 """Build candidate quantities without treating unknown content as a known pack."""
 
-from decimal import Decimal
-
 from app.domain.catalog import Product, SearchCandidate, SearchQuery
 from app.domain.catalog_search import NameMatch
-from app.domain.enums import Unit
-from app.domain.units import fits_request, sales_units_needed
+from app.domain.units import fits_request, quantity_delivered, sales_units_needed
 
 
 def candidate(product: Product, match: NameMatch, query: SearchQuery) -> SearchCandidate:
@@ -13,7 +10,7 @@ def candidate(product: Product, match: NameMatch, query: SearchQuery) -> SearchC
     count = delivered = excess = None
     if query.quantity is not None and query.unit is not None and fits_request(content, query.unit):
         count = sales_units_needed(query.quantity, query.unit, content)
-        delivered = Decimal(count) if query.unit == Unit.PCS else count * content.value
+        delivered = quantity_delivered(count, query.unit, content)
         excess = delivered - query.quantity
     return SearchCandidate(
         product_id=product.product_id,

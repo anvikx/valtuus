@@ -65,6 +65,19 @@ def test_negated_names_do_not_match(name):
     assert NameMatcher(word).match(item(name=name)) is None
 
 
+@pytest.mark.parametrize(
+    "words,name",
+    [
+        ("gluten free bread", "Gluten free bread"),
+        ("lactose free milk", "Lactose-free milk 1 l"),
+        ("mjolk fri", "Mjölkfri dryck"),
+    ],
+)
+def test_a_free_from_query_matches_its_own_negation(words, name):
+    """The buyer asks for the free-from product, so its name must not count as negated."""
+    assert NameMatcher(words).match(item(name=name)) is not None
+
+
 def test_each_name_must_contain_all_words_and_another_name_can_match():
     matcher = NameMatcher("milk drink")
     split = replace(
@@ -133,7 +146,7 @@ def test_numeric_category_tie_break_and_no_match():
 
     assert catalog.search(agent_key(), query()).hint_category == "2"
     assert catalog.search(agent_key(), query("xyzzy")).candidates == ()
-    assert records.records[-1].sentence == "NO_MATCH"
+    assert records.records[-1].sentence == "No product matched."
 
 
 @pytest.mark.parametrize(
@@ -180,6 +193,35 @@ def test_attributes_and_allergens_before_category_and_unit():
 
     assert [p.product_id for p in result.candidates] == ["ok"]
     assert {p.product_id for p in result.excluded} == {"forbidden", "unknown"}
+
+
+@pytest.mark.parametrize("category", [None, "1"])
+def test_excluded_products_follow_the_returned_category(category):
+    unknown = Allergens(AllergenStatus.UNKNOWN, ())
+    products = [
+        item("ok", category="1"),
+        item("same", category="1", allergens=unknown),
+        item("other", category="2", allergens=unknown),
+    ]
+    catalog, _ = service(FakeCatalog(*products), allergen_unknown_policy=Decision.DENY)
+
+    result = catalog.search(agent_key(), query(category=category))
+
+    assert {p.product_id for p in result.excluded} == {"same"}
+
+
+def test_no_match_names_every_excluded_product():
+    """With no candidate there is no category, and the buyer still needs to know why."""
+    unknown = Allergens(AllergenStatus.UNKNOWN, ())
+    products = [
+        item("a", category="1", allergens=unknown),
+        item("b", category="2", allergens=unknown),
+    ]
+    catalog, _ = service(FakeCatalog(*products), allergen_unknown_policy=Decision.DENY)
+
+    result = catalog.search(agent_key(), query())
+
+    assert {p.product_id for p in result.excluded} == {"a", "b"}
 
 
 def test_complete_category_and_safety_guard():
@@ -285,6 +327,19 @@ def test_one_litre_sales_units_and_unknown_quantity():
     missing = catalog.search(agent_key(), query(quantity=None))
     assert missing.candidates[0].sales_units_needed is None
     assert "quantity" in missing.missing
+
+
+def test_pieces_fill_packs_by_their_piece_count():
+    """25 eggs in packs of 10 is 3 packs, not 25 packs of 250 eggs."""
+    eggs = item(name="Eggs", content_per_sales_unit=ContentPerSalesUnit(Decimal(10), Unit.PCS))
+    catalog, _ = service(FakeCatalog(eggs))
+
+    result = catalog.search(agent_key(), query("eggs", quantity=Decimal(25), unit=Unit.PCS))
+
+    (found,) = result.candidates
+    assert found.sales_units_needed == 3
+    assert found.quantity_delivered == Decimal(30)
+    assert found.quantity_over_request == Decimal(5)
 
 
 def test_best_language_name_determines_sort_order():

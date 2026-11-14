@@ -26,7 +26,7 @@ from app.api.schemas.mandate import MandateResponse
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
-from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
 
@@ -63,7 +63,7 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
     @server.tool(
         description=(
             "Search en/fi/sv names, including inside words, with accents folded. "
-            "Use 1 to 5 words with at least 3 letters each. Negated names do not match. "
+            f"Use {QUERY_RULE}. Negated names do not match. "
             "Returns the complete hint category, subject to the safety guard. "
             "No price or stock; call get_offers with all candidates. "
             "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION

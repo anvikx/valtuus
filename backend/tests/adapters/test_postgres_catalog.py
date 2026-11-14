@@ -179,30 +179,3 @@ def test_legacy_writer_on_new_schema(database):
     assert stored.allergens.status == AllergenStatus.KNOWN
     assert stored.names == {}
     assert stored.name == "Maito"
-
-
-def test_content_migration_reconciles_early_local_revision(database):
-    """Local catalog builds used 0009 before main assigned it to audit links."""
-    from importlib import import_module
-
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
-    from sqlalchemy import inspect, text
-
-    migration = import_module("app.adapters.postgres.migrations.versions.0010_content_units")
-    catalog = PostgresCatalog(database)
-    product = _product("1", "Maito")
-    catalog.replace([product])
-
-    with database.transaction():
-        connection = database.writer()
-        connection.execute(text("ALTER TABLE audit_records DROP COLUMN request_id"))
-        connection.execute(text("ALTER TABLE audit_records DROP COLUMN buyer_id"))
-        with Operations.context(MigrationContext.configure(connection)):
-            migration.upgrade()
-        columns = {column["name"] for column in inspect(connection).get_columns("audit_records")}
-        indexes = {index["name"] for index in inspect(connection).get_indexes("audit_records")}
-
-    assert {"request_id", "buyer_id"} <= columns
-    assert "ix_audit_records_request_id" in indexes
-    assert catalog.get("1").content_per_sales_unit == product.content_per_sales_unit

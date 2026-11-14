@@ -5,15 +5,13 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
 from app.domain.catalog import SearchQuery
-from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import Decision, ReasonCode, SearchMatch, SearchStatus, Unit
 
 
 class SearchRequest(RequestModel):
     query: str = Field(
-        description=(
-            "1 to 5 words, each with at least 3 letters. Accents are folded; substrings match."
-        ),
+        description=f"{QUERY_RULE}. Accents are folded; substrings match.",
         examples=["milk"],
     )
     required_attributes: list[str] = Field(
