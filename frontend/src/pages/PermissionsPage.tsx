@@ -11,7 +11,7 @@ import {
 import { MandateForm } from '../components/MandateForm.tsx'
 import { MandateView, POLICY_WORDS } from '../components/MandateView.tsx'
 import { money } from '../components/ResultScreen.tsx'
-import { formatAllergen } from '../format.ts'
+import { formatAllergen, formatAttribute } from '../format.ts'
 import { isSignedOut, redirectToLogin } from '../session.ts'
 
 interface Loaded {
@@ -76,6 +76,10 @@ function changesBetween(before: Mandate, after: Mandate): string[] {
 
   if (before.preferredBrands.join() !== after.preferredBrands.join()) {
     changes.push(`Preferred brands: ${listOrNone(after.preferredBrands)}.`)
+  }
+
+  if ([...before.required].sort().join() !== [...after.required].sort().join()) {
+    changes.push(`Every product must be: ${listOrNone(after.required.map(formatAttribute))}.`)
   }
 
   if ([...before.forbidden].sort().join() !== [...after.forbidden].sort().join()) {

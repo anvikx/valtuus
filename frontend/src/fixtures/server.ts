@@ -401,6 +401,7 @@ let mandate: WireMandate = {
   max_auto_order_value: '500.00',
   max_auto_value_per_delivery_date: '500.00',
   preferred_brands: [],
+  required_attributes: [],
   forbidden_allergens: [],
   allergen_unknown_policy: 'HUMAN',
 }

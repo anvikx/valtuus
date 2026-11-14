@@ -3,9 +3,10 @@ from datetime import datetime
 from decimal import Decimal
 
 from app.domain.agent_key import User
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, VALID_ATTRIBUTES
 from app.domain.constants import CURRENCY
 from app.domain.enums import AuditStep, Decision
-from app.domain.errors import ConflictError, ForbiddenError, NotFoundError
+from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
 from app.domain.mandate import Mandate
 from app.domain.money import round_money
 from app.services.audit_service import AuditService
@@ -37,6 +38,7 @@ class MandateChanges:
     max_auto_order_value: Decimal | None = None
     max_auto_value_per_delivery_date: Decimal | None = None
     preferred_brands: tuple[str, ...] | None = None
+    required_attributes: tuple[str, ...] | None = None
     forbidden_allergens: tuple[str, ...] | None = None
     allergen_unknown_policy: Decision | None = None
     can_auto_order: bool | None = None
@@ -84,6 +86,7 @@ class MandateService:
         A waiting cart gets the new version when the agent calls checkout again.
         """
         buyer_id = _buyer_id(user)
+        changes = _checked_attributes(changes)
         with self._unit_of_work.transaction():
             current = self.get(buyer_id)
             changed = _changed_fields(current, changes)
@@ -125,6 +128,22 @@ def _buyer_id(user: User) -> str:
     return user.buyer_id
 
 
+def _checked_attributes(changes: MandateChanges) -> MandateChanges:
+    """Sorted and unique, so a save of the same codes in another order makes no version."""
+    if changes.required_attributes is None:
+        return changes
+
+    codes = set(changes.required_attributes)
+    # No product has an unknown code, so the agent would find nothing and not know why.
+    if codes - set(VALID_ATTRIBUTES):
+        raise InvalidRequestError(
+            "Unknown attribute code. " + ATTRIBUTE_DESCRIPTION,
+            "Use one of the valid attribute codes.",
+        )
+
+    return replace(changes, required_attributes=tuple(sorted(codes)))
+
+
 def _changed_fields(current: Mandate, changes: MandateChanges) -> dict[str, object]:
     """Only the given values that differ, so a save with no change makes no version."""
     return {
@@ -149,6 +168,9 @@ def _limits_sentence(mandate: Mandate) -> str:
 def _choice_sentences(mandate: Mandate) -> list[str]:
     """Only the choices the main user made, so an empty mandate stays short."""
     sentences = []
+    if mandate.required_attributes:
+        sentences.append(f"Every product must have: {', '.join(mandate.required_attributes)}.")
+
     if mandate.preferred_brands:
         sentences.append(f"Preferred brands: {', '.join(mandate.preferred_brands)}.")
 

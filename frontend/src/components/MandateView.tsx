@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react'
 
 import type { AllergenPolicy, Mandate } from '../api.ts'
-import { formatAllergen } from '../format.ts'
+import { formatAllergen, formatAttribute } from '../format.ts'
 import { money } from './ResultScreen.tsx'
 
 const CURRENCY = 'EUR'
@@ -75,6 +75,7 @@ function RuleList({ id, title, items }: RuleListProps): ReactElement {
 }
 
 export function MandateView({ mandate, onEdit }: MandateViewProps): ReactElement {
+  const required = mandate.required.map(formatAttribute)
   const forbidden = mandate.forbidden.map(formatAllergen)
 
   return (
@@ -98,6 +99,9 @@ export function MandateView({ mandate, onEdit }: MandateViewProps): ReactElement
           <dl className="mandate-rows">
             <Row isEmpty={mandate.preferredBrands.length === 0} term="Preferred brands">
               {listOrNone(mandate.preferredBrands)}
+            </Row>
+            <Row isEmpty={required.length === 0} term="Every product must be">
+              {listOrNone(required)}
             </Row>
             <Row isEmpty={forbidden.length === 0} term="Does not contain">
               {listOrNone(forbidden)}

@@ -206,6 +206,7 @@ export interface WireMandate {
   readonly max_auto_order_value: string
   readonly max_auto_value_per_delivery_date: string
   readonly preferred_brands: readonly string[]
+  readonly required_attributes: readonly string[]
   readonly forbidden_allergens: readonly string[]
   readonly allergen_unknown_policy: string
 }
@@ -218,6 +219,7 @@ export interface WireMandateUpdate {
   readonly max_auto_order_value: string
   readonly max_auto_value_per_delivery_date: string
   readonly preferred_brands: readonly string[]
+  readonly required_attributes: readonly string[]
   readonly forbidden_allergens: readonly string[]
   readonly allergen_unknown_policy: string
 }
@@ -345,6 +347,7 @@ export interface Mandate {
   readonly maxOrder: string
   readonly maxPerDay: string
   readonly preferredBrands: readonly string[]
+  readonly required: readonly string[]
   readonly forbidden: readonly string[]
   readonly unknownPolicy: AllergenPolicy
 }
@@ -575,6 +578,7 @@ function toMandate({ mandate }: WireMandateResponse): Mandate {
     maxOrder: mandate.max_auto_order_value,
     maxPerDay: mandate.max_auto_value_per_delivery_date,
     preferredBrands: mandate.preferred_brands,
+    required: mandate.required_attributes,
     forbidden: mandate.forbidden_allergens,
     // An unknown value must not read as permission to order.
     unknownPolicy: WIRE_POLICY_TO_POLICY[mandate.allergen_unknown_policy] ?? 'ask',
@@ -706,6 +710,7 @@ export async function saveMandate(edit: MandateEdit): Promise<Mandate> {
     max_auto_order_value: edit.maxOrder,
     max_auto_value_per_delivery_date: edit.maxPerDay,
     preferred_brands: edit.preferredBrands,
+    required_attributes: edit.required,
     forbidden_allergens: edit.forbidden,
     allergen_unknown_policy: POLICY_TO_WIRE_POLICY[edit.unknownPolicy],
   }

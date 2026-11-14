@@ -111,6 +111,20 @@ export function formatAttribute(code: string): string {
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
 }
 
+// The choices the search asks the buyer about. A rule set here stops the question.
+export const REQUIRED_ATTRIBUTE_CODES: readonly string[] = [
+  'FREE_FROM_LACTOSE',
+  'LOW_LACTOSE',
+  'FREE_FROM_GLUTEN',
+  'FREE_FROM_WHEAT',
+  'FREE_FROM_EGGS',
+  'FREE_FROM_SOY',
+  'VEGAN',
+  'FREE_FROM_FAT',
+  'LOW_FAT',
+  'EU_ORGANIC_FARMING',
+]
+
 // GS1 allergen type codes of the 14 EU allergens, as the catalog declares them. The backend
 // matches forbidden_allergens against these codes, so the mandate must store the code.
 export const ALLERGEN_WORDS: Readonly<Record<string, string>> = {

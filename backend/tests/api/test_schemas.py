@@ -278,6 +278,20 @@ def test_mandate_limit_is_stored_as_plain_cents(field: str, value: str, stored: 
     assert str(getattr(changes, field)) == stored
 
 
+def test_mandate_update_passes_required_attributes() -> None:
+    """An empty list clears the rule. Read as "missing", the old rule would stay."""
+    assert MandateUpdateRequest.model_validate(
+        {"required_attributes": ["FREE_FROM_LACTOSE"]}
+    ).to_domain().required_attributes == ("FREE_FROM_LACTOSE",)
+    assert (
+        MandateUpdateRequest.model_validate({"required_attributes": []})
+        .to_domain()
+        .required_attributes
+        == ()
+    )
+    assert MandateUpdateRequest.model_validate({}).to_domain().required_attributes is None
+
+
 def test_mandate_update_passes_the_automatic_order_switch() -> None:
     """False is a real change. Read as "missing", it would leave the agent ordering alone."""
     changes = MandateUpdateRequest.model_validate({"can_auto_order": False}).to_domain()

@@ -218,6 +218,29 @@ def test_main_user_turns_on_automatic_orders_for_the_agent() -> None:
     assert agent_view["summary"][0].startswith("This agent may place orders up to 500.00 EUR")
 
 
+def test_main_user_required_attributes_reach_the_agent() -> None:
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.put(_MANDATE_PATH, json={"required_attributes": ["FREE_FROM_LACTOSE"]})
+
+    assert response.status_code == HTTPStatus.OK
+    agent_view = client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]
+    assert agent_view["required_attributes"] == ["FREE_FROM_LACTOSE"]
+    assert "Every product must have: FREE_FROM_LACTOSE." in agent_view["summary"]
+
+
+def test_unknown_required_attribute_is_a_validation_error() -> None:
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.put(_MANDATE_PATH, json={"required_attributes": ["ORGANIC"]})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["error"] == "VALIDATION_ERROR"
+    assert client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]["version"] == 1
+
+
 def test_main_user_inbox_lists_the_buyers_carts() -> None:
     """The approval inbox opens on this list, so a new main user sees an empty inbox, not 501."""
     client = _client()
