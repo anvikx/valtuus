@@ -27,7 +27,7 @@ _SERVER_ERROR = 500
 # The API ignores the customer field and gives every buyer the same price.
 _CUSTOMER = "valtuus"
 _STOCK_MODELS = {"Stock": StockModel.STOCK, "Terminal": StockModel.TERMINAL}
-_PARSE_ERRORS = (KeyError, IndexError, TypeError, ValueError, ArithmeticError)
+_PARSE_ERRORS = (KeyError, IndexError, TypeError, ValueError, ArithmeticError, AttributeError)
 
 type _Json = dict[str, Any]
 
@@ -141,11 +141,22 @@ def _price(item: _Json) -> Price | None:
     return Price(
         product_id=_text(item["productId"]),
         unit_price=unit_price,
-        vat_rate=_not_negative(item["tax"]["taxRate"]),
+        vat_rate=_vat_rate(item),
         comparison_price=_comparison(item),
         valid_from=_helsinki(catalog["validFrom"]).date(),
         valid_to=_helsinki(catalog["validTo"]).date(),
     )
+
+
+def _vat_rate(item: _Json) -> Decimal | None:
+    # A null tax is real data. Reading it as a failure broke the answer for every other product.
+    # A missing key or a tax that is not an object is still a broken answer: the subscript
+    # raises KeyError or TypeError, which fail closed.
+    tax = item["tax"]
+    if tax is None or tax["taxRate"] is None:
+        return None
+
+    return _not_negative(tax["taxRate"])
 
 
 def _comparison(item: _Json) -> ComparisonPrice | None:

@@ -149,6 +149,17 @@ def test_a_product_with_no_price_is_absent(monkeypatch, time):
     assert set(prices) == {"464306"}
 
 
+def test_a_null_tax_is_an_unknown_vat_rate(monkeypatch, time):
+    """One product with no tax must not fail the answer for every other product in the offer."""
+    no_tax = {**_PRICE_ANSWER["products"][0], "productId": "333333", "tax": None}
+    answer = {**_PRICE_ANSWER, "products": [*_PRICE_ANSWER["products"], no_tax]}
+
+    prices = _client(monkeypatch, _Upstream(answer)).prices(["464306", "333333"], _MONDAY)
+
+    assert prices["333333"].vat_rate is None
+    assert prices["464306"].vat_rate == Decimal("13.5")
+
+
 def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypatch, time):
     snapshot = _client(monkeypatch, _Upstream(_AVAILABILITY_ANSWER)).availability(
         ["464306", "465039", "000000"], _MONDAY
@@ -252,6 +263,15 @@ def _priced(product_id: object, value: object) -> dict:
     }
 
 
+def _taxed(**fields: object) -> dict:
+    """A priced answer with no tax key, plus the given fields."""
+    answer = _priced("464306", 1.01)
+    item = answer["products"][0]
+    del item["tax"]
+    item.update(fields)
+    return answer
+
+
 @pytest.mark.parametrize("value", [0, -1.5])
 def test_a_price_of_zero_or_less_is_no_price(monkeypatch, time, value):
     """A zero price would rank first as the cheapest offer."""
@@ -268,12 +288,47 @@ def test_a_price_of_zero_or_less_is_no_price(monkeypatch, time, value):
         _priced("464306", "1.01"),
         _priced(464306, 1.01),
         {"products": _priced("464306", 1.01)["products"] * 2},
+        _taxed(),
+        _taxed(tax="13.5"),
+        _taxed(tax={"taxRate": -1}),
     ],
-    ids=["nan", "bool", "string", "int id", "duplicate id"],
+    ids=[
+        "nan",
+        "bool",
+        "string",
+        "int id",
+        "duplicate id",
+        "no tax key",
+        "tax text",
+        "negative tax",
+    ],
 )
 def test_a_broken_price_answer_is_upstream_unavailable(monkeypatch, time, answer):
     with pytest.raises(UpstreamUnavailableError):
         _client(monkeypatch, _Upstream(answer)).prices(["464306"], _MONDAY)
+
+
+@pytest.mark.parametrize(
+    ("route", "answer"),
+    [
+        ("prices", {"products": [None]}),
+        ("availability", {"timeNow": "2026-11-14T15:38:58", "products": [None]}),
+        (
+            "availability",
+            {
+                "timeNow": "2026-11-14T15:38:58",
+                "products": [{"productId": "1", "scheduleLines": ["x"]}],
+            },
+        ),
+    ],
+    ids=["price entry", "stock entry", "schedule line"],
+)
+def test_an_entry_that_is_not_an_object_is_upstream_unavailable(monkeypatch, time, route, answer):
+    """An AttributeError escaped the parser and answered 500 instead of failing closed."""
+    client = _client(monkeypatch, _Upstream(answer))
+
+    with pytest.raises(UpstreamUnavailableError):
+        getattr(client, route)(["1"], _MONDAY)
 
 
 @pytest.mark.parametrize("amount", [-3, True, "12"])

@@ -90,7 +90,9 @@ class OfferLine(Reasons):
     sales_units_needed: int = Field(description="Sales units that cover the requested quantity.")
     unit_price: Decimal = Field(description="Price per sales unit, EUR ex VAT.")
     currency: str = Field(description="Always EUR.")
-    vat_rate: Decimal = Field(description="VAT rate. Prices exclude VAT.")
+    vat_rate: Decimal | None = Field(
+        description="VAT rate. Prices exclude VAT. null: Valio Aimo sent no tax."
+    )
     comparison_price: ComparisonPrice = Field(description="Price per L or per KG, to compare.")
     price_valid_from: date = Field(description="First day of the price.")
     price_valid_to: date = Field(description="Last day of the price.")

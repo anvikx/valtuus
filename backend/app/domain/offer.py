@@ -20,7 +20,7 @@ class Price:
 
     product_id: str
     unit_price: Decimal
-    vat_rate: Decimal
+    vat_rate: Decimal | None
     comparison_price: ComparisonPrice | None
     valid_from: date
     valid_to: date
@@ -93,7 +93,7 @@ class OfferLine:
     sales_units_needed: int
     unit_price: Decimal
     currency: str
-    vat_rate: Decimal
+    vat_rate: Decimal | None
     comparison_price: ComparisonPrice
     price_valid_from: date
     price_valid_to: date
