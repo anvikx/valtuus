@@ -143,6 +143,7 @@ _CART = {
     "decided_at": None,
     "reject_reason": None,
     "approve_url": "https://junction.anvik.fi/carts/c_1",
+    "next_step": "Give the buyer this link now: https://junction.anvik.fi/carts/c_1.",
 }
 
 _ORDER = {

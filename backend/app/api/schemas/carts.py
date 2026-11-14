@@ -114,3 +114,6 @@ class CartResponse(Reasons):
     approve_url: str | None = Field(
         description="Page where the main user approves or rejects. null unless PENDING_APPROVAL.",
     )
+    next_step: str | None = Field(
+        description="What the agent tells the buyer now. null unless PENDING_APPROVAL.",
+    )
