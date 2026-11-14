@@ -98,10 +98,20 @@ blockquote {
   font: var(--type-small);
 }
 
+/* Phone: a desktop only nav hides, so the header keeps one row. */
+.app-header-nav-desktop .app-nav {
+  display: none;
+}
+
 /* Desktop: name, nav and tag on one row. */
 @media (min-width: 900px) {
-  .app-header-nav {
+  .app-header-nav,
+  .app-header-nav-desktop {
     padding-block: 0;
+  }
+
+  .app-header-nav-desktop .app-nav {
+    display: flex;
   }
 
   .app-nav {
@@ -1009,6 +1019,11 @@ textarea.input {
   padding-top: var(--space-3);
   border-top: var(--border-width) solid var(--record-line);
   font: var(--type-small);
+}
+
+.record-check {
+  color: var(--brand);
+  font-weight: 600;
 }
 
 .record-link {

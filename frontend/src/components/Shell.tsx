@@ -13,11 +13,36 @@ interface NavLink {
   readonly paths: readonly string[]
 }
 
-// The approval, record and order pages show no nav, so the user stays on the one decision.
+type NavMode = 'all' | 'desktop' | 'none'
+
+// The approval and order pages show no nav, so the user stays on the one decision.
 const NAV_LINKS: readonly NavLink[] = [
   { href: '/inbox', label: 'Approvals', paths: ['/', '/inbox'] },
   { href: '/permissions', label: 'Agent permissions', paths: ['/permissions'] },
 ]
+
+const APPROVALS_PATH = '/inbox'
+const RECORD_PATH = /^\/carts\/[^/]+\/record$/
+
+const HEADER_CLASS: Readonly<Record<NavMode, string>> = {
+  all: 'app-header app-header-nav',
+  desktop: 'app-header app-header-nav-desktop',
+  none: 'app-header',
+}
+
+// The record has no decision to guard, so a desktop shows the nav there, under Approvals. The
+// phone header has no room for it.
+function navModeOf(path: string): NavMode {
+  if (NAV_LINKS.some(({ paths }) => paths.includes(path))) {
+    return 'all'
+  }
+
+  return RECORD_PATH.test(path) ? 'desktop' : 'none'
+}
+
+function navPathOf(path: string): string {
+  return RECORD_PATH.test(path) ? APPROVALS_PATH : path
+}
 
 function MainNav({ path }: { readonly path: string }): ReactElement {
   return (
@@ -58,13 +83,14 @@ function UserLabel(): ReactElement | null {
 // Every page carries the Prototype tag and the disclaimer, so nobody takes it for a Valio Aimo
 // production system.
 export function Shell({ path, children }: ShellProps): ReactElement {
-  const hasNav = NAV_LINKS.some(({ paths }) => paths.includes(path))
+  const navMode = navModeOf(path)
+  const hasNav = navMode !== 'none'
 
   return (
     <div className="app-shell">
-      <header className={hasNav ? 'app-header app-header-nav' : 'app-header'}>
+      <header className={HEADER_CLASS[navMode]}>
         <span className="app-name">Valtuus</span>
-        {hasNav ? <MainNav path={path} /> : null}
+        {hasNav ? <MainNav path={navPathOf(path)} /> : null}
         {hasNav ? <UserLabel /> : null}
         <span className="tag">Prototype</span>
       </header>
