@@ -6,7 +6,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.api.schemas.carts import CartRequest, CartResponse
 from app.api.schemas.catalog import ContentPerSalesUnit, SearchResponse
-from app.api.schemas.mandate import MandateResponse
+from app.api.schemas.mandate import MandateResponse, MandateUpdateRequest
 from app.api.schemas.offers import OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.enums import Unit
@@ -226,3 +226,22 @@ def test_cart_request_refuses_a_price() -> None:
 
     with pytest.raises(ValidationError, match="unit_price"):
         CartRequest.model_validate(body)
+
+
+_LIMITS = ["max_auto_order_value", "max_auto_value_per_delivery_date"]
+
+
+@pytest.mark.parametrize("field", _LIMITS)
+@pytest.mark.parametrize("value", ["500.001", "0.005", "NaN", "Infinity", "-1"])
+def test_mandate_limit_refuses_part_cents(field: str, value: str) -> None:
+    """Totals are whole cents, so a limit of 500.001 would silently act as 500.00."""
+    with pytest.raises(ValidationError, match=field):
+        MandateUpdateRequest.model_validate({field: value})
+
+
+@pytest.mark.parametrize("field", _LIMITS)
+@pytest.mark.parametrize("value", ["500", "500.5", "500.50", "0"])
+def test_mandate_limit_takes_whole_cents(field: str, value: str) -> None:
+    parsed = MandateUpdateRequest.model_validate({field: value})
+
+    assert getattr(parsed, field) == Decimal(value)

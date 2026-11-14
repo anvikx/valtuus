@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.common import RequestModel
+from app.domain.constants import MONEY_DECIMALS
 from app.domain.enums import Decision
 from app.services.mandate_service import MandateChanges
 
@@ -57,11 +58,13 @@ class MandateUpdateRequest(RequestModel):
     max_auto_order_value: Decimal | None = Field(
         default=None,
         ge=0,
+        decimal_places=MONEY_DECIMALS,
         description="New automatic cart limit, EUR ex VAT. 0: proposals only.",
     )
     max_auto_value_per_delivery_date: Decimal | None = Field(
         default=None,
         ge=0,
+        decimal_places=MONEY_DECIMALS,
         description="New limit per delivery date, EUR ex VAT.",
     )
     preferred_brands: list[str] | None = Field(default=None, description="New preferred brands.")
