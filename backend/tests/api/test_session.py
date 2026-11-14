@@ -33,13 +33,13 @@ def test_login_sets_a_cookie_scripts_cannot_read() -> None:
 
 
 def test_session_opens_main_user_routes() -> None:
-    """501 means the session check passed and the stub service ran."""
+    """The main user has no agent key, so the session alone must open the permissions page."""
     client = _client()
     client.post(_LOGIN, json={"password": _PASSWORD})
 
     response = client.get(_MAIN_USER_ROUTE)
 
-    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+    assert response.status_code == HTTPStatus.OK
 
 
 def test_session_opens_the_audit_trail() -> None:

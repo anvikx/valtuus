@@ -40,3 +40,21 @@ def test_revoked_key_is_refused() -> None:
     revoked = dataclasses.replace(_ACTIVE, status=AgentKeyStatus.REVOKED)
 
     assert _service(revoked).authenticate(_KEY) is None
+
+
+def test_buyer_sees_its_own_keys_and_revoked_ones_too() -> None:
+    """The main user must see a revoked key to know the agent is cut off, and no other buyer's."""
+    revoked = dataclasses.replace(
+        _ACTIVE,
+        agent_id="old-agent",
+        key_hash=hash_agent_key("old-key"),
+        status=AgentKeyStatus.REVOKED,
+    )
+    other = dataclasses.replace(_ACTIVE, buyer_id="hotel-2", key_hash=hash_agent_key("other"))
+    agent_keys = InMemoryAgentKeyRepository()
+    for agent_key in (_ACTIVE, revoked, other):
+        agent_keys.add(agent_key)
+
+    listed = AgentKeyService(agent_keys).list_for_buyer("hotel-1")
+
+    assert sorted(key.agent_id for key in listed) == ["claude-code", "old-agent"]
