@@ -18,6 +18,9 @@ REASON_TEXT = MappingProxyType(
         ReasonCode.STOCK_UNCONFIRMED: "Valio Aimo does not confirm the stock of this product.",
         ReasonCode.DELIVERY_AFTER_DEADLINE: "The first delivery is {available_date}, after "
         "{deliver_by}.",
+        ReasonCode.CUTOFF_PASSED: "The order deadline {deadline} has passed. Get new offers.",
+        ReasonCode.PRICE_NOT_VALID_FOR_DATE: "The price ends {price_valid_to}, before the "
+        "delivery {delivery_date}.",
     }
 )
 

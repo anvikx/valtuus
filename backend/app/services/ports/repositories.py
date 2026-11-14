@@ -59,6 +59,10 @@ class CartRepository(Protocol):
 
     def for_buyer(self, buyer_id: str) -> Sequence[Cart]: ...
 
+    def get_locked(self, cart_id: str) -> Cart | None:
+        """Holds the cart row until the transaction ends, so two state changes cannot race."""
+        ...
+
     def add(self, cart: Cart) -> None: ...
 
     def save(self, cart: Cart) -> None:

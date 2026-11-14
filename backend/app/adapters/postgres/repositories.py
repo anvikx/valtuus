@@ -234,6 +234,11 @@ class PostgresCartRepository:
         )
         return _all(self._database, _CART, query)
 
+    def get_locked(self, cart_id: str) -> Cart | None:
+        query = select(carts.c.body).where(carts.c.cart_id == cart_id).with_for_update()
+        body = self._database.writer().execute(query).scalar_one_or_none()
+        return None if body is None else _CART.validate_python(body)
+
     def add(self, cart: Cart) -> None:
         statement = (
             insert(carts).values(_cart_row(cart)).on_conflict_do_nothing(index_elements=["cart_id"])

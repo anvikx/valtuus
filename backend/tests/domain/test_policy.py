@@ -25,6 +25,7 @@ def _lines(qty: int, unit_price: Decimal = _OAT_MILK_PRICE) -> tuple[PricedLine,
     line = PricedLine(
         offer_id="of_1",
         product_id="464306",
+        name="Oat milk 1 l",
         qty=qty,
         unit_price=unit_price,
         line_total=line_total(qty, unit_price),

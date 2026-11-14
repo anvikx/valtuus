@@ -69,7 +69,9 @@ _SHARED_READS = [
 ]
 _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
 _OFFERS_PATH = "/api/v1/offers"
-_STUB_CALLS = [call for call in _AGENT_CALLS if call[1] != _OFFERS_PATH]
+_CARTS_PATH = "/api/v1/carts"
+_LIVE_PATHS = {_OFFERS_PATH, _CARTS_PATH, "/api/v1/carts/c_1"}
+_STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 _MAIN_USER_CALLS = [
     ("POST", "/api/v1/carts/c_1/approve", None),
     ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
@@ -191,8 +193,16 @@ def test_shared_read_without_key_goes_to_the_session(method, path, headers, body
     allowed = client.request(method, path, headers=headers, json=body)
 
     assert refused.status_code == HTTPStatus.UNAUTHORIZED
-    # 501: the session check passed and the stub service ran.
-    assert allowed.status_code == HTTPStatus.NOT_IMPLEMENTED
+    # Not 401: the session check passed and the service ran (404 for c_1, 501 for a stub).
+    assert allowed.status_code in (HTTPStatus.NOT_FOUND, HTTPStatus.NOT_IMPLEMENTED)
+
+
+def test_cart_for_an_unknown_offer_is_not_found() -> None:
+    """The test store has no offer o_1, so the cart cannot be priced."""
+    response = _client().post(_CARTS_PATH, headers={**_AUTH, **_IDEMPOTENCY}, json=_CART)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.json()["error"] == "NOT_FOUND"
 
 
 def test_unknown_field_is_a_validation_error() -> None:

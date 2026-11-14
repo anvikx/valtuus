@@ -213,6 +213,16 @@ def test_cart_save_needs_a_known_cart(store: _Store) -> None:
     assert store.carts.for_buyer("hotel-2") == []
 
 
+def test_get_locked_reads_the_cart_in_a_transaction(store: _Store) -> None:
+    """Expiry reads the cart again under the lock, so it must see the stored state."""
+    with store.unit_of_work.transaction():
+        store.carts.add(samples.cart())
+
+    with store.unit_of_work.transaction():
+        assert store.carts.get_locked("c_1") == samples.cart()
+        assert store.carts.get_locked("c_missing") is None
+
+
 def test_second_order_for_one_cart_is_refused(store: _Store) -> None:
     """Checkout and approve can race on one cart. Only one order may come out."""
     with store.unit_of_work.transaction():
