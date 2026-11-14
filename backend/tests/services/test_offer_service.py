@@ -11,11 +11,13 @@ from app.adapters.memory.repositories import (
     InMemoryOfferRepository,
     InMemoryUnitOfWork,
 )
+from app.adapters.postgres.offer_codec import OFFER_CODEC
 from app.api.results import offer_response
 from app.api.schemas.offers import OfferResponse
 from app.domain.audit import REQUEST_ID_PATTERN
+from app.domain.catalog import Product
 from app.domain.constants import GATEWAY_TIMEZONE
-from app.domain.enums import AuditStep, ReasonCode
+from app.domain.enums import AuditStep, ReasonCode, Unit
 from app.domain.errors import (
     InvalidRequestError,
     UpstreamRateLimitedError,
@@ -25,6 +27,7 @@ from app.services.audit_service import AuditService
 from app.services.offer_service import OfferService
 from tests.adapters import samples
 from tests.fakes.offer_data import (
+    CLOSING,
     MILK_ID,
     MONDAY,
     NOW,
@@ -62,22 +65,37 @@ class _RecordingSigner:
 class _World:
     """The service with in-memory stores, so a test can look at what was kept."""
 
-    def __init__(self, source: FakePriceSource, now: datetime = NOW) -> None:
+    def __init__(
+        self,
+        source: FakePriceSource,
+        now: datetime = NOW,
+        *,
+        products: tuple[Product, ...] | None = None,
+    ) -> None:
         self.source = source
         self.offers = InMemoryOfferRepository()
         self.audit = _Records()
         self.signer = _RecordingSigner()
-        clock = FixedClock(now)
+        self.clock = FixedClock(now)
+        catalog_products = (
+            (product(), product("465039", sales_unit="KI")) if products is None else products
+        )
         unit_of_work = InMemoryUnitOfWork()
         self.service = OfferService(
-            FakeCatalog(product(), product("465039", sales_unit="KI")),
+            FakeCatalog(*catalog_products),
             source,
             self.offers,
             self.signer,
-            clock,
-            AuditService(self.audit, InMemoryCartRepository(), self.offers, clock, unit_of_work),
+            self.clock,
+            AuditService(
+                self.audit,
+                InMemoryCartRepository(),
+                self.offers,
+                self.clock,
+                unit_of_work,
+            ),
             unit_of_work,
-            _GUARD,
+            max(_GUARD, len(catalog_products)),
         )
 
     def get_offers(self, *product_ids: str, **fields):
@@ -260,3 +278,89 @@ def test_more_ids_than_the_guard_is_refused_before_any_call() -> None:
         world.get_offers("a", "b", "c", "d")
 
     assert world.source.calls == []
+
+
+@pytest.mark.parametrize("unit", [Unit.L, Unit.KG, Unit.PCS])
+def test_a_product_without_content_is_rejected_only_for_measured_requests(unit) -> None:
+    world = _World(FakePriceSource([price()], [stock()]), products=(product(content=None),))
+
+    offer = world.get_offers(quantity="4", unit=unit)
+
+    assert world.offers.get(offer.offer_id) == offer
+    if unit is Unit.PCS:
+        assert offer.rejected == ()
+        (line,) = offer.lines
+        assert line.sales_units_needed == 4
+        assert line.line_total == Decimal("4.04")
+        assert line.reason_codes == ()
+    else:
+        assert offer.lines == ()
+        (rejected,) = offer.rejected
+        assert rejected.reason_code is ReasonCode.NO_CONTENT_DATA
+        assert rejected.reason_sentence == "The size of this product is not in the data."
+
+
+def test_every_candidate_is_ranked_or_rejected_with_a_reason_and_cutoff_details() -> None:
+    ids = (MILK_ID, "expired", "unavailable", "unpriced", "no_content")
+    products = tuple(
+        product(pid, content=None) if pid == "no_content" else product(pid) for pid in ids
+    )
+    source = FakePriceSource(
+        [price(pid) for pid in ids if pid != "unpriced"],
+        [
+            stock(),
+            replace(stock("expired"), closing_time=NOW - timedelta(seconds=1)),
+            stock("unavailable", amount=0),
+            stock("unpriced"),
+            stock("no_content"),
+        ],
+    )
+    world = _World(source, products=products)
+
+    offer = world.get_offers(*ids)
+
+    assert [line.product_id for line in offer.lines] == [MILK_ID]
+    assert {item.product_id: item.reason_code for item in offer.rejected} == {
+        "expired": ReasonCode.CUTOFF_PASSED,
+        "unavailable": ReasonCode.NOT_AVAILABLE,
+        "unpriced": ReasonCode.NO_PRICE,
+        "no_content": ReasonCode.NO_CONTENT_DATA,
+    }
+    assert len(offer.lines) + len(offer.rejected) == len(ids)
+    assert all(item.reason_sentence for item in offer.rejected)
+    (expired, *_) = offer.rejected
+    assert expired.closing_time == NOW - timedelta(seconds=1)
+    assert expired.reason_sentence == (
+        "The order deadline Sat 14 Nov 15:38 has passed. Get new offers."
+    )
+    assert world.offers.get(offer.offer_id) == offer
+    restored = OFFER_CODEC.validate_json(OFFER_CODEC.dump_json(offer))
+    assert restored == offer
+    response = offer_response(restored)
+    assert response.rejected[0].closing_time == expired.closing_time
+    assert response.rejected[0].reason_sentence == expired.reason_sentence
+    (record,) = world.audit.records
+    assert record.output_data["rejected"] == {
+        item.product_id: item.reason_code for item in offer.rejected
+    }
+    assert expired.reason_sentence in record.sentence
+
+
+def test_a_cutoff_crossed_during_the_upstream_call_is_rejected(monkeypatch) -> None:
+    """Using the request's start time would offer a product whose deadline has now passed."""
+    world = _run_1()
+    availability = world.source.availability
+
+    def slow_availability(product_ids, requested_date):
+        answer = availability(product_ids, requested_date)
+        monkeypatch.setattr(world.clock, "now", lambda: CLOSING)
+        return answer
+
+    monkeypatch.setattr(world.source, "availability", slow_availability)
+
+    offer = world.get_offers()
+
+    assert offer.lines == ()
+    (rejected,) = offer.rejected
+    assert rejected.reason_code is ReasonCode.CUTOFF_PASSED
+    assert rejected.closing_time == CLOSING

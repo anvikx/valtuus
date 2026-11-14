@@ -82,11 +82,11 @@ def _require_screened(availability: Availability) -> None:
 
 
 def counted_stock(availability: Availability) -> int | None:
-    """A number only for a real STOCK count. 999999 and more means not known (D35)."""
+    """A number only for a real STOCK count. 999999 or more means amount not known."""
     if availability.stock_model is not StockModel.STOCK:
         return None
 
-    if availability.amount >= UNKNOWN_STOCK_MARKER:
+    if availability.amount is None or availability.amount >= UNKNOWN_STOCK_MARKER:
         return None
 
     return availability.amount

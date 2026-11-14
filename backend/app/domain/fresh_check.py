@@ -20,6 +20,6 @@ def line_holds(line: CartLine, price: Price | None, availability: Availability |
     if availability.available_date != line.delivery_date:
         return False
 
-    # Stock with no count passed the offer as STOCK_UNCONFIRMED, so it is judged the same now.
+    # An unknown count was allowed at offer time, so it cannot establish a stock shortage now.
     counted = counted_stock(availability)
     return counted is None or counted >= line.qty

@@ -105,11 +105,11 @@ class OfferLine(Reasons):
     price_valid_from: date = Field(description="First day of the price.")
     price_valid_to: date = Field(description="Last day of the price.")
     stock_model: StockModel | None = Field(
-        description="STOCK: Valio Aimo gives a stock count. TERMINAL: no real count, so "
+        description="STOCK: a count, except 999999 or more is unknown. TERMINAL: no count, so "
         "available_qty is null. null: not given, ranked as stock not confirmed.",
     )
     available_qty: int | None = Field(
-        description="Stock at source_time, not a reservation. null: not known, or no limit.",
+        description="Stock at source_time, not a reservation. null: amount not known.",
     )
     available_date: date = Field(description="First delivery date.")
     closing_time: datetime = Field(description="Order deadline for that date.")

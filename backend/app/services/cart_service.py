@@ -15,7 +15,7 @@ from app.domain.cart import (
     CartLineInput,
     PricedLine,
 )
-from app.domain.constants import CURRENCY, GATEWAY_TIMEZONE, REJECT_MEMORY_MINUTES
+from app.domain.constants import CURRENCY, REJECT_MEMORY_MINUTES
 from app.domain.enums import AuditStep, CartState, ReasonCode
 from app.domain.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord, request_hash
@@ -25,7 +25,7 @@ from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.engine import PolicyEngine, PolicyResult, strictest
-from app.domain.reason_text import day_text, reason_sentence
+from app.domain.reason_text import day_text, deadline_text, reason_sentence
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateService
 from app.services.ports.clock import Clock
@@ -258,7 +258,7 @@ class CartService:
     def _expire(self, cart: Cart) -> Cart:
         sentence = reason_sentence(
             ReasonCode.CUTOFF_PASSED,
-            deadline=_deadline_text(cart.approve_before),
+            deadline=deadline_text(cart.approve_before),
         )
         expired = replace(
             cart,
@@ -356,7 +356,7 @@ def _refuse_closed(offer_line: OfferLine, now: datetime) -> None:
 
     sentence = reason_sentence(
         ReasonCode.CUTOFF_PASSED,
-        deadline=_deadline_text(offer_line.closing_time),
+        deadline=deadline_text(offer_line.closing_time),
     )
     raise ConflictError(
         f"{ReasonCode.CUTOFF_PASSED}: product {offer_line.product_id}. {sentence}",
@@ -431,12 +431,6 @@ def _delivery_day_total(lines: Sequence[PricedLine], day_orders: Iterable[Order]
 
 def _days(lines: Iterable[PricedLine]) -> set[date]:
     return {line.delivery_date for line in lines}
-
-
-def _deadline_text(moment: datetime) -> str:
-    """Sun 15 Nov 17:00 in gateway time. A Postgres read gives the time back in UTC."""
-    local = moment.astimezone(GATEWAY_TIMEZONE)
-    return f"{day_text(local.date())} {local:%H:%M}"
 
 
 def _priced_record(line: CartLine) -> dict[str, object]:

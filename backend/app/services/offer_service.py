@@ -68,7 +68,8 @@ class OfferService:
         products, missing = self._products(product_ids)
         # No Valio call inside the transaction: a slow answer would hold the database lock.
         prices, snapshot = self._live_data(products, query, issued_at)
-        candidates, rejected = _split(products, prices, snapshot, query)
+        # A deadline may pass while the upstream answers; screen against the time after it.
+        candidates, rejected = _split(products, prices, snapshot, query, self._clock.now())
         lines = rank_offer_lines(candidates, query)
         offer = self._signed(
             Offer(
@@ -174,12 +175,13 @@ def _split(
     prices: Mapping[str, Price],
     snapshot: AvailabilitySnapshot,
     query: OfferQuery,
+    now: datetime,
 ) -> tuple[list[Candidate], tuple[RejectedProduct, ...]]:
     candidates: list[Candidate] = []
     rejected: list[RejectedProduct] = []
     for product in products:
         pid = product.product_id
-        result = screen(product, prices.get(pid), snapshot.items.get(pid), query)
+        result = screen(product, prices.get(pid), snapshot.items.get(pid), query, now)
         if isinstance(result, RejectedProduct):
             rejected.append(result)
             continue
