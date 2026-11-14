@@ -16,7 +16,7 @@ What is not real in the prototype.
 * An "equivalent" is only a substitution pair from Valio Aimo's product data. A product from the same category with the same claims is a "suggested alternative". Both need the same known allergen data and a person's sign off.
 * A deputy approver, a monthly budget and a stock out after the order are not built.
 * Demo clock: when DEMO_NOW is set, the gateway uses that time, gives it to the agent, and shows it on every page.
-* UHT is derived from the product name if the data has no structured attribute.
+* UHT has no structured attribute in the product data (checked 14 Nov, 17,546 products). The attribute UHT is derived from the product name: the whole word "UHT", any case, in any of the 3 language names. The label warmTemperature is not used, because it is wrong for 7 of 17 UHT milk products.
 * Delivery reliability and CO2 exist only for a part of the products. No data is shown as "no data", never as 0. The CO2 value is a product group average.
 * A search returns at most 25 candidates, and a split uses the products of one offer call.
 * Agent keys are created by seed. A "connect an agent" flow with OAuth is a next step.
