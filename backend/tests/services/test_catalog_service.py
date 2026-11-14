@@ -262,6 +262,9 @@ def test_real_file_search_counts(database):
             ),
         )
         assert (result.hint_category, len(result.candidates)) == (expected_category, count), words
+        assert [summary.category for summary in result.categories if summary.in_list] == [
+            expected_category,
+        ]
         if unit is None:
             assert result.hint.code == "MISSING_FIELDS"
             assert result.missing_fields == ("unit",)
@@ -270,6 +273,7 @@ def test_real_file_search_counts(database):
     cream = catalog.search(agent_key(), query("cream"))
     whipping = next(summary for summary in cream.categories if summary.category == "10401")
     assert whipping.hits == 43
+    assert whipping.in_list is False
     assert len(whipping.examples) == 2
     assert any("whip" in name.casefold() for name in whipping.examples)
     assert cream.total_hits > len(cream.candidates)

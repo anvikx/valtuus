@@ -85,6 +85,16 @@ def test_top_eight_counts_all_categories_and_deduplicates_examples():
     assert result.categories[0].examples == ("Milk", "Fresh milk")
     assert all(len(summary.examples) == 1 for summary in result.categories[1:])
     assert result.hint_category == "10"
+    assert {s.category: s.in_list for s in result.categories} == {
+        "10": True,
+        "1": False,
+        "2": False,
+        "3": False,
+        "4": False,
+        "5": False,
+        "6": False,
+        "7": False,
+    }
     assert {p.product_id for p in result.candidates} == {"1", "2", "3", "4"}
 
 
@@ -96,10 +106,12 @@ def test_guard_preserves_total_and_category_counts_at_boundary():
     assert len(cut.candidates) == 500
     assert cut.total_hits == cut.categories[0].hits == 501
     assert cut.hint.code == "GUARD_CUT"
+    assert cut.categories[0].in_list is True
     catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(500))))
     complete = catalog.search(agent_key(), query())
     assert len(complete.candidates) == complete.total_hits == 500
     assert complete.hint.code == "READY"
+    assert complete.categories[0].in_list is True
 
 
 def test_filters_define_totals_and_explicit_category_summary():
@@ -123,6 +135,7 @@ def test_filters_define_totals_and_explicit_category_summary():
     assert result.total_hits == 1
     assert [s.category for s in result.categories] == ["1"]
     assert result.categories[0].hits == 1
+    assert result.categories[0].in_list is True
     assert [p.product_id for p in result.candidates] == ["1"]
     empty = catalog.search(agent_key(), query(category="missing"))
     assert empty.hint_category == "missing"
@@ -274,3 +287,25 @@ def test_unrelated_exclusion_does_not_override_no_match_with_missing_fields():
     assert result.hint.code == "NO_MATCH"
     assert result.missing_fields == ("quantity",)
     assert [p.product_id for p in result.excluded] == ["excluded"]
+
+
+@pytest.mark.parametrize("category", [None, "2", "missing"])
+def test_in_list_tracks_the_returned_category(category):
+    catalog, _ = service(FakeCatalog(item("1", category="1"), item("2", category="2")))
+
+    result = catalog.search(agent_key(), query(category=category))
+
+    flags = {summary.category: summary.in_list for summary in result.categories}
+    if category is None:
+        assert result.hint_category == "1"
+        assert flags == {"1": True, "2": False}
+        assert [candidate.product_id for candidate in result.candidates] == ["1"]
+    elif category == "2":
+        assert result.hint_category == "2"
+        assert flags == {"2": True}
+        assert [candidate.product_id for candidate in result.candidates] == ["2"]
+    else:
+        assert result.hint_category == "missing"
+        assert result.hint.code == "NO_MATCH"
+        assert flags == {}
+        assert result.candidates == ()

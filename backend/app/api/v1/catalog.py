@@ -27,8 +27,9 @@ GET /api/v1/catalog/search?query=milk&required_attributes=FREE_FROM_LACTOSE
 Return every match of the requested category, or the category with the most hits.
 Only the configurable safety guard can cut the category.
 `total_hits` and the top {SEARCH_CATEGORY_COUNT} `categories` count hits before that guard.
-Each category includes its
-hit count and up to {SEARCH_CATEGORY_EXAMPLES} distinct example product names.
+Each category includes its hit count and up to {SEARCH_CATEGORY_EXAMPLES} distinct example names.
+`in_list` is true only for the category supplying the returned candidates. It does not
+indicate completeness; the hint reports safety-guard cuts.
 
 `understood` holds the normalized request. {HINT_CODE_DESCRIPTION}
 A hint that says the list is complete applies to its category; it does not identify the

@@ -126,6 +126,12 @@ class CategorySummary(BaseModel):
     examples: list[str] = Field(
         description=f"Up to {SEARCH_CATEGORY_EXAMPLES} distinct example product names."
     )
+    in_list: bool = Field(
+        description=(
+            "True when this category supplies the returned candidates. "
+            "It does not indicate completeness; use hint for safety-guard cuts."
+        ),
+    )
 
 
 class SearchHint(BaseModel):

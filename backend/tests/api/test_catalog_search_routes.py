@@ -32,7 +32,7 @@ _FIELDS = {
 )
 @pytest.mark.parametrize("mcp_url", ["/api/mcp", "/api/mcp/"])
 def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp_url):
-    products = [item()]
+    products = [item("1", category="1"), item("2", category="2")]
     if expected == "NO_MATCH":
         products = []
     elif expected == "EXCLUDED_ONLY":
@@ -79,7 +79,17 @@ def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp
     assert body["hint"]["code"] == tool_body["hint"]["code"] == expected
     assert body["understood"]["query"] == "milk"
     assert body["understood"]["category"] is None
-    assert all(set(category) == {"category", "hits", "examples"} for category in body["categories"])
+    assert all(
+        set(category) == {"category", "hits", "examples", "in_list"}
+        for category in body["categories"]
+    )
+    flags = {category["category"]: category["in_list"] for category in body["categories"]}
+    if expected in ("READY", "MISSING_FIELDS"):
+        assert flags == {"1": True, "2": False}
+    elif expected == "GUARD_CUT":
+        assert flags == {"10400": True}
+    else:
+        assert flags == {}
     assert body.pop("request_id") == records.records[0].request_id
     assert tool_body.pop("request_id") == records.records[1].request_id
     assert body == tool_body

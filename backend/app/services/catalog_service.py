@@ -108,6 +108,10 @@ class CatalogService:
             for product, _ in excluded
             if category is None or product.category == category
         )
+        categories = tuple(
+            replace(summary, in_list=bool(candidates) and summary.category == category)
+            for summary in categories
+        )
         return SearchResult(
             understood=query,
             candidates=candidates,
