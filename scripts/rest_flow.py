@@ -233,6 +233,14 @@ def _approve(gateway: Gateway, cart_id: str, password: str) -> str:
     return cart["order_id"]
 
 
+def _allow_auto_orders(gateway: Gateway, password: str) -> None:
+    """Automatic orders are off for a new buyer. The main user turns them on, as on the
+    permissions page, so a cart within the limits can be ordered with no approval."""
+    gateway.main_user("POST", "/auth/login", {"password": password})
+    gateway.main_user("PUT", "/mandate", {"can_auto_order": True})
+    print("  automatic orders turned on by the main user")
+
+
 def _place(gateway: Gateway, cart: Json, password: str) -> str:
     if cart["state"] == STATE_AUTO:
         return gateway.agent("POST", f"/carts/{cart['cart_id']}/checkout")["order_id"]
@@ -244,6 +252,9 @@ def run_flow(gateway: Gateway, run: Run, password: str) -> None:
     print(f"Run {run.number}: {run.request_text}")
     mandate = gateway.agent("GET", "/mandate")
     deliver_by = next_monday(mandate["now"])
+    if run.expected_state == STATE_AUTO and not mandate["mandate"]["can_auto_order"]:
+        _allow_auto_orders(gateway, password)
+
     print(f"  understood: {run.litres} {LITRES}, lactose free, by {deliver_by.isoformat()}")
 
     request_id, product_ids = _search(gateway, run, deliver_by)
