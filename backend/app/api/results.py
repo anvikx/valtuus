@@ -15,6 +15,7 @@ from app.domain.audit import AuditRecord
 from app.domain.cart import Cart
 from app.domain.catalog import SearchResult
 from app.domain.constants import GATEWAY_TIMEZONE
+from app.domain.enums import CartState
 from app.domain.errors import ConflictError
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -34,8 +35,12 @@ def offer_response(offer: Offer) -> OfferResponse:
 
 
 def cart_response(cart: Cart, public_url: str) -> CartResponse:
-    # The link is a web concern, so the domain cart does not carry it.
-    approve_url = f"{public_url}{CART_PAGE_PATH}/{cart.cart_id}"
+    # The link is a web concern, so the domain cart does not carry it. Only a pending cart
+    # has one, or the main user opens a page with nothing to approve.
+    approve_url = None
+    if cart.state is CartState.PENDING_APPROVAL:
+        approve_url = f"{public_url}{CART_PAGE_PATH}/{cart.cart_id}"
+
     return CartResponse.model_validate({**asdict(cart), "approve_url": approve_url})
 
 
