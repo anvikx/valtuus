@@ -24,8 +24,8 @@ const STATIC_PAGES: Readonly<Record<string, () => ReactElement>> = {
   '/permissions': PermissionsPage,
 }
 
-// A bad percent escape makes decodeURIComponent throw during render. The path then shows the
-// not found page instead of a blank one.
+// A bad percent escape makes decodeURIComponent throw during render. The path then opens the
+// inbox instead of a blank page.
 function decodeId(raw: string | undefined): string | null {
   if (raw === undefined) {
     return null
@@ -80,7 +80,17 @@ function HealthPage(): ReactElement {
   )
 }
 
+// An unknown path opens the inbox, so a mistyped link still shows the orders that wait.
 export function App(): ReactElement {
   const path = window.location.pathname
-  return <Shell path={path}>{pageFor(path) ?? <HealthPage />}</Shell>
+  const page = pageFor(path)
+  if (page === null) {
+    return (
+      <Shell path="/">
+        <InboxPage />
+      </Shell>
+    )
+  }
+
+  return <Shell path={path}>{page}</Shell>
 }
