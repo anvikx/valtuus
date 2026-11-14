@@ -1,4 +1,6 @@
 import dataclasses
+import os
+from http import HTTPStatus
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +17,7 @@ from app.main import create_app
 from tests.conftest import TEST_DATABASE_URL
 
 _KEY = "test-agent-key-0123456789"
+_BASE_URL = "https://junction.anvik.fi"
 
 
 def _start_and_stop(settings: Settings) -> None:
@@ -29,6 +32,32 @@ def test_app_refuses_to_start_without_agent_key() -> None:
 
     with pytest.raises(ValueError, match="empty"):
         create_app(settings)
+
+
+def test_app_refuses_to_start_without_main_user_password() -> None:
+    """With no password, the deploy must fail, not open the approve page to an empty login."""
+    settings = Settings(main_user_password=SecretStr(""))
+
+    with pytest.raises(ValueError, match="empty"):
+        create_app(settings)
+
+
+def test_refused_start_closes_the_database(
+    database: Database,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A refused start must not leave a pool of open connections behind."""
+    closed: list[bool] = []
+    monkeypatch.setattr(Database, "close", lambda self: closed.append(True))
+    settings = Settings(
+        database_url=SecretStr(TEST_DATABASE_URL),
+        main_user_password=SecretStr(""),
+    )
+
+    with pytest.raises(ValueError, match="empty"):
+        create_app(settings)
+
+    assert closed == [True]
 
 
 def test_catalog_is_loaded_before_requests(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,3 +97,18 @@ def test_restart_keeps_a_revoked_key_revoked(database: Database) -> None:
     restarted = agent_keys.by_hash(hash_agent_key(_KEY))
     assert restarted is not None
     assert restarted.status is AgentKeyStatus.REVOKED
+
+
+def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
+    """A deploy must not log the main user out in the middle of an approval."""
+    settings = Settings(
+        agent_key=SecretStr(_KEY),
+        database_url=SecretStr(TEST_DATABASE_URL),
+    )
+    with TestClient(create_app(settings), base_url=_BASE_URL) as client:
+        client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+        cookies = client.cookies
+
+    with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
+        # 501: the session check passed and the stub service ran.
+        assert client.get("/api/v1/agents").status_code == HTTPStatus.NOT_IMPLEMENTED

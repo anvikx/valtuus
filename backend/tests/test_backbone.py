@@ -38,6 +38,8 @@ _CONTRACT = {
     ("PUT", "/api/v1/mandate"),
     ("GET", "/api/v1/agents"),
     ("GET", "/api/v1/audit/{cart_id}"),
+    ("POST", "/api/v1/session"),
+    ("DELETE", "/api/v1/session"),
 }
 _AGENT_TOOLS = {
     "ping",
@@ -130,19 +132,26 @@ def test_agent_route_reaches_its_service(method, path, headers, body) -> None:
 
 
 @pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_CALLS)
-def test_main_user_route_waits_for_the_session(method, path, body) -> None:
-    """No agent key opens a main user route. Login is not built yet, so it is 501."""
+def test_agent_key_does_not_open_main_user_route(method, path, body) -> None:
+    """Only a person approves or changes the rules, so an agent key is not a session."""
     response = _client().request(method, path, headers=_AUTH, json=body)
 
-    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json()["error"] == "UNAUTHENTICATED"
 
 
 @pytest.mark.parametrize(("method", "path", "headers", "body"), _SHARED_READS)
 def test_shared_read_without_key_goes_to_the_session(method, path, headers, body) -> None:
     """The main user has no agent key, so no Bearer header means the session decides."""
-    response = _client().request(method, path, headers=headers, json=body)
+    client = _client()
 
-    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
+    refused = client.request(method, path, headers=headers, json=body)
+    client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+    allowed = client.request(method, path, headers=headers, json=body)
+
+    assert refused.status_code == HTTPStatus.UNAUTHORIZED
+    # 501: the session check passed and the stub service ran.
+    assert allowed.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
 def test_unknown_field_is_a_validation_error() -> None:

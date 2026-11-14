@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     valio_api_key: SecretStr = SecretStr("")
     # Bearer key of the demo buyer agent. Only its hash is kept after startup.
     agent_key: SecretStr = SecretStr("")
+    # The main user logs in with it to approve carts and change the mandate.
+    main_user_password: SecretStr = SecretStr("")
     # The approve_url in a cart points here, so the main user opens the right page.
     public_url: str = "https://junction.anvik.fi"
     # The challenge product file. Gitignored: the data stays inside the challenge.

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from fastapi import Depends, Request, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.security.utils import get_authorization_scheme_param
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.api.errors import error_response
 from app.api.schemas.common import ErrorBody
 from app.domain.agent_key import AgentKey, User
-from app.domain.enums import AgentScope, ErrorCode
+from app.domain.enums import AgentScope, ErrorCode, UserRole
 from app.domain.errors import ForbiddenError, UnauthenticatedError
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -22,11 +22,21 @@ from app.services.catalog_service import CatalogService
 from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
+from app.services.session_service import SessionService
 
 _BEARER = "bearer"
 # auto_error=False: a missing key still gets the gateway's own 401 body from _agent_key.
 _BEARER_SCHEME = HTTPBearer(auto_error=False, description="The agent key.")
 _BearerDep = Annotated[HTTPAuthorizationCredentials | None, Security(_BEARER_SCHEME)]
+SESSION_COOKIE = "valtuus_session"
+# Declared so the spec shows which routes take the session. auto_error=False for the same
+# reason as the Bearer scheme.
+_SESSION_SCHEME = APIKeyCookie(
+    name=SESSION_COOKIE,
+    auto_error=False,
+    description="The main user session, set by POST /api/v1/session.",
+)
+_SessionDep = Annotated[str | None, Security(_SESSION_SCHEME)]
 _UNAUTHENTICATED = ErrorBody(
     error=ErrorCode.UNAUTHENTICATED,
     message="The agent key is missing, unknown or revoked.",
@@ -47,6 +57,7 @@ class Services:
     approvals: ApprovalService
     mandates: MandateService
     audit: AuditService
+    sessions: SessionService
 
 
 def get_services(request: Request) -> Services:
@@ -84,9 +95,23 @@ def require_scope(scope: AgentScope) -> Callable[..., AgentKey]:
     return dependency
 
 
-def require_main_user() -> User:
-    """The MAIN_USER session cookie. Login is not built yet."""
-    raise NotImplementedError("main user session")
+def session_token(request: Request) -> str:
+    return request.cookies.get(SESSION_COOKIE, "")
+
+
+def require_main_user(request: Request, token: _SessionDep) -> User:
+    """The user of the MAIN_USER session cookie."""
+    user = get_services(request).sessions.user_for(token or "")
+    if user is None:
+        raise UnauthenticatedError(
+            "There is no main user session, or it has expired.",
+            "Ask the main user to log in on the approve page. An agent key cannot do this.",
+        )
+
+    if user.role is not UserRole.MAIN_USER:
+        raise ForbiddenError("Only the main user can do this.", "Log in as the main user.")
+
+    return user
 
 
 MainUserDep = Annotated[User, Depends(require_main_user)]
@@ -98,11 +123,11 @@ def require_buyer(scope: AgentScope) -> Callable[..., str]:
     The agent polls a cart and the main user opens the same cart on the approve page.
     """
 
-    def dependency(request: Request, credentials: _BearerDep) -> str:
+    def dependency(request: Request, credentials: _BearerDep, session: _SessionDep) -> str:
         if credentials is not None:
             return _agent_key(request, credentials.credentials, scope).buyer_id
 
-        return buyer_of(require_main_user())
+        return buyer_of(require_main_user(request, session))
 
     return dependency
 
