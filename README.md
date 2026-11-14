@@ -1,22 +1,91 @@
-# Junction 2026
+# Valtuus
 
-FastAPI backend and React frontend behind Caddy. Every merge to `main` deploys to one VM.
+Valtuus lets AI agents order food for professional kitchens safely: the agent proposes, the
+buyer's mandate decides, every step is signed and logged.
+
+Built for the Valio Aimo "Trusted Trade Agents" challenge at Junction 2026.
+Live: https://junction.anvik.fi
+
+> **Status: early prototype.** The project skeleton, CI/CD and the first domain rules exist. The
+> gateway API is not available yet. See [Status](#status).
+
+## Why
+
+A purchasing agent can search, compare and order faster than a person. That speed is the risk:
+the rules for what an agent may buy cannot live inside the agent.
+
+Valtuus puts the rules in a gateway on the wholesaler's side. Nobody has to trust the agent's
+reasoning:
+
+* The buyer sets the limits in a mandate and signs off what is outside them.
+* The agent gets data that it can check: signed offers with prices, stock and deadlines.
+* The wholesaler gets orders that it can accept: each order names the mandate version that
+  allowed it.
+
+## How it works
 
 ```
-browser --> Caddy (web) --+-- /api/* --> backend:8000 (FastAPI)
-                          |
-                          +-- else ----> /srv (React build)
+buyer --> buyer agent --(MCP or REST)--> Valtuus gateway --> Valio Aimo APIs
+                                              |
+                                  search, offers, cart
+                                              |
+                                  policy engine (no LLM)
+                                              |
+                    +-------------------------+-------------------------+
+                    |                         |                         |
+                  AUTO                      HUMAN                     DENY
+           agent checks out        main user approves or        ended, with the
+                    |               rejects on the approval        reason codes
+                    |               page (human session)
+                    +-------------------------+
+                                              |
+                        signed order confirmation + audit record
 ```
 
-## Documents
+1. **Lookup.** The agent searches the catalog and gets offers: a fixed price for the price period
+   and the stock at a stated time.
+2. **Cart.** The agent creates a cart from offer IDs. It cannot send a price, a stock value or a
+   date. The gateway reads them from its own stored offer.
+3. **Decision.** The policy engine checks the cart against the buyer's mandate (spend limits,
+   required attributes, forbidden allergens, deadlines) and returns AUTO, HUMAN or DENY. The
+   decision is plain code with unit tests.
+4. **Order.** Inside its authority the agent checks out. Outside it, only a person can approve,
+   on the approval page. Words in the agent's chat are never an approval.
+5. **Record.** Every step writes an audit record that both sides can read.
 
-* [Interaction](docs/INTERACTION.md): the cart states, and who is bound to what.
-* [Assumptions](docs/ASSUMPTIONS.md): what is not real in the prototype, and the known trust limits.
-* [Next steps](docs/NEXT_STEPS.md): what comes after the prototype, and the path to AP2.
+The cart states, and who is bound to what, are in [docs/INTERACTION.md](docs/INTERACTION.md).
 
-## Local commands
+## Status
+
+| Part                                                     | State   |
+| -------------------------------------------------------- | ------- |
+| Project skeleton, CI/CD with auto deploy and rollback    | Built   |
+| Health endpoint `GET /api/health`                        | Built   |
+| UHT attribute derived from product names                 | Built   |
+| Product index, offers, carts, policy engine              | Planned |
+| REST API, MCP tools, open OpenAPI file                   | Planned |
+| Approval page, "Agent permissions" page, audit timeline  | Planned |
+| Signed offers and order confirmations                    | Planned |
+
+What is not real in the prototype, and the known trust limits, are listed openly in
+[docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md).
+
+## Quick start
 
 Needs `uv`, Node 22 and Docker.
+
+```sh
+git clone https://github.com/anvikx/valtuus.git
+cd valtuus
+cp .env.example .env
+make setup
+make up
+```
+
+Open http://localhost. To run the parts on their own with reload, use `make dev-be` and
+`make dev-fe`.
+
+### Commands
 
 | Command       | What it does                                         |
 | ------------- | ---------------------------------------------------- |
@@ -28,7 +97,42 @@ Needs `uv`, Node 22 and Docker.
 | `make up`     | Full stack in Docker on http://localhost             |
 | `make down`   | Stop the Docker stack                                |
 
-## Team rules
+### Product data
+
+The Valio Aimo product data is challenge data and is not part of this repository. Put the files
+in `backend/data/` (gitignored).
+
+## Architecture
+
+FastAPI backend and React frontend behind Caddy. Every merge to `main` deploys to one VM.
+
+```
+browser --> Caddy (web) --+-- /api/* --> backend:8000 (FastAPI)
+                          |
+                          +-- else ----> /srv (React build)
+```
+
+```
+backend/
+  app/api/       REST routes under /api
+  app/domain/    domain rules, no I/O
+  tests/
+frontend/
+  src/api.ts     the only place that calls the backend
+docs/            interaction, assumptions, next steps
+scripts/         deploy script
+```
+
+## Documentation
+
+* [Interaction](docs/INTERACTION.md): the cart states, and who is bound to what.
+* [Assumptions](docs/ASSUMPTIONS.md): what is not real in the prototype, and the known trust
+  limits.
+* [Next steps](docs/NEXT_STEPS.md): what comes after the prototype, and the path to AP2.
+
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the code rules. In short:
 
 1. Work on a branch and open a PR. No direct push to `main`.
 2. Run `make check` before every push.
@@ -37,9 +141,10 @@ Needs `uv`, Node 22 and Docker.
 5. The frontend calls the API only from `src/api.ts`.
 6. Secrets live only in the server `.env`. Never commit them.
 7. Before the demo, set the repo variable `DEPLOY_FROZEN=true` to stop deploys.
-8. Follow the code rules in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## CI/CD
+## Deployment
+
+### CI/CD
 
 ```
 PR ---------> backend (ruff, pytest)
@@ -56,8 +161,6 @@ push main --> backend + frontend + infra --> images --> deploy
 ```
 
 `deploy` is skipped when the repo variable `DEPLOY_FROZEN` is `true`.
-
-## One time setup
 
 ### Server (one VM)
 
@@ -78,5 +181,12 @@ push main --> backend + frontend + infra --> images --> deploy
    * `DEPLOY_PATH`: deploy folder, for example `/opt/junction`
 3. Variables: `DEPLOY_FROZEN` set to `false` (set `true` to freeze).
 4. Branch protection on `main`: require PR and the `backend`, `frontend` and `infra` checks.
-   Private repos need a paid plan for this. "Use this template" does not copy it, so set it again
-   in each new repo.
+   Private repos need a paid plan for this.
+
+## License
+
+Copyright (c) 2026 Anvik. All rights reserved. See [LICENSE](LICENSE).
+
+## Acknowledgements
+
+Valio Aimo for the challenge, the mock APIs and the product data. Junction for the hackathon.
