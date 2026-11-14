@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 
 import { getHealth, type BackendHealth } from './api.ts'
+import { Shell } from './components/Shell.tsx'
 import { ApprovalPage } from './pages/ApprovalPage.tsx'
 import { InboxPage } from './pages/InboxPage.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
@@ -56,5 +57,5 @@ function HealthPage(): ReactElement {
 }
 
 export function App(): ReactElement {
-  return pageFor(window.location.pathname) ?? <HealthPage />
+  return <Shell>{pageFor(window.location.pathname) ?? <HealthPage />}</Shell>
 }

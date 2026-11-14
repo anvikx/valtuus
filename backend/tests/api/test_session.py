@@ -42,6 +42,16 @@ def test_session_opens_main_user_routes() -> None:
     assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
+def test_session_opens_the_audit_trail() -> None:
+    """The approve page shows the cart's audit trail to the main user, who has no agent key."""
+    client = _client()
+    client.post(_LOGIN, json={"password": _PASSWORD})
+
+    response = client.get("/api/v1/audit/c_1")
+
+    assert response.status_code not in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
+
+
 def test_wrong_password_gets_no_cookie() -> None:
     client = _client()
 
