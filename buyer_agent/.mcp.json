@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "valtuus": {
+      "type": "http",
+      "url": "https://junction.anvik.fi/api/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${AGENT_KEY}"
+      }
+    }
+  }
+}
