@@ -174,6 +174,29 @@ def test_locked_cart_blocks_a_second_locker(database: Database) -> None:
     assert "lock" in str(outcome[0])
 
 
+def test_day_lock_blocks_a_second_checkout_for_the_day(database: Database) -> None:
+    """Two checkouts for one buyer and date must read the day's orders one after the other."""
+    repository = PostgresOrderRepository(database)
+    outcome: list[BaseException] = []
+
+    def lock_again() -> None:
+        try:
+            with database.transaction():
+                database.writer().execute(text("SET LOCAL lock_timeout = '100ms'"))
+                repository.lock_days(samples.BUYER_ID, [samples.DELIVERY_DATE])
+        except DBAPIError as error:
+            outcome.append(error)
+
+    with database.transaction():
+        repository.lock_days(samples.BUYER_ID, [samples.DELIVERY_DATE])
+        other = threading.Thread(target=lock_again)
+        other.start()
+        other.join()
+
+    assert len(outcome) == 1
+    assert "lock" in str(outcome[0])
+
+
 def test_migrations_match_the_tables(database: Database) -> None:
     """A table change without a migration would pass the tests and break the deploy."""
     with database.transaction():

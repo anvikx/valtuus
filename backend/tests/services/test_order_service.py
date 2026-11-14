@@ -1,4 +1,6 @@
+import contextlib
 import dataclasses
+import threading
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -24,7 +26,7 @@ from app.adapters.postgres.repositories import (
     PostgresOrderRepository,
 )
 from app.domain.agent_key import User
-from app.domain.cart import CartDraft, CartLineInput, PricedLine
+from app.domain.cart import Cart, CartDraft, CartLineInput, PricedLine
 from app.domain.enums import (
     AuditStep,
     CartState,
@@ -39,6 +41,7 @@ from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.services.audit_service import AuditService
@@ -54,6 +57,7 @@ _RAISED = Decimal("1500.00")
 _GTIN = "6408430000012"
 _SIGNATURE = "header.payload.signature"
 _STALE = NOW + timedelta(minutes=20)
+_RENDEZVOUS_SECONDS = 0.5
 
 
 class _Clock:
@@ -86,6 +90,26 @@ class _DenySwitch:
         return [CheckResult(Decision.DENY, ReasonCode.FORBIDDEN_ALLERGEN, "Forbidden.", None)]
 
 
+class _Rendezvous:
+    """Holds each policy run until the other racer also read the day's orders, or a timeout.
+
+    Without it the first checkout often commits before the second one reads, and a race test
+    would pass with no day lock at all.
+    """
+
+    def __init__(self) -> None:
+        self.barrier: threading.Barrier | None = None
+
+    def evaluate(self, lines: Sequence[PricedLine], context: PolicyContext) -> list[CheckResult]:
+        if self.barrier is None:
+            return []
+
+        # With the day lock the second racer waits on the lock, not here, so this times out.
+        with contextlib.suppress(threading.BrokenBarrierError):
+            self.barrier.wait(timeout=_RENDEZVOUS_SECONDS)
+        return []
+
+
 class _World:
     """Cart and order services on one store (memory, or Postgres when given) and one clock."""
 
@@ -98,6 +122,7 @@ class _World:
         self.source = source or FakePriceSource([price()], [stock()])
         self.signer = _RecordingSigner()
         self.deny = _DenySwitch()
+        self.rendezvous = _Rendezvous()
         if database is None:
             self.offers = InMemoryOfferRepository()
             self.carts = InMemoryCartRepository()
@@ -125,7 +150,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
-            PolicyEngine([OrderLimit(), self.deny]),
+            PolicyEngine([OrderLimit(), DailyLimit(), self.deny, self.rendezvous]),
             self.clock,
             audit,
             unit_of_work,
@@ -258,7 +283,8 @@ def test_auto_cart_over_a_lowered_limit_waits_and_the_change_is_kept() -> None:
 
     assert result.state is CartState.PENDING_APPROVAL
     assert result.decision is Decision.HUMAN
-    assert result.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
+    # raise_limit sets both limits, so both reasons show.
+    assert result.reason_codes == (ReasonCode.OVER_AUTO_LIMIT, ReasonCode.OVER_DAILY_AUTO_LIMIT)
     assert result.mandate_version == 2
     assert world.cart_service.get_cart(samples.BUYER_ID, cart.cart_id).state is (
         CartState.PENDING_APPROVAL
@@ -512,3 +538,47 @@ def test_postgres_keeps_the_new_state_behind_a_409(database: Database) -> None:
         CartState.PENDING_APPROVAL
     )
     assert world.steps(cart.cart_id)[-1] is AuditStep.POLICY
+
+
+# 299.97 EUR and 300.98 EUR: each cart is under the 500 EUR day limit, both together are over.
+_HALF_DAY_QTYS = (297, 298)
+
+
+def test_second_auto_cart_for_the_day_waits_at_checkout() -> None:
+    """Both carts were AUTO when made. The binding check is at checkout, with the placed orders."""
+    world = _World()
+    first, second = (world.cart(qty) for qty in _HALF_DAY_QTYS)
+
+    order = world.checkout(first.cart_id, key="k-1")
+    held = world.checkout(second.cart_id, key="k-2")
+
+    assert isinstance(order, Order)
+    assert held.state is CartState.PENDING_APPROVAL
+    assert held.reason_codes == (ReasonCode.OVER_DAILY_AUTO_LIMIT,)
+
+
+def test_postgres_racing_checkouts_never_pass_the_day_limit(database: Database) -> None:
+    """Without the day lock both checkouts read no order for the day, and both place one."""
+    world = _World(database=database)
+    carts = [world.cart(qty) for qty in _HALF_DAY_QTYS]
+    world.rendezvous.barrier = threading.Barrier(len(carts))
+    results: list[Order | Cart | Exception] = []
+
+    def checkout(index: int) -> None:
+        try:
+            results.append(world.checkout(carts[index].cart_id, key=f"k-{index}"))
+        # Kept, not raised: an error in a thread would not fail the test.
+        except Exception as error:
+            results.append(error)
+
+    threads = [threading.Thread(target=checkout, args=(index,)) for index in range(len(carts))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert [error for error in results if isinstance(error, Exception)] == []
+    (order,) = [result for result in results if isinstance(result, Order)]
+    (held,) = [result for result in results if not isinstance(result, Order)]
+    assert held.reason_codes == (ReasonCode.OVER_DAILY_AUTO_LIMIT,)
+    assert world.orders.for_day(samples.BUYER_ID, MONDAY) == [order]
