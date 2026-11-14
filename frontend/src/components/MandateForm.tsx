@@ -8,10 +8,17 @@ import {
 } from 'react'
 
 import type { AllergenPolicy, MandateEdit } from '../api.ts'
-import { ALLERGEN_WORDS, formatAllergen } from '../format.ts'
+import {
+  ALLERGEN_WORDS,
+  REQUIRED_ATTRIBUTE_CODES,
+  formatAllergen,
+  formatAttribute,
+} from '../format.ts'
 import { POLICY_WORDS } from './MandateView.tsx'
 
 const ALLERGEN_CODES = Object.keys(ALLERGEN_WORDS)
+
+type CodeField = 'required' | 'forbidden'
 
 const POLICY_CHOICES: readonly AllergenPolicy[] = ['ask', 'block']
 const MAX_ORDER_ID = 'max-order'
@@ -190,6 +197,7 @@ export function MandateForm({
   const [hasTriedSave, setHasTriedSave] = useState(false)
   const orderError = moneyError(draft.maxOrder, hasTriedSave)
   const dayError = moneyError(draft.maxPerDay, hasTriedSave)
+  const attributeCodes = withStored(REQUIRED_ATTRIBUTE_CODES, initial.required)
   const allergenCodes = withStored(ALLERGEN_CODES, initial.forbidden)
   const policies = withStored(POLICY_CHOICES, [initial.unknownPolicy])
   const saveButton = useRef<HTMLButtonElement>(null)
@@ -219,9 +227,9 @@ export function MandateForm({
     onSave(draft)
   }
 
-  function toggle(code: string, isOn: boolean): void {
-    const rest = draft.forbidden.filter((other) => other !== code)
-    setDraft({ ...draft, forbidden: isOn ? [...rest, code] : rest })
+  function toggle(field: CodeField, code: string, isOn: boolean): void {
+    const rest = draft[field].filter((other) => other !== code)
+    setDraft({ ...draft, [field]: isOn ? [...rest, code] : rest })
   }
 
   return (
@@ -257,6 +265,27 @@ export function MandateForm({
         }}
       />
 
+      <fieldset aria-describedby="required-hint" className="mandate-group">
+        <legend className="heading">Every product must be</legend>
+        <p className="muted" id="required-hint">
+          The agent orders only products with all of these, and does not ask the buyer about them.
+        </p>
+        <div className="mandate-checks">
+          {attributeCodes.map((code) => (
+            <label className="mandate-choice" key={code}>
+              <input
+                checked={draft.required.includes(code)}
+                type="checkbox"
+                onChange={(event) => {
+                  toggle('required', code, event.target.checked)
+                }}
+              />
+              {formatAttribute(code)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <fieldset aria-describedby="forbidden-hint" className="mandate-group">
         <legend className="heading">Does not contain</legend>
         <p className="muted" id="forbidden-hint">
@@ -269,7 +298,7 @@ export function MandateForm({
                 checked={draft.forbidden.includes(code)}
                 type="checkbox"
                 onChange={(event) => {
-                  toggle(code, event.target.checked)
+                  toggle('forbidden', code, event.target.checked)
                 }}
               />
               {formatAllergen(code)}

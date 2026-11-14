@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.schemas.catalog import AttributeCodeValue
 from app.api.schemas.common import RequestModel
 from app.domain.constants import MAX_MANDATE_LIMIT, MONEY_DECIMALS
 from app.domain.enums import Decision
@@ -75,6 +76,10 @@ class MandateUpdateRequest(RequestModel):
         description="New limit per delivery date, EUR ex VAT.",
     )
     preferred_brands: list[str] | None = Field(default=None, description="New preferred brands.")
+    required_attributes: list[AttributeCodeValue] | None = Field(
+        default=None,
+        description="New codes every product must have. [] clears the rule.",
+    )
     forbidden_allergens: list[str] | None = Field(
         default=None,
         description="New forbidden allergen codes.",
@@ -96,6 +101,7 @@ class MandateUpdateRequest(RequestModel):
             max_auto_order_value=_cents(self.max_auto_order_value),
             max_auto_value_per_delivery_date=_cents(self.max_auto_value_per_delivery_date),
             preferred_brands=as_tuple(self.preferred_brands),
+            required_attributes=as_tuple(self.required_attributes),
             forbidden_allergens=as_tuple(self.forbidden_allergens),
             allergen_unknown_policy=self.allergen_unknown_policy,
             can_auto_order=self.can_auto_order,

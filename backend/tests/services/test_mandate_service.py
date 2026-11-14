@@ -13,7 +13,7 @@ from app.adapters.memory.repositories import (
 from app.domain.agent_key import User
 from app.domain.audit import AuditRecord
 from app.domain.enums import AuditStep, Decision, UserRole
-from app.domain.errors import ConflictError, ForbiddenError, NotFoundError
+from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
 from app.domain.mandate import Mandate
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateChanges, MandateService
@@ -80,6 +80,7 @@ def _mandate(**changes: object) -> Mandate:
         max_auto_order_value=Decimal("500"),
         max_auto_value_per_delivery_date=Decimal("750.5"),
         preferred_brands=(),
+        required_attributes=(),
         forbidden_allergens=(),
         allergen_unknown_policy=Decision.HUMAN,
     )
@@ -173,6 +174,56 @@ def test_update_takes_every_editable_field() -> None:
     assert updated.preferred_brands == ("Arla",)
     assert updated.forbidden_allergens == ("fish",)
     assert updated.allergen_unknown_policy is Decision.DENY
+
+
+def test_main_user_sets_required_attributes() -> None:
+    """A kitchen that serves only lactose free milk sets it once, not on every order."""
+    service, mandates = _service()
+
+    updated = service.update(
+        _MAIN_USER,
+        MandateChanges(required_attributes=("LOW_FAT", "FREE_FROM_LACTOSE", "LOW_FAT")),
+    )
+
+    assert updated.version == 2
+    assert updated.required_attributes == ("FREE_FROM_LACTOSE", "LOW_FAT")
+    assert mandates.latest(samples.BUYER_ID) == updated
+
+
+def test_main_user_clears_required_attributes() -> None:
+    service, _ = _service()
+
+    updated = service.update(_MAIN_USER, MandateChanges(required_attributes=()))
+
+    assert updated.required_attributes == ()
+
+
+def test_same_required_attributes_in_another_order_make_no_version() -> None:
+    """The page sends the codes in click order. That alone is not a change."""
+    service, mandates = _service()
+    service.update(_MAIN_USER, MandateChanges(required_attributes=("LOW_FAT", "VEGAN")))
+
+    same = service.update(_MAIN_USER, MandateChanges(required_attributes=("VEGAN", "LOW_FAT")))
+
+    assert same.version == 2
+    assert mandates.latest(samples.BUYER_ID).version == 2
+
+
+def test_unknown_required_attribute_is_refused() -> None:
+    """No product has an unknown code, so the agent would find nothing and not know why."""
+    service, mandates = _service()
+
+    with pytest.raises(InvalidRequestError):
+        service.update(_MAIN_USER, MandateChanges(required_attributes=("ORGANIC",)))
+
+    assert mandates.latest(samples.BUYER_ID).version == 1
+
+
+def test_summary_names_the_required_attributes() -> None:
+    """The agent reads this, so it does not ask the buyer about a rule that is already set."""
+    summary = _summary(_mandate(required_attributes=("FREE_FROM_LACTOSE", "LOW_FAT")))
+
+    assert summary[1] == "Every product must have: FREE_FROM_LACTOSE, LOW_FAT."
 
 
 def test_update_with_no_change_makes_no_version() -> None:
