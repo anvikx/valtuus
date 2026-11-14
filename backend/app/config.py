@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,3 +18,7 @@ class Settings(BaseSettings):
     valio_api_key: SecretStr = SecretStr("")
     # Bearer key of the demo buyer agent. Only its hash is kept after startup.
     agent_key: SecretStr = SecretStr("")
+    # The approve_url in a cart points here, so the main user opens the right page.
+    public_url: str = "https://junction.anvik.fi"
+    # The challenge product file. Gitignored: the data stays inside the challenge.
+    data_dir: Path = Path("data")

@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx2 import Response
 
+from app.adapters.memory.repositories import InMemoryAgentKeyRepository
 from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus
 from app.main import create_app
@@ -67,10 +68,9 @@ def test_call_with_other_scheme_is_refused() -> None:
     _assert_unauthenticated(_call_ping(create_app(), f"Basic {_AGENT_KEY}"))
 
 
-def test_call_with_revoked_key_is_refused() -> None:
+def test_call_with_revoked_key_is_refused(agent_keys: InMemoryAgentKeyRepository) -> None:
     """A revoked agent must be stopped on its next call."""
-    app = create_app()
-    agent_keys = app.state.agent_keys
+    app = create_app(agent_keys=agent_keys)
     seeded = agent_keys.by_hash(hash_agent_key(_AGENT_KEY))
     agent_keys.add(dataclasses.replace(seeded, status=AgentKeyStatus.REVOKED))
 

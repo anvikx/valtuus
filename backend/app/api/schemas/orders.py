@@ -1,10 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.api.schemas.offers import SubstituteFor
+from app.domain.enums import Ledger, OrderStatus
 
 
 class OrderLine(BaseModel):
@@ -22,8 +22,8 @@ class OrderConfirmation(BaseModel):
     order_id: str
     cart_id: str
     buyer_id: str
-    status: Literal["CONFIRMED"]
-    ledger: Literal["PROTOTYPE"] = Field(
+    status: OrderStatus
+    ledger: Ledger = Field(
         description="The order is kept in the prototype's ledger. It is not sent to a Valio "
         "Aimo production system.",
     )
