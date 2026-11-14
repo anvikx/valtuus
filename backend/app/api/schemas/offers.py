@@ -1,12 +1,12 @@
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reasons, RequestModel
 from app.domain.constants import MAX_OFFER_CANDIDATES
-from app.domain.enums import OfferTier, ReasonCode, StockModel, Unit
+from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
+from app.domain.offer import OfferQuery
 
 
 class OfferRequest(RequestModel):
@@ -16,6 +16,16 @@ class OfferRequest(RequestModel):
     deliver_by: date | None = None
     preferred_brands: list[str] = Field(default_factory=list)
     include_substitutes: bool = False
+
+    def to_domain(self) -> OfferQuery:
+        return OfferQuery(
+            product_ids=tuple(self.product_ids),
+            quantity=self.quantity,
+            unit=self.unit,
+            deliver_by=self.deliver_by,
+            preferred_brands=tuple(self.preferred_brands),
+            include_substitutes=self.include_substitutes,
+        )
 
 
 class RequestedItem(BaseModel):
@@ -32,7 +42,7 @@ class ComparisonPrice(BaseModel):
 class SubstituteFor(BaseModel):
     product_id: str
     name: str
-    basis: Literal["VALIO_PAIR", "SAME_CATEGORY"]
+    basis: SubstituteBasis
     reason_code: ReasonCode
     reason_sentence: str
     price_difference_per_unit: Decimal

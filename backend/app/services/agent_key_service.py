@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from app.domain.agent_key import AgentKey, hash_agent_key
 from app.domain.enums import AgentKeyStatus
 from app.services.ports.repositories import AgentKeyRepository
@@ -17,3 +19,6 @@ class AgentKeyService:
             return None
 
         return agent_key
+
+    def list_for_buyer(self, buyer_id: str) -> Sequence[AgentKey]:
+        raise NotImplementedError("AgentKeyService.list_for_buyer")

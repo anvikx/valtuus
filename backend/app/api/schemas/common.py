@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, StringConstraints
 
 from app.domain.enums import AllergenStatus, ErrorCode, ReasonCode
 
@@ -13,6 +13,8 @@ def _json_number(value: Decimal) -> int | float:
 
 Quantity = Annotated[Decimal, PlainSerializer(_json_number, when_used="json")]
 PositiveQuantity = Annotated[Quantity, Field(gt=0)]
+# One type for both doors: an empty key would match every retry and replay a wrong result.
+IdempotencyKeyValue = Annotated[str, StringConstraints(min_length=1)]
 
 
 class RequestModel(BaseModel):

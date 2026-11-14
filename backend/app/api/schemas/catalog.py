@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
+from app.domain.catalog import SearchQuery
 from app.domain.enums import Decision, ReasonCode, SearchStatus, Unit
 
 
@@ -14,6 +15,16 @@ class SearchRequest(RequestModel):
     unit: Unit | None = None
     deliver_by: date | None = None
     preferred_brands: list[str] = Field(default_factory=list)
+
+    def to_domain(self) -> SearchQuery:
+        return SearchQuery(
+            query=self.query,
+            required_attributes=tuple(self.required_attributes),
+            quantity=self.quantity,
+            unit=self.unit,
+            deliver_by=self.deliver_by,
+            preferred_brands=tuple(self.preferred_brands),
+        )
 
 
 class InterpretedRequest(BaseModel):

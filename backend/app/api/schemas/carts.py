@@ -6,6 +6,7 @@ from pydantic import Field
 from app.api.schemas.catalog import InterpretedRequest
 from app.api.schemas.common import Reasons, RequestModel
 from app.api.schemas.offers import SubstituteFor
+from app.domain.cart import CartDraft, CartLineInput
 from app.domain.enums import CartState, Decision, ReasonCode
 
 
@@ -19,6 +20,16 @@ class CartRequest(RequestModel):
     lines: list[CartLineRequest] = Field(min_length=1)
     request_text: str = Field(description="The buyer's own words, for the audit record.")
     clarifications: list[str] = Field(default_factory=list)
+
+    def to_domain(self) -> CartDraft:
+        return CartDraft(
+            lines=tuple(
+                CartLineInput(offer_id=line.offer_id, product_id=line.product_id, qty=line.qty)
+                for line in self.lines
+            ),
+            request_text=self.request_text,
+            clarifications=tuple(self.clarifications),
+        )
 
 
 class RejectRequest(RequestModel):

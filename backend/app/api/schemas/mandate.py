@@ -1,9 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.api.schemas.common import RequestModel
 from app.domain.enums import Decision
+from app.services.mandate_service import MandateChanges
 
 
 class RankingWeights(BaseModel):
@@ -34,3 +36,25 @@ class MandateResponse(BaseModel):
     mandate: Mandate
     now: datetime
     timezone: str
+
+
+class MandateUpdateRequest(RequestModel):
+    """Only the fields to change. A missing field keeps its value."""
+
+    max_auto_order_value: Decimal | None = Field(default=None, ge=0)
+    max_auto_value_per_delivery_date: Decimal | None = Field(default=None, ge=0)
+    preferred_brands: list[str] | None = None
+    forbidden_allergens: list[str] | None = None
+    allergen_unknown_policy: Decision | None = None
+
+    def to_domain(self) -> MandateChanges:
+        def as_tuple(values: list[str] | None) -> tuple[str, ...] | None:
+            return None if values is None else tuple(values)
+
+        return MandateChanges(
+            max_auto_order_value=self.max_auto_order_value,
+            max_auto_value_per_delivery_date=self.max_auto_value_per_delivery_date,
+            preferred_brands=as_tuple(self.preferred_brands),
+            forbidden_allergens=as_tuple(self.forbidden_allergens),
+            allergen_unknown_policy=self.allergen_unknown_policy,
+        )

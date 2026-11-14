@@ -124,3 +124,17 @@ class ErrorCode(StrEnum):
     NOT_FOUND = "NOT_FOUND"
     CONFLICT = "CONFLICT"
     UPSTREAM_UNAVAILABLE = "UPSTREAM_UNAVAILABLE"
+
+
+class SubstituteBasis(StrEnum):
+    VALIO_PAIR = "VALIO_PAIR"
+    SAME_CATEGORY = "SAME_CATEGORY"
+
+
+class OrderStatus(StrEnum):
+    CONFIRMED = "CONFIRMED"
+
+
+class Ledger(StrEnum):
+    # The mock has no order API, so the order lives only in the prototype's ledger.
+    PROTOTYPE = "PROTOTYPE"
