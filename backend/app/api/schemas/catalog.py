@@ -1,12 +1,25 @@
 from datetime import date
 from decimal import Decimal
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, WithJsonSchema
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
 from app.domain.catalog import SearchQuery
-from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE, VALID_ATTRIBUTES
 from app.domain.enums import Decision, ReasonCode, SearchMatch, SearchStatus, Unit
+
+# The schema lists the codes, but validate_query rejects a wrong one. A pydantic enum would make
+# the MCP SDK refuse the call first, with its own text and no error code or next_step.
+AttributeCodeValue = Annotated[
+    str,
+    WithJsonSchema(
+        {
+            "type": "string",
+            "enum": list(VALID_ATTRIBUTES),
+        },
+    ),
+]
 
 
 class SearchRequest(RequestModel):
@@ -14,7 +27,7 @@ class SearchRequest(RequestModel):
         description=f"{QUERY_RULE}. Accents are folded; substrings match.",
         examples=["milk"],
     )
-    required_attributes: list[str] = Field(
+    required_attributes: list[AttributeCodeValue] = Field(
         default_factory=list,
         description="Codes every product must have. " + ATTRIBUTE_DESCRIPTION,
         examples=[["FREE_FROM_LACTOSE"]],
