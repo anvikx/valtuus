@@ -8,6 +8,7 @@ import pytest
 from app.adapters.memory.repositories import (
     InMemoryAuditRepository,
     InMemoryCartRepository,
+    InMemoryCartRevisionRepository,
     InMemoryIdempotencyRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
@@ -18,6 +19,7 @@ from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import (
     PostgresAuditRepository,
     PostgresCartRepository,
+    PostgresCartRevisionRepository,
     PostgresIdempotencyRepository,
     PostgresMandateRepository,
     PostgresOfferRepository,
@@ -84,6 +86,7 @@ class _World:
         self.deny = _DenySwitch()
         if database is None:
             self.carts = InMemoryCartRepository()
+            revisions = InMemoryCartRevisionRepository()
             self.audit = InMemoryAuditRepository()
             self.orders = InMemoryOrderRepository()
             mandates = InMemoryMandateRepository()
@@ -92,6 +95,7 @@ class _World:
             unit_of_work = InMemoryUnitOfWork()
         else:
             self.carts = PostgresCartRepository(database)
+            revisions = PostgresCartRevisionRepository(database)
             self.audit = PostgresAuditRepository(database)
             self.orders = PostgresOrderRepository(database)
             mandates = PostgresMandateRepository(database)
@@ -108,6 +112,7 @@ class _World:
         self.cart_service = CartService(
             offers,
             self.carts,
+            revisions,
             self.orders,
             idempotency,
             mandate_service,

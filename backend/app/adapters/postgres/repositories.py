@@ -24,6 +24,7 @@ from app.adapters.postgres.offer_codec import OFFER_CODEC
 from app.adapters.postgres.tables import (
     agent_keys,
     audit_records,
+    cart_revisions,
     carts,
     idempotency_keys,
     mandates,
@@ -34,7 +35,8 @@ from app.adapters.postgres.tables import (
 )
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
-from app.domain.cart import Cart
+from app.domain.cart import Cart, CartRevision
+from app.domain.enums import RevisionAuthor
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -256,6 +258,48 @@ class PostgresCartRepository:
         statement = update(carts).where(carts.c.cart_id == cart.cart_id).values(_cart_row(cart))
         if not _changed(self._database.writer(), statement):
             raise ValueError(f"cart {cart.cart_id} is unknown")
+
+
+class PostgresCartRevisionRepository:
+    """Append only. A trigger in the schema also refuses UPDATE and DELETE."""
+
+    def __init__(self, database: Database) -> None:
+        self._database = database
+
+    def add(self, revision: CartRevision) -> None:
+        cart = revision.cart
+        row = {
+            "cart_id": cart.cart_id,
+            "revision": cart.revision,
+            "author": revision.author.value,
+            "created_at": revision.created_at,
+            "body": _CART.dump_python(cart, mode="json"),
+        }
+        statement = (
+            insert(cart_revisions)
+            .values(row)
+            .on_conflict_do_nothing(index_elements=["cart_id", "revision"])
+        )
+        if not _changed(self._database.writer(), statement):
+            raise ValueError(f"cart {cart.cart_id} revision {cart.revision} exists")
+
+    def for_cart(self, cart_id: str) -> Sequence[CartRevision]:
+        query = (
+            select(cart_revisions.c.body, cart_revisions.c.author, cart_revisions.c.created_at)
+            .where(cart_revisions.c.cart_id == cart_id)
+            .order_by(cart_revisions.c.revision)
+        )
+        with self._database.reader() as connection:
+            rows = connection.execute(query).all()
+
+        return [
+            CartRevision(
+                cart=_CART.validate_python(row.body),
+                author=RevisionAuthor(row.author),
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
 
 
 class PostgresOrderRepository:

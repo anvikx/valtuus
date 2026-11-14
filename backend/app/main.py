@@ -16,6 +16,7 @@ from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryAuditRepository,
     InMemoryCartRepository,
+    InMemoryCartRevisionRepository,
     InMemoryIdempotencyRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
@@ -30,6 +31,7 @@ from app.adapters.postgres.repositories import (
     PostgresAgentKeyRepository,
     PostgresAuditRepository,
     PostgresCartRepository,
+    PostgresCartRevisionRepository,
     PostgresIdempotencyRepository,
     PostgresMandateRepository,
     PostgresOfferRepository,
@@ -68,6 +70,7 @@ from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
     CartRepository,
+    CartRevisionRepository,
     IdempotencyRepository,
     MandateRepository,
     OfferRepository,
@@ -121,6 +124,7 @@ class _Store:
     users: UserRepository
     offers: OfferRepository
     carts: CartRepository
+    revisions: CartRevisionRepository
     orders: OrderRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
@@ -137,6 +141,7 @@ def _memory_store() -> _Store:
         users=InMemoryUserRepository(),
         offers=InMemoryOfferRepository(),
         carts=InMemoryCartRepository(),
+        revisions=InMemoryCartRevisionRepository(),
         orders=InMemoryOrderRepository(),
         audit=InMemoryAuditRepository(),
         idempotency=InMemoryIdempotencyRepository(),
@@ -156,6 +161,7 @@ def _postgres_store(settings: Settings) -> _Store:
         users=PostgresUserRepository(database),
         offers=PostgresOfferRepository(database),
         carts=PostgresCartRepository(database),
+        revisions=PostgresCartRevisionRepository(database),
         orders=PostgresOrderRepository(database),
         audit=PostgresAuditRepository(database),
         idempotency=PostgresIdempotencyRepository(database),
@@ -210,6 +216,7 @@ def _build_services(
     cart_service = CartService(
         store.offers,
         store.carts,
+        store.revisions,
         store.orders,
         store.idempotency,
         mandate_service,

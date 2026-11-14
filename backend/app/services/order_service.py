@@ -258,6 +258,7 @@ class OrderService:
             mandate_version=mandate.version,
             issuer=ISSUER,
             signature=None,
+            revision=cart.revision,
         )
 
     def _gtin(self, line: CartLine) -> str | None:

@@ -155,6 +155,7 @@ _CART = {
 _ORDER = {
     "order_id": "ord_1",
     "cart_id": "c_1",
+    "revision": 1,
     "buyer_id": "hotel-1",
     "status": "CONFIRMED",
     "ledger": "PROTOTYPE",

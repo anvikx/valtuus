@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
-from app.domain.cart import Cart
+from app.domain.cart import Cart, CartRevision
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -91,6 +91,23 @@ class InMemoryCartRepository:
         if cart.cart_id not in self._by_id:
             raise ValueError(f"cart {cart.cart_id} is unknown")
         self._by_id[cart.cart_id] = cart
+
+
+class InMemoryCartRevisionRepository:
+    def __init__(self) -> None:
+        self._by_cart: dict[str, dict[int, CartRevision]] = {}
+
+    def add(self, revision: CartRevision) -> None:
+        revisions = self._by_cart.setdefault(revision.cart.cart_id, {})
+        if revision.cart.revision in revisions:
+            raise ValueError(
+                f"cart {revision.cart.cart_id} revision {revision.cart.revision} exists"
+            )
+        revisions[revision.cart.revision] = revision
+
+    def for_cart(self, cart_id: str) -> Sequence[CartRevision]:
+        revisions = self._by_cart.get(cart_id, {})
+        return [revisions[number] for number in sorted(revisions)]
 
 
 class InMemoryOrderRepository:

@@ -25,10 +25,10 @@ def no_catalog_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ProductStore, "load", lambda self, files: None)
 
 
-# TRUNCATE, not DELETE: the audit trigger refuses DELETE, and TRUNCATE fires no row trigger.
+# TRUNCATE, not DELETE: the append only triggers refuse DELETE, and TRUNCATE fires no row trigger.
 _TRUNCATE = text(
-    "TRUNCATE mandates, agent_keys, users, offers, carts, orders, audit_records,"
-    " idempotency_keys, products, sessions RESTART IDENTITY",
+    "TRUNCATE mandates, agent_keys, users, offers, carts, cart_revisions, orders,"
+    " audit_records, idempotency_keys, products, sessions RESTART IDENTITY",
 )
 
 

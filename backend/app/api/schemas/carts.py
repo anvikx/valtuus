@@ -72,7 +72,7 @@ class CartResponse(Reasons):
     cart_id: str = Field(description="Cart id.")
     state: CartState = Field(
         description="AUTO: check out now. PENDING_APPROVAL: the main user decides. "
-        "ORDERED, REJECTED, EXPIRED, DENIED: closed.",
+        "ORDERED, REJECTED, EXPIRED, DENIED, WITHDRAWN: closed.",
     )
     decision: Decision = Field(
         description="Decision when the cart was made: the strictest of DENY, HUMAN, AUTO.",

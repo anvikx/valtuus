@@ -77,6 +77,18 @@ carts = Table(
     Index("ix_carts_buyer_id_state", "buyer_id", "state"),
 )
 
+cart_revisions = Table(
+    "cart_revisions",
+    metadata,
+    Column("cart_id", Text, nullable=False),
+    Column("revision", Integer, nullable=False),
+    Column("author", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("body", JSONB, nullable=False),
+    # One row per number: two changes on the same base cannot both become the next one.
+    PrimaryKeyConstraint("cart_id", "revision"),
+)
+
 orders = Table(
     "orders",
     metadata,

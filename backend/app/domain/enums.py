@@ -14,6 +14,12 @@ class CartState(StrEnum):
     REJECTED = "REJECTED"
     EXPIRED = "EXPIRED"
     DENIED = "DENIED"
+    WITHDRAWN = "WITHDRAWN"
+
+
+class RevisionAuthor(StrEnum):
+    AGENT = "AGENT"
+    MAIN_USER = "MAIN_USER"
 
 
 class StockModel(StrEnum):

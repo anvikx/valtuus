@@ -10,6 +10,7 @@ import pytest
 from app.adapters.memory.repositories import (
     InMemoryAuditRepository,
     InMemoryCartRepository,
+    InMemoryCartRevisionRepository,
     InMemoryIdempotencyRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
@@ -20,6 +21,7 @@ from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import (
     PostgresAuditRepository,
     PostgresCartRepository,
+    PostgresCartRevisionRepository,
     PostgresIdempotencyRepository,
     PostgresMandateRepository,
     PostgresOfferRepository,
@@ -129,6 +131,7 @@ class _World:
         if database is None:
             self.offers = InMemoryOfferRepository()
             self.carts = InMemoryCartRepository()
+            revisions = InMemoryCartRevisionRepository()
             self.orders = InMemoryOrderRepository()
             self.mandates = InMemoryMandateRepository()
             self.audit = InMemoryAuditRepository()
@@ -137,6 +140,7 @@ class _World:
         else:
             self.offers = PostgresOfferRepository(database)
             self.carts = PostgresCartRepository(database)
+            revisions = PostgresCartRevisionRepository(database)
             self.orders = PostgresOrderRepository(database)
             self.mandates = PostgresMandateRepository(database)
             self.audit = PostgresAuditRepository(database)
@@ -150,6 +154,7 @@ class _World:
         self.cart_service = CartService(
             self.offers,
             self.carts,
+            revisions,
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
@@ -255,6 +260,18 @@ def test_auto_cart_is_ordered_at_the_stored_offer_price() -> None:
     assert stored.state is CartState.ORDERED
     assert stored.order_id == order.order_id
     assert world.steps(cart.cart_id)[-2:] == [AuditStep.POLICY, AuditStep.ORDER]
+
+
+def test_order_names_the_cart_revision_it_was_placed_from() -> None:
+    """The confirmation must show which version of a changed cart was ordered."""
+    world = _World()
+    cart = dataclasses.replace(world.cart(100), revision=2)
+    with world.unit_of_work.transaction():
+        world.carts.save(cart)
+
+    order = world.checkout(cart.cart_id)
+
+    assert order.revision == 2
 
 
 def test_confirmation_is_signed_without_its_signature_field() -> None:

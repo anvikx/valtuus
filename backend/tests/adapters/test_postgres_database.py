@@ -1,8 +1,12 @@
 """Rules only the Postgres store has: real transactions, the audit trigger, row locks."""
 
+import dataclasses
+import importlib.util
 import threading
 from collections.abc import Callable
 from decimal import Decimal
+from pathlib import Path
+from types import ModuleType
 
 import pytest
 from alembic.autogenerate import compare_metadata
@@ -14,13 +18,34 @@ from app.adapters.postgres.database import Database
 from app.adapters.postgres.repositories import (
     PostgresAuditRepository,
     PostgresCartRepository,
+    PostgresCartRevisionRepository,
     PostgresMandateRepository,
     PostgresOrderRepository,
 )
-from app.adapters.postgres.tables import audit_records, mandates, metadata, orders
+from app.adapters.postgres.tables import (
+    audit_records,
+    cart_revisions,
+    carts,
+    mandates,
+    metadata,
+    orders,
+)
+from app.domain.cart import CartRevision
+from app.domain.enums import RevisionAuthor
 from tests.adapters import samples
 
 _RACERS = 2
+_MIGRATIONS = Path(__file__).parents[2] / "app/adapters/postgres/migrations/versions"
+
+
+def _migration(name: str) -> ModuleType:
+    """The versions folder is no package, so a migration loads from its file."""
+    spec = importlib.util.spec_from_file_location(name, _MIGRATIONS / f"{name}.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _race(work: Callable[[int], None]) -> list[BaseException | None]:
@@ -102,6 +127,47 @@ def test_audit_log_refuses_update_and_delete(database: Database) -> None:
             database.writer().execute(statement)
 
     assert len(PostgresAuditRepository(database).for_cart("c_1")) == 1
+
+
+def test_cart_revisions_refuse_update_and_delete(database: Database) -> None:
+    """A revision is what someone saw or approved. No later write may change that."""
+    revision = CartRevision(samples.cart(), RevisionAuthor.AGENT, samples.NOW)
+    with database.transaction():
+        PostgresCartRevisionRepository(database).add(revision)
+
+    for statement in (update(cart_revisions).values(author="x"), delete(cart_revisions)):
+        with pytest.raises(DBAPIError, match="append only"), database.transaction():
+            database.writer().execute(statement)
+
+    assert PostgresCartRevisionRepository(database).for_cart("c_1") == [revision]
+
+
+def test_carts_stored_before_revisions_get_revision_one(database: Database) -> None:
+    """Live carts predate the revision log. Each needs revision 1 for a later change to build on."""
+    with database.transaction():
+        PostgresCartRepository(database).add(samples.cart())
+        database.writer().execute(text(_migration("0011_cart_revisions").BACKFILL))
+
+    (revision,) = PostgresCartRevisionRepository(database).for_cart("c_1")
+    assert revision.cart == samples.cart()
+    assert revision.author is RevisionAuthor.AGENT
+
+
+def test_bodies_stored_before_revisions_load_as_revision_one(database: Database) -> None:
+    """Rows written before revisions existed have no such key. They must still load."""
+    with database.transaction():
+        PostgresCartRepository(database).add(dataclasses.replace(samples.cart(), revision=2))
+        PostgresOrderRepository(database).add(dataclasses.replace(samples.order(), revision=2))
+        for table in (carts, orders):
+            database.writer().execute(update(table).values(body=table.c.body.op("-")("revision")))
+
+    cart = PostgresCartRepository(database).get("c_1")
+    order = PostgresOrderRepository(database).get("o_1")
+
+    assert cart is not None
+    assert cart.revision == 1
+    assert order is not None
+    assert order.revision == 1
 
 
 def test_bodies_hold_no_float_for_money(database: Database) -> None:
