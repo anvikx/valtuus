@@ -44,20 +44,13 @@ const CURRENCY = 'EUR'
 const EMPTY_SENTENCE =
   'Your agent orders inside your limits. When an order needs you, it appears here and the agent sends you the link.'
 
-// The limits line only helps, so the inbox still works without it. A sign out still goes to
-// the login page.
-function withoutMandate(error: unknown): null {
-  if (isSignedOut(error)) {
-    throw error
-  }
-
-  return null
-}
-
 async function loadInbox(): Promise<InboxData> {
   // The session comes first, so a signed out user never gets a cart request.
   const session = await getSession()
-  const [carts, mandate] = await Promise.all([listCarts(), getMandate().catch(withoutMandate)])
+  // The limits line only helps, so any mandate error just hides it. Even a 401 is not a sign
+  // out here: the real backend answers 401 to the main user on this route (see getMandate), and
+  // a redirect would loop back to the login page after every sign in.
+  const [carts, mandate] = await Promise.all([listCarts(), getMandate().catch(() => null)])
   return {
     session,
     carts,
