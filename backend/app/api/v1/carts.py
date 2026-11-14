@@ -14,7 +14,7 @@ from app.api.deps import (
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import cart_response, order_confirmation
-from app.api.schemas.carts import CartRequest, CartResponse, RejectRequest
+from app.api.schemas.carts import CartRequest, CartResponse, RejectRequest, RevisionRequest
 from app.api.schemas.common import IdempotencyKeyValue
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
@@ -40,6 +40,36 @@ Make a cart from offer lines. The gateway decides AUTO, HUMAN or DENY by the man
 **Limit:** the same buyer, product, quantity and date inside {DUPLICATE_WINDOW_MINUTES} minutes is
 DUPLICATE_ORDER. A cart the main user rejected inside {REJECT_MEMORY_MINUTES} minutes is
 PREVIOUSLY_REJECTED.
+
+**Scope:** `cart`.
+"""
+_REVISE = """
+Change the lines of an open cart. This makes the next revision and runs the policy again, so
+an AUTO cart can need approval and a pending cart can become AUTO. The old revision stays on
+the record.
+
+**Request:** with an `Idempotency-Key` header and the revision you changed.
+
+```json
+{
+  "base_revision": 1,
+  "lines": [{"offer_id": "o_1", "product_id": "464306", "qty": 800}],
+  "request_text": "make it 800"
+}
+```
+
+**Limit:** AUTO and PENDING_APPROVAL only. Any other state returns 409. A base_revision that
+is not the current one returns 409: read the cart and send the change again.
+
+**Scope:** `cart`.
+"""
+_WITHDRAW = """
+Withdraw an open cart when the buyer no longer wants it. WITHDRAWN is final, and the main user
+can no longer approve it.
+
+**Request:** `POST /api/v1/carts/c_1/withdraw`
+
+**Limit:** AUTO and PENDING_APPROVAL only. Any other state returns 409.
 
 **Scope:** `cart`.
 """
@@ -120,6 +150,36 @@ def get_cart(
     public_url: PublicUrlDep,
 ) -> CartResponse:
     return cart_response(services.carts.get_cart(buyer_id, cart_id), public_url)
+
+
+@router.post("/{cart_id}/revisions", description=describe(_REVISE, CartResponse, RevisionRequest))
+def revise_cart(
+    cart_id: str,
+    request: RevisionRequest,
+    idempotency_key: IdempotencyKey,
+    agent: Annotated[AgentKey, Depends(require_scope(AgentScope.CART))],
+    services: ServicesDep,
+    public_url: PublicUrlDep,
+) -> CartResponse:
+    draft = request.to_domain()
+    cart = services.carts.revise_cart(
+        agent,
+        cart_id,
+        request.base_revision,
+        draft,
+        idempotency_key,
+    )
+    return cart_response(cart, public_url)
+
+
+@router.post("/{cart_id}/withdraw", description=describe(_WITHDRAW, CartResponse))
+def withdraw_cart(
+    cart_id: str,
+    agent: Annotated[AgentKey, Depends(require_scope(AgentScope.CART))],
+    services: ServicesDep,
+    public_url: PublicUrlDep,
+) -> CartResponse:
+    return cart_response(services.carts.withdraw_cart(agent, cart_id), public_url)
 
 
 @router.post("/{cart_id}/checkout", description=describe(_CHECKOUT, OrderConfirmation))

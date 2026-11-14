@@ -22,6 +22,8 @@ _AGENT_KEY = os.environ["AGENT_KEY"]
 _AUTH = {"Authorization": f"Bearer {_AGENT_KEY}"}
 _IDEMPOTENCY = {"Idempotency-Key": "k-1"}
 _AUDIT_PATH = "/api/v1/audit/c_1"
+_REVISIONS_PATH = "/api/v1/carts/c_1/revisions"
+_WITHDRAW_PATH = "/api/v1/carts/c_1/withdraw"
 _CART = {
     "lines": [{"offer_id": "o_1", "product_id": "p_1", "qty": 1}],
     "request_text": "milk for Monday",
@@ -37,6 +39,8 @@ _CONTRACT = {
     ("POST", "/api/v1/carts/{cart_id}/checkout"),
     ("POST", "/api/v1/carts/{cart_id}/approve"),
     ("POST", "/api/v1/carts/{cart_id}/reject"),
+    ("POST", "/api/v1/carts/{cart_id}/revisions"),
+    ("POST", "/api/v1/carts/{cart_id}/withdraw"),
     ("GET", "/api/v1/orders/{order_id}"),
     ("GET", "/api/v1/mandate"),
     ("PUT", "/api/v1/mandate"),
@@ -64,6 +68,8 @@ _AGENT_ONLY_CALLS = [
     ("POST", "/api/v1/offers", {}, {"product_ids": ["p_1"]}),
     ("POST", "/api/v1/carts", _IDEMPOTENCY, _CART),
     ("POST", "/api/v1/carts/c_1/checkout", _IDEMPOTENCY, None),
+    ("POST", _REVISIONS_PATH, _IDEMPOTENCY, {**_CART, "base_revision": 1}),
+    ("POST", _WITHDRAW_PATH, {}, None),
     ("GET", _AUDIT_PATH, {}, None),
 ]
 # The agent polls these. The main user opens them on the approve, order and permissions pages.
@@ -81,6 +87,8 @@ _LIVE_PATHS = {
     _CARTS_PATH,
     "/api/v1/carts/c_1",
     "/api/v1/carts/c_1/checkout",
+    _REVISIONS_PATH,
+    _WITHDRAW_PATH,
     "/api/v1/orders/o_1",
     _MANDATE_PATH,
     _AUDIT_PATH,
@@ -436,6 +444,30 @@ def test_cart_without_idempotency_key_is_refused() -> None:
     response = _client().post("/api/v1/carts", headers=_AUTH, json=_CART)
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_revision_without_idempotency_key_is_refused() -> None:
+    """A retried revise_cart without the key would make a second revision."""
+    body = {**_CART, "base_revision": 1}
+
+    response = _client().post(_REVISIONS_PATH, headers=_AUTH, json=body)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+def test_revision_of_an_unknown_cart_is_not_found() -> None:
+    """The agent must learn the cart is gone, not that its change was stored."""
+    body = {**_CART, "base_revision": 1}
+
+    response = _client().post(_REVISIONS_PATH, headers={**_AUTH, **_IDEMPOTENCY}, json=body)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+def test_withdraw_of_an_unknown_cart_is_not_found() -> None:
+    response = _client().post(_WITHDRAW_PATH, headers=_AUTH)
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 def test_cart_with_empty_idempotency_key_is_refused() -> None:
