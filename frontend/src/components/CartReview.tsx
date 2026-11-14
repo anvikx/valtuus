@@ -40,11 +40,11 @@ function LineCard({ line, currency }: { line: CartLine; currency: string }): Rea
     <li className="card line-card">
       <div className="line-head">
         <h3 className="heading">{line.name}</h3>
-        <p className="heading">{money(line.lineTotal, currency)}</p>
+        <p className="heading">{money(line.lineTotal, currency)} ex VAT</p>
       </div>
       <p className="muted">Product {line.productId}</p>
       <p>
-        {formatCount(line.qty)} x {money(line.unitPrice, currency)}
+        {formatCount(line.qty)} x {money(line.unitPrice, currency)} ex VAT
       </p>
       <p className="muted">Delivery {formatDate(line.deliveryDate)}</p>
     </li>
