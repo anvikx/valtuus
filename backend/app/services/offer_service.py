@@ -191,7 +191,9 @@ def _split(
 def _valid_until(issued_at: datetime, lines: Sequence[OfferLine]) -> datetime:
     """The stock snapshot holds 15 minutes, never past the end of the earliest price day."""
     ttl_end = issued_at + timedelta(minutes=OFFER_TTL_MINUTES)
-    ends = [_day_after(line.price_valid_to) for line in lines]
+    # Valio sends 9999-12-31 for a price with no end. The day after it is past date.max and
+    # raised OverflowError, so a price with no end does not limit the offer.
+    ends = [_day_after(line.price_valid_to) for line in lines if line.price_valid_to < date.max]
     return min([ttl_end, *ends])
 
 
