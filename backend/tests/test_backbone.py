@@ -38,8 +38,9 @@ _CONTRACT = {
     ("PUT", "/api/v1/mandate"),
     ("GET", "/api/v1/agents"),
     ("GET", "/api/v1/audit/{cart_id}"),
-    ("POST", "/api/v1/session"),
-    ("DELETE", "/api/v1/session"),
+    ("POST", "/api/v1/auth/login"),
+    ("POST", "/api/v1/auth/logout"),
+    ("GET", "/api/v1/auth/me"),
 }
 _AGENT_TOOLS = {
     "ping",
@@ -74,6 +75,7 @@ _MAIN_USER_CALLS = [
     ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
     ("PUT", "/api/v1/mandate", {"max_auto_order_value": "300.00"}),
     ("GET", "/api/v1/agents", None),
+    ("GET", "/api/v1/auth/me", None),
 ]
 
 
@@ -185,7 +187,7 @@ def test_shared_read_without_key_goes_to_the_session(method, path, headers, body
     client = _client()
 
     refused = client.request(method, path, headers=headers, json=body)
-    client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
     allowed = client.request(method, path, headers=headers, json=body)
 
     assert refused.status_code == HTTPStatus.UNAUTHORIZED

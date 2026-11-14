@@ -80,7 +80,7 @@ _API_DESCRIPTION = f"""
 Lets outside AI agents buy Valio Aimo products within the buyer's mandate.
 
 * **Auth:** an agent sends `Authorization: Bearer <agent key>`. Use **Authorize** to try a call.
-  Routes marked *Main user* need the main user's session from `POST /api/v1/session` instead.
+  Routes marked *Main user* need the main user's session from `POST /api/v1/auth/login` instead.
 * **Flow:** read the mandate, search, get offers, create a cart. Then check out an AUTO cart, or
   poll a HUMAN cart while the main user decides.
 * **Retries:** create cart and checkout need an `Idempotency-Key` header. Send the same key again

@@ -110,7 +110,7 @@ def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
         database_url=SecretStr(TEST_DATABASE_URL),
     )
     with TestClient(create_app(settings), base_url=_BASE_URL) as client:
-        client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+        client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
         cookies = client.cookies
 
     with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
@@ -125,7 +125,12 @@ def test_password_change_logs_the_main_user_out(database: Database) -> None:
         database_url=SecretStr(TEST_DATABASE_URL),
     )
     with TestClient(create_app(settings), base_url=_BASE_URL) as client:
-        client.post("/api/v1/session", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"password": os.environ["MAIN_USER_PASSWORD"]},
+        )
+        # Without this, a failed login also ends in the 401 below and the test passes empty.
+        assert login.status_code == HTTPStatus.NO_CONTENT
         cookies = client.cookies
 
     rotated = settings.model_copy(update={"main_user_password": SecretStr("a-new-password")})
