@@ -25,3 +25,5 @@ class Mandate:
     allergen_unknown_policy: Decision
     preferred_brands: tuple[str, ...]
     ranking_weights: RankingWeights
+    # Off unless the main user turns it on. A version stored before this field loads as off.
+    can_auto_order: bool = False
