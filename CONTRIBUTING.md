@@ -46,6 +46,10 @@ in tests, and why-comments.
   `# TODO: replace polling with SSE when the stream endpoint exists`.
 * Do not commit code that is commented out. Git keeps history.
 * A test says why the behavior matters, not only what it checks.
+* An MCP tool docstring is the agent's only manual. Write it with the tool and keep it short. Say
+  when to use the tool, what must come first (`get_offers` before `create_cart`), any time limit
+  (an offer expires after `OFFER_TTL_MINUTES`), and each error with its `next_step`. No plan or
+  doc citations. Update it in the same change as the behavior.
 * Use simple English. No em dashes.
 
 ## Names
