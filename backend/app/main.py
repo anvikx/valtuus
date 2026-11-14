@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from fastapi import FastAPI
+from starlette.types import ASGIApp, Receive, Scope, Send
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.adapters.catalog_downloader import CatalogDownloader
@@ -248,6 +249,22 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
     )
 
 
+class _McpPathAlias:
+    """Serves /api/mcp as /api/mcp/, because claude.ai does not follow the slash redirect."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self._app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"] == _MCP_PATH:
+            scope = {
+                **scope,
+                "path": f"{_MCP_PATH}/",
+            }
+
+        await self._app(scope, receive, send)
+
+
 def create_app(
     settings: Settings | None = None,
     agent_keys: AgentKeyRepository | None = None,
@@ -313,6 +330,7 @@ def create_app(
     # points to http and clients such as claude.ai refuse it. Trusting every host is safe
     # because only Caddy can reach the backend port.
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+    app.add_middleware(_McpPathAlias)
     install_error_handlers(app)
     for router in _ROUTERS:
         app.include_router(router, prefix=_API_PREFIX)

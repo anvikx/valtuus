@@ -11,7 +11,6 @@ from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus
 from app.main import create_app
 
-# The URL agents register. The trailing slash avoids a redirect.
 _MCP_URL = "/api/mcp/"
 _PROTOCOL_VERSION = "2025-06-18"
 _HEADERS = {
@@ -30,14 +29,15 @@ _PING = {
 _AGENT_KEY = os.environ["AGENT_KEY"]
 
 
-def _call_ping(app: FastAPI, authorization: str | None) -> Response:
+def _call_ping(app: FastAPI, authorization: str | None, url: str = _MCP_URL) -> Response:
     headers = dict(_HEADERS)
     if authorization is not None:
         headers["Authorization"] = authorization
 
     # The context manager runs the lifespan, which starts the MCP session manager.
+    # Redirects are not followed, because claude.ai does not follow them on POST.
     with TestClient(app, base_url="https://junction.anvik.fi") as client:
-        return client.post(_MCP_URL, json=_PING, headers=headers)
+        return client.post(url, json=_PING, headers=headers, follow_redirects=False)
 
 
 def _assert_unauthenticated(response: Response) -> None:
@@ -52,6 +52,19 @@ def test_ping_tool_returns_pong() -> None:
 
     assert response.status_code == HTTPStatus.OK
     assert response.json()["result"]["structuredContent"] == {"result": "pong"}
+
+
+def test_ping_without_trailing_slash_returns_pong() -> None:
+    """claude.ai posts to /api/mcp and does not follow the slash redirect, so it never connects."""
+    response = _call_ping(create_app(), f"Bearer {_AGENT_KEY}", url="/api/mcp")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["result"]["structuredContent"] == {"result": "pong"}
+
+
+def test_call_without_trailing_slash_needs_key() -> None:
+    """The slashless URL must not skip the agent key check."""
+    _assert_unauthenticated(_call_ping(create_app(), None, url="/api/mcp"))
 
 
 def test_call_without_key_is_refused() -> None:
@@ -76,10 +89,10 @@ def test_slash_redirect_keeps_https_behind_proxy() -> None:
     }
 
     with TestClient(create_app(), base_url="http://backend:8000") as client:
-        response = client.post("/api/mcp", json=_PING, headers=proxied, follow_redirects=False)
+        response = client.get("/api/health/", headers=proxied, follow_redirects=False)
 
     assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
-    assert response.headers["location"] == "https://junction.anvik.fi/api/mcp/"
+    assert response.headers["location"] == "https://junction.anvik.fi/api/health"
 
 
 def test_call_with_revoked_key_is_refused(agent_keys: InMemoryAgentKeyRepository) -> None:
