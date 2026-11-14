@@ -7,6 +7,7 @@ from app.adapters.catalog_allergens import map_allergens
 from app.adapters.catalog_content import map_content
 from app.adapters.catalog_nutrition import map_nutrients
 from app.domain.catalog import Product
+from app.domain.catalog_search import VALID_ATTRIBUTES
 from app.domain.product_attributes import is_uht
 
 
@@ -80,7 +81,11 @@ def map_product(
         category=category,
         sales_unit=sales_unit,
         content_per_sales_unit=content,
-        attributes=attributes,
+        attributes=tuple(
+            dict.fromkeys(
+                attributes + tuple(label for label in labels if label in VALID_ATTRIBUTES)
+            )
+        ),
         allergens=map_allergens(groups),
         country_of_origin=record.get("countryOfOrigin"),
         labels=labels,

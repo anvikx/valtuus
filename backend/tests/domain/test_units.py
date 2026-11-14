@@ -10,6 +10,8 @@ from app.domain.units import price_per_unit, sales_units_needed
 _ONE_LITRE = ContentPerSalesUnit(Decimal(1), Unit.L)
 _FIVE_LITRE_BOX = ContentPerSalesUnit(Decimal(5), Unit.L)
 _ONE_KILO = ContentPerSalesUnit(Decimal(1), Unit.KG)
+_TEN_PIECES = ContentPerSalesUnit(Decimal(10), Unit.PCS)
+_UNKNOWN_UNIT = ContentPerSalesUnit(Decimal(6), None)
 
 
 @pytest.mark.parametrize(
@@ -18,6 +20,9 @@ _ONE_KILO = ContentPerSalesUnit(Decimal(1), Unit.KG)
         pytest.param("12", Unit.L, _FIVE_LITRE_BOX, 3, id="12 L in a 5 x 1 l box is 3 boxes"),
         pytest.param("1000", Unit.L, _ONE_LITRE, 1000, id="run 1: 1000 L of 1 l is 1000"),
         pytest.param("4", Unit.PCS, None, 4, id="a piece is one sales unit"),
+        pytest.param("25", Unit.PCS, _TEN_PIECES, 3, id="25 pieces in packs of 10 is 3 packs"),
+        pytest.param("4", Unit.PCS, _ONE_LITRE, 4, id="a litre pack is one piece"),
+        pytest.param("4", None, _UNKNOWN_UNIT, 4, id="no unit counts sales units"),
         pytest.param(None, Unit.L, _ONE_LITRE, 1, id="no quantity is one sales unit"),
     ],
 )
@@ -34,6 +39,11 @@ def test_the_sort_uses_the_full_price_and_the_screen_rounds() -> None:
 
     assert per_litre == Decimal("1.372")
     assert round_money(per_litre) == Decimal("1.37")
+
+
+def test_a_price_per_piece_divides_by_the_pieces_in_a_pack() -> None:
+    """A pack of 10 at 3.00 must rank against a single piece at 0.40 per piece."""
+    assert price_per_unit(Decimal("3.00"), Unit.PCS, _TEN_PIECES) == Decimal("0.3")
 
 
 def test_a_price_per_litre_is_never_made_from_kilograms() -> None:

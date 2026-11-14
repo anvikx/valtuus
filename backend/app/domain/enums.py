@@ -39,6 +39,11 @@ class AllergenType(StrEnum):
     MAY_CONTAIN = "MAY_CONTAIN"
 
 
+class SearchMatch(StrEnum):
+    WHOLE_WORD = "WHOLE_WORD"
+    INSIDE_WORD = "INSIDE_WORD"
+
+
 class SearchStatus(StrEnum):
     OK = "OK"
     NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"

@@ -7,9 +7,9 @@ from sqlalchemy import Select, delete, insert, select
 
 from app.adapters.postgres.database import Database
 from app.adapters.postgres.tables import product_deposits, products
-from app.adapters.product_store import normalize_name
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
-from app.domain.enums import AllergenStatus, AllergenType
+from app.domain.catalog_search import normalize_name
+from app.domain.enums import AllergenStatus, AllergenType, Unit
 
 _BATCH_SIZE = 500
 
@@ -26,6 +26,12 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
         "category": product.category,
         "sales_unit": product.sales_unit,
         "content_per_sales_unit": product.content_per_sales_unit.value
+        if product.content_per_sales_unit
+        else None,
+        "content_unit": product.content_per_sales_unit.unit
+        if product.content_per_sales_unit
+        else None,
+        "content_source": product.content_per_sales_unit.source
         if product.content_per_sales_unit
         else None,
         "attributes": list(product.attributes),
@@ -79,7 +85,13 @@ def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Produ
         category=str(row["category"]),
         sales_unit=str(row["sales_unit"]),
         content_per_sales_unit=(
-            ContentPerSalesUnit(Decimal(amount), None) if amount is not None else None
+            ContentPerSalesUnit(
+                Decimal(amount),
+                Unit(row["content_unit"]) if row["content_unit"] else None,
+                row["content_source"],
+            )
+            if amount is not None
+            else None
         ),
         attributes=tuple(row["attributes"] or ()),
         allergens=Allergens(

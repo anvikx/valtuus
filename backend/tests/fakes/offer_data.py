@@ -105,6 +105,9 @@ class FakeCatalog:
     def get(self, product_id: str) -> Product | None:
         return self._by_id.get(product_id)
 
+    def search_names(self, query: str) -> Sequence[Product]:
+        return self.products()
+
     def products(self) -> Sequence[Product]:
         return list(self._by_id.values())
 

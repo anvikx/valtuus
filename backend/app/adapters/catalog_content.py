@@ -13,6 +13,10 @@ _UNITS = {
     "LTR": (Unit.L, Decimal(1)),
     "GRM": (Unit.KG, Decimal("0.001")),
     "KGM": (Unit.KG, Decimal(1)),
+    "H87": (Unit.PCS, Decimal(1)),
+    "PCS": (Unit.PCS, Decimal(1)),
+    "PCE": (Unit.PCS, Decimal(1)),
+    **{code: (Unit.PCS, Decimal(1)) for code in ("pcs", "pc", "piece", "pieces", "kpl", "st")},
     "ml": (Unit.L, Decimal("0.001")),
     "cl": (Unit.L, Decimal("0.01")),
     "l": (Unit.L, Decimal(1)),
@@ -20,10 +24,20 @@ _UNITS = {
     "kg": (Unit.KG, Decimal(1)),
 }
 _NUMBER = r"\d+(?:[.,]\d+)?"
-_UNIT = r"(?:kg|ml|cl|g|l)"
-_FORWARD = re.compile(rf"(?<!\w)({_NUMBER})\s*[x\u00d7]\s*({_NUMBER})\s*({_UNIT})(?![a-z])", re.I)
-_REVERSE = re.compile(rf"(?<!\w)({_NUMBER})\s*({_UNIT})\s*[x\u00d7]\s*({_NUMBER})(?!\w)", re.I)
-_SINGLE = re.compile(rf"(?<!\w)({_NUMBER})\s*({_UNIT})(?![a-z])", re.I)
+_PHYSICAL_UNIT = r"(?:kg|ml|cl|g|l)"
+_PIECE_UNIT = r"(?:pieces?|pcs|pc|kpl|st)"
+
+
+def _name_patterns(unit: str) -> tuple[re.Pattern[str], ...]:
+    return (
+        re.compile(rf"(?<!\w)({_NUMBER})\s*[x\u00d7]\s*({_NUMBER})\s*({unit})(?![a-z])", re.I),
+        re.compile(rf"(?<!\w)({_NUMBER})\s*({unit})\s*[x\u00d7]\s*({_NUMBER})(?!\w)", re.I),
+        re.compile(rf"(?<!\w)({_NUMBER})\s*({unit})(?![a-z])", re.I),
+    )
+
+
+_PHYSICAL_PATTERNS = _name_patterns(_PHYSICAL_UNIT)
+_PIECE_PATTERNS = _name_patterns(_PIECE_UNIT)
 
 
 def _amount(value: object, unit: str, source: str) -> ContentPerSalesUnit | None:
@@ -48,16 +62,21 @@ def _from_data(conversions: list[dict[str, Any]]) -> ContentPerSalesUnit | None:
     return None
 
 
-def _from_names(names: list[str], multiplier: Decimal) -> ContentPerSalesUnit | None:
+def _from_names(
+    names: list[str],
+    multiplier: Decimal,
+    patterns: tuple[re.Pattern[str], ...],
+) -> ContentPerSalesUnit | None:
+    forward, reverse, single = patterns
     for name in names:
-        match = _FORWARD.search(name)
+        match = forward.search(name)
         if match:
             return _amount(
                 Decimal(match[1].replace(",", ".")) * Decimal(match[2].replace(",", ".")),
                 match[3].lower(),
                 "NAME",
             )
-        match = _REVERSE.search(name)
+        match = reverse.search(name)
         if match:
             return _amount(
                 Decimal(match[1].replace(",", ".")) * Decimal(match[3].replace(",", ".")),
@@ -65,7 +84,7 @@ def _from_names(names: list[str], multiplier: Decimal) -> ContentPerSalesUnit | 
                 "NAME",
             )
     for name in names:
-        matches = list(_SINGLE.finditer(name))
+        matches = list(single.finditer(name))
         if len(matches) == 1:
             match = matches[0]
             return _amount(
@@ -91,4 +110,10 @@ def map_content(record: dict[str, Any], names: list[str]) -> ContentPerSalesUnit
             except InvalidOperation:
                 pass
             break
-    return _from_names(names, multiplier)
+    # A mass or volume in a food name remains preferred to a count of its packs.
+    # A PCS fallback is useful when the product has no usable physical content.
+    return _from_names(names, multiplier, _PHYSICAL_PATTERNS) or _from_names(
+        names,
+        multiplier,
+        _PIECE_PATTERNS,
+    )

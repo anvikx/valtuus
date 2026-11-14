@@ -206,3 +206,21 @@ def test_invalid_declaration_keeps_free_from_unknown(invalid):
     )
 
     assert result.status == AllergenStatus.UNKNOWN
+
+
+def test_search_prefilter_preserves_compounds_and_accents(tmp_path):
+    path = tmp_path / "products.json"
+    source = record()
+    source["synkkaData"]["names"] = [
+        {"language": "en", "value": "Milk-drink"},
+        {"language": "fi", "value": "Täysmaito"},
+        {"language": "sv", "value": "Mjölk"},
+    ]
+    path.write_text(json.dumps([source]))
+    store = ProductStore(tmp_path)
+    load_catalog(store, DownloadedCatalog(path, None, None))
+
+    for query in ("milk", "milk-drink", "maito", "mjolk", "MJÖLK"):
+        assert [p.product_id for p in store.search_names(query)] == ["1"]
+    assert store.search_names("missing") == ()
+    assert store.search_names("") == ()

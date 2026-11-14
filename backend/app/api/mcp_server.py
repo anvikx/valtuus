@@ -26,6 +26,7 @@ from app.api.schemas.mandate import MandateResponse
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
 
@@ -59,7 +60,15 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         """Check that the gateway answers."""
         return "pong"
 
-    @server.tool()
+    @server.tool(
+        description=(
+            "Search en/fi/sv names, including inside words, with accents folded. "
+            f"Use {QUERY_RULE}. Negated names do not match. "
+            "Returns the complete hint category, subject to the safety guard. "
+            "No price or stock; call get_offers with all candidates. "
+            "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION
+        )
+    )
     def search_products(request: SearchRequest, ctx: Context) -> SearchResponse:
         """Search the product file. No price and no stock.
 

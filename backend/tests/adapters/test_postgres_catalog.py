@@ -32,7 +32,7 @@ def test_catalog_search_and_atomic_replacement(database):
     catalog.replace([first, second])
 
     assert catalog.get("1").content_per_sales_unit.value == first.content_per_sales_unit.value
-    assert catalog.get("1").content_per_sales_unit.unit is None
+    assert catalog.get("1").content_per_sales_unit == first.content_per_sales_unit
     assert "body" not in products.c
     with database.reader() as connection:
         row = connection.execute(select(products).where(products.c.product_id == "1")).one()

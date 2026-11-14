@@ -5,17 +5,18 @@ from pydantic import BaseModel, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
 from app.domain.catalog import SearchQuery
-from app.domain.enums import Decision, ReasonCode, SearchStatus, Unit
+from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
+from app.domain.enums import Decision, ReasonCode, SearchMatch, SearchStatus, Unit
 
 
 class SearchRequest(RequestModel):
     query: str = Field(
-        description="Product words, such as `milk`. Each word must be in the product name.",
+        description=f"{QUERY_RULE}. Accents are folded; substrings match.",
         examples=["milk"],
     )
     required_attributes: list[str] = Field(
         default_factory=list,
-        description="Codes every product must have, such as `FREE_FROM_LACTOSE`.",
+        description="Codes every product must have. " + ATTRIBUTE_DESCRIPTION,
         examples=[["FREE_FROM_LACTOSE"]],
     )
     quantity: PositiveQuantity | None = Field(
@@ -34,6 +35,8 @@ class SearchRequest(RequestModel):
         description="Brands the buyer prefers. Not a filter.",
     )
 
+    category: str | None = Field(default=None, description="Keep only this category code.")
+
     def to_domain(self) -> SearchQuery:
         return SearchQuery(
             query=self.query,
@@ -42,6 +45,7 @@ class SearchRequest(RequestModel):
             unit=self.unit,
             deliver_by=self.deliver_by,
             preferred_brands=tuple(self.preferred_brands),
+            category=self.category,
         )
 
 
@@ -58,16 +62,16 @@ class InterpretedRequest(BaseModel):
 
 class ContentPerSalesUnit(BaseModel):
     value: Quantity = Field(description="How much one sales unit holds.")
-    unit: Unit = Field(description="Unit of `value`.")
+    unit: Unit | None = Field(description="Unit of `value`, when known.")
 
 
 class SearchCandidate(BaseModel):
     product_id: str = Field(description="Valio Aimo product code. Send it to get_offers.")
-    gtin: str = Field(description="GTIN of the unit that is ordered.")
+    gtin: str | None = Field(description="GTIN of the unit that is ordered.")
     name: str = Field(description="Product name, in English when the data has it.")
-    brand: str = Field(description="Brand.")
+    brand: str | None = Field(description="Brand.")
     sales_unit: str = Field(description="Technical code of the unit that is ordered.")
-    content_per_sales_unit: ContentPerSalesUnit = Field(
+    content_per_sales_unit: ContentPerSalesUnit | None = Field(
         description="How much one sales unit holds.",
     )
     sales_units_needed: int | None = Field(
@@ -85,6 +89,11 @@ class SearchCandidate(BaseModel):
     labels: list[str] = Field(description="Package label codes.")
     is_substitute_for: str | None = Field(
         description="Product code this product can replace. null when it is not a substitute.",
+    )
+
+    match: SearchMatch = Field(
+        default=SearchMatch.WHOLE_WORD,
+        description="Whether all query words match whole words.",
     )
 
 
@@ -123,6 +132,9 @@ class SearchOption(BaseModel):
 
 
 class SearchResponse(BaseModel):
+    hint_category: str | None = Field(
+        default=None, description="Category of all returned candidates."
+    )
     status: SearchStatus = Field(
         description="OK: candidates found. NEEDS_CLARIFICATION: ask the buyer first. "
         "NO_MATCH: no product matches.",

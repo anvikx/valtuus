@@ -82,6 +82,7 @@ _LIVE_PATHS = {
     "/api/v1/orders/o_1",
     _MANDATE_PATH,
     _AUDIT_PATH,
+    "/api/v1/catalog/search?query=milk",
 }
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
@@ -447,3 +448,45 @@ def test_second_order_for_one_cart_is_refused() -> None:
 
     assert orders.by_cart("c_1").order_id == "o_1"
     assert orders.for_day("hotel-1", date(2026, 11, 16)) == []
+
+
+def test_search_tool_lists_valid_attributes():
+    from app.domain.catalog_search import VALID_ATTRIBUTES
+
+    result = _mcp(create_app(), "tools/list", {})
+    tool = next(tool for tool in result["tools"] if tool["name"] == "search_products")
+
+    assert all(code in tool["description"] for code in VALID_ATTRIBUTES)
+
+
+@pytest.mark.parametrize(
+    "search_input", [{"query": "ab"}, {"query": "milk", "required_attributes": ["ORGANIC"]}]
+)
+def test_search_validation_matches_rest_and_mcp(search_input):
+    app = create_app()
+    response = _client(app).get("/api/v1/catalog/search", headers=_AUTH, params=search_input)
+    result = _mcp(
+        app,
+        "tools/call",
+        {"name": "search_products", "arguments": {"request": search_input}},
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["error"] == "VALIDATION_ERROR"
+    assert result["isError"]
+    assert "VALIDATION_ERROR" in result["content"][0]["text"]
+
+
+def test_search_returns_empty_result_and_one_record():
+    records = _Records()
+    response = _client(create_app(audit=records)).get(
+        "/api/v1/catalog/search",
+        headers=_AUTH,
+        params={"query": "xyzzy"},
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["candidates"] == []
+    assert response.json()["status"] == "NO_MATCH"
+    assert len(records.records) == 1
+    assert records.records[0].step == AuditStep.SEARCH
