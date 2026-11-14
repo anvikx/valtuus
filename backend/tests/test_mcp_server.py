@@ -15,7 +15,7 @@ _HEADERS = {
 
 
 def test_ping_tool_returns_pong() -> None:
-    """Step 0 e: an outside agent reaches a tool on the public MCP URL."""
+    """An outside agent must reach a tool on the public MCP URL."""
     call = {
         "jsonrpc": "2.0",
         "id": 1,

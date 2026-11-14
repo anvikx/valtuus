@@ -1,11 +1,11 @@
-"""MCP door for outside agents. Step 0 e: one ping tool to prove the connection."""
+"""MCP door for outside agents."""
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 
 # DNS rebinding protection guards servers on localhost. This one is public behind
-# Caddy, and the agent key check (step 2) is its guard.
+# Caddy, and the agent key check is its guard.
 _TRANSPORT_SECURITY = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
 
