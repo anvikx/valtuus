@@ -10,17 +10,27 @@ from app.adapters.postgres.database import Database
 from app.adapters.postgres.tables import product_deposits, products
 from app.adapters.product_store import normalize_name
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
-from app.domain.enums import AllergenStatus
+from app.domain.enums import AllergenStatus, AllergenType
 
 _PRODUCT = TypeAdapter(Product)
 _BATCH_SIZE = 500
 
 
 def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]:
+    declarations = {
+        kind.value: list(product.allergens.declarations.get(kind, ())) for kind in AllergenType
+    }
+    declared = set().union(*declarations.values())
+    untyped = set(product.allergens.contains) - declared
+    # Older domain objects may carry only the merged list; never silently lose their codes.
+    declarations[AllergenType.CONTAINS.value] = sorted(
+        set(declarations[AllergenType.CONTAINS.value]) | untyped
+    )
+    status = product.allergens.status if declared and not untyped else AllergenStatus.UNKNOWN
     row = {
         "product_id": product.product_id,
         "gtin": product.gtin,
-        "name": next(iter(product.names.values())),
+        "name": product.name,
         "brand": product.brand,
         "category": product.category,
         "sales_unit": product.sales_unit,
@@ -28,9 +38,9 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
         if product.content_per_sales_unit
         else None,
         "attributes": list(product.attributes),
-        "allergen": list(product.allergens.contains),
+        "allergen": declarations,
         "non_allergen": list(product.allergens.free_from),
-        "allergen_status": product.allergens.status.value,
+        "allergen_status": status.value,
         "country_of_origin": product.country_of_origin,
         "labels": list(product.labels),
         "substitute_ids": list(product.substitute_ids),
@@ -60,6 +70,10 @@ def _rows(product: Product) -> tuple[dict[str, object], list[dict[str, object]]]
 def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Product:
     name = str(row["name"])
     amount = row["content_per_sales_unit"]
+    declarations = {
+        kind: tuple((row["allergen"] or {}).get(kind.value, ())) for kind in AllergenType
+    }
+    contains = tuple(sorted(set().union(*declarations.values())))
     return Product(
         product_id=str(row["product_id"]),
         gtin=row["gtin"],
@@ -73,9 +87,10 @@ def _product(row: dict[str, object], deposits: list[dict[str, object]]) -> Produ
         ),
         attributes=tuple(row["attributes"] or ()),
         allergens=Allergens(
-            AllergenStatus(row["allergen_status"]),
-            tuple(row["allergen"] or ()),
+            AllergenStatus(row["allergen_status"]) if contains else AllergenStatus.UNKNOWN,
+            contains,
             tuple(row["non_allergen"] or ()),
+            declarations,
         ),
         country_of_origin=row["country_of_origin"],
         labels=tuple(row["labels"] or ()),

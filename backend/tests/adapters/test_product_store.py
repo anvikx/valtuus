@@ -7,7 +7,7 @@ from app.adapters.catalog_allergens import map_allergens
 from app.adapters.catalog_content import map_content
 from app.adapters.catalog_downloader import DownloadedCatalog
 from app.adapters.product_store import ProductStore, normalize_name
-from app.domain.enums import AllergenStatus, Unit
+from app.domain.enums import AllergenStatus, AllergenType, Unit
 
 load_catalog = ProductStore.load
 
@@ -23,6 +23,7 @@ def record(product_id="1"):
             "names": [
                 {"language": "fi", "value": "Maito 1 l"},
                 {"language": "en", "value": "Milk UHT 1 l"},
+                {"language": "sv", "value": "Mjölk 1 l"},
             ],
             "brand": " Brand ",
             "classifications": [],
@@ -81,7 +82,7 @@ def test_load_maps_enrichment_and_names(tmp_path):
     load_catalog(store, DownloadedCatalog(path, csv, None))
     product = store.get("1")
     assert product.name == "Milk UHT 1 l"
-    assert product.names == {"en": "Milk UHT 1 l"}
+    assert product.names == {"en": "Milk UHT 1 l", "fi": "Maito 1 l", "sv": "Mjölk 1 l"}
     assert product.brand == "Brand"
     assert product.delivery_reliability == Decimal("0.1234567890123456789")
     assert product.co2_kg_per_kg is None
@@ -97,3 +98,79 @@ def test_duplicate_id_has_context(tmp_path):
     store = ProductStore(tmp_path)
     with pytest.raises(ValueError, match=r"record 2.*duplicate product id"):
         load_catalog(store, DownloadedCatalog(path, None, None))
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([], AllergenStatus.UNKNOWN),
+        ([{"id": "milk", "unit": "FREE_FROM"}], AllergenStatus.UNKNOWN),
+        ([{"id": "milk", "unit": "CONTAINS"}], AllergenStatus.KNOWN),
+        ([{"id": "nuts", "unit": "MAY_CONTAIN"}], AllergenStatus.KNOWN),
+        ([{"id": "", "unit": "CONTAINS"}], AllergenStatus.UNKNOWN),
+        ([{"id": 12, "unit": "CONTAINS"}], AllergenStatus.UNKNOWN),
+    ],
+)
+def test_allergen_status_requires_positive_declaration(values, expected):
+    result = map_allergens([{"name": "allergen", "values": values}])
+
+    assert result.status == expected
+
+
+def test_allergen_groups_and_api_union():
+    from app.api.schemas.common import Allergens as AllergenBody
+
+    result = map_allergens(
+        [
+            {
+                "name": "allergen",
+                "values": [
+                    {"id": "milk", "unit": "CONTAINS"},
+                    {"id": "nuts", "unit": "MAY_CONTAIN"},
+                    {"id": "nuts", "unit": "MAY_CONTAIN"},
+                ],
+            },
+            {
+                "name": "nonAllergen",
+                "values": [
+                    {"id": "milk", "unit": "FREE_FROM"},
+                    {"id": "egg", "unit": "FREE_FROM"},
+                ],
+            },
+        ]
+    )
+
+    assert result.declarations == {
+        AllergenType.CONTAINS: ("milk",),
+        AllergenType.MAY_CONTAIN: ("nuts",),
+    }
+    assert AllergenBody.model_validate(result, from_attributes=True).model_dump(mode="json") == {
+        "status": "KNOWN",
+        "contains": ["milk", "nuts"],
+        "free_from": ["egg"],
+    }
+
+
+def test_missing_allergen_groups_are_unknown():
+    assert map_allergens([]).status == AllergenStatus.UNKNOWN
+    assert map_allergens([{"name": "allergen"}]).status == AllergenStatus.UNKNOWN
+
+
+@pytest.mark.parametrize(
+    ("languages", "display"),
+    [(("fi", "sv"), "Maito 1 l"), (("sv",), "Mjölk 1 l"), (("en",), "Milk UHT 1 l")],
+)
+def test_missing_translations_keep_available_names(tmp_path, languages, display):
+    source = record()
+    source["synkkaData"]["names"] = [
+        entry for entry in source["synkkaData"]["names"] if entry["language"] in languages
+    ]
+    path = tmp_path / "products.json"
+    path.write_text(json.dumps([source]))
+    store = ProductStore(tmp_path)
+
+    load_catalog(store, DownloadedCatalog(path, None, None))
+
+    product = store.get("1")
+    assert product.name == display
+    assert set(product.names) == set(languages)

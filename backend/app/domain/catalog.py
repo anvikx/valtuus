@@ -1,9 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from app.domain.enums import AllergenStatus, Decision, ReasonCode, SearchStatus, Unit
+from app.domain.enums import AllergenStatus, AllergenType, Decision, ReasonCode, SearchStatus, Unit
 
 
 @dataclass(frozen=True)
@@ -13,6 +13,7 @@ class Allergens:
     status: AllergenStatus
     contains: tuple[str, ...]
     free_from: tuple[str, ...]
+    declarations: dict[AllergenType, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
