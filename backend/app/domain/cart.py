@@ -29,6 +29,7 @@ class PricedLine:
 
     offer_id: str
     product_id: str
+    name: str
     qty: int
     unit_price: Decimal
     line_total: Decimal

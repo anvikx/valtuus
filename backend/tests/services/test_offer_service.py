@@ -61,14 +61,15 @@ class _World:
         self.audit = _Records()
         self.signer = _RecordingSigner()
         clock = FixedClock(now)
+        unit_of_work = InMemoryUnitOfWork()
         self.service = OfferService(
             FakeCatalog(product(), product("465039", sales_unit="KI")),
             source,
             self.offers,
             self.signer,
             clock,
-            AuditService(self.audit, clock),
-            InMemoryUnitOfWork(),
+            AuditService(self.audit, clock, unit_of_work),
+            unit_of_work,
             _GUARD,
         )
 

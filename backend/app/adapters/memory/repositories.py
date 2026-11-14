@@ -78,6 +78,10 @@ class InMemoryCartRepository:
     def for_buyer(self, buyer_id: str) -> Sequence[Cart]:
         return [cart for cart in self._by_id.values() if cart.buyer_id == buyer_id]
 
+    def get_locked(self, cart_id: str) -> Cart | None:
+        # The unit of work lock already serializes every transaction here.
+        return self.get(cart_id)
+
     def add(self, cart: Cart) -> None:
         if cart.cart_id in self._by_id:
             raise ValueError(f"cart {cart.cart_id} exists")

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header
 
-from app.api.deps import MainUserDep, PublicUrlDep, ServicesDep, require_buyer, require_scope
+from app.api.deps import HumanSessionDep, PublicUrlDep, ServicesDep, require_buyer, require_scope
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import cart_response, order_confirmation
@@ -104,7 +104,7 @@ def checkout(
 
 
 @router.post("/{cart_id}/approve", description=describe(_APPROVE, OrderConfirmation))
-def approve(cart_id: str, user: MainUserDep, services: ServicesDep) -> OrderConfirmation:
+def approve(cart_id: str, user: HumanSessionDep, services: ServicesDep) -> OrderConfirmation:
     return order_confirmation(services.approvals.approve(user, cart_id))
 
 
@@ -115,7 +115,7 @@ def approve(cart_id: str, user: MainUserDep, services: ServicesDep) -> OrderConf
 def reject(
     cart_id: str,
     request: RejectRequest,
-    user: MainUserDep,
+    user: HumanSessionDep,
     services: ServicesDep,
     public_url: PublicUrlDep,
 ) -> CartResponse:

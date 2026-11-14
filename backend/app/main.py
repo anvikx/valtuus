@@ -43,6 +43,8 @@ from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
 from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
 from app.config import Settings
+from app.domain.policy.engine import PolicyEngine
+from app.domain.policy.order_limit import OrderLimit
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
@@ -166,7 +168,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
     signer = NullSigner()
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
 
-    audit_service = AuditService(store.audit, clock)
+    audit_service = AuditService(store.audit, clock, store.unit_of_work)
     mandate_service = MandateService(
         store.mandates,
         clock,
@@ -207,6 +209,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
             store.orders,
             store.idempotency,
             mandate_service,
+            PolicyEngine([OrderLimit()]),
             clock,
             audit_service,
             store.unit_of_work,
@@ -236,12 +239,16 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
 def create_app(
     settings: Settings | None = None,
     agent_keys: AgentKeyRepository | None = None,
+    audit: AuditRepository | None = None,
 ) -> FastAPI:
-    """agent_keys lets a test change the seeded key without reaching into the app."""
+    """agent_keys and audit let a test change the seeded key or read the records."""
     settings = settings or Settings()
     store = _open_store(settings)
     if agent_keys is not None:
         store = dataclasses.replace(store, agent_keys=agent_keys)
+
+    if audit is not None:
+        store = dataclasses.replace(store, audit=audit)
 
     try:
         seed_demo(

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from app.domain.agent_key import User
 from app.domain.enums import Decision
+from app.domain.errors import NotFoundError
 from app.domain.mandate import Mandate
 from app.services.audit_service import AuditService
 from app.services.ports.clock import Clock
@@ -36,7 +37,14 @@ class MandateService:
         self._unit_of_work = unit_of_work
 
     def get(self, buyer_id: str) -> Mandate:
-        raise NotImplementedError("MandateService.get")
+        mandate = self._mandates.latest(buyer_id)
+        if mandate is None:
+            raise NotFoundError(
+                f"No mandate for buyer {buyer_id}.",
+                "Ask the main user to set the mandate.",
+            )
+
+        return mandate
 
     def now(self) -> datetime:
         """The gateway time. The agent resolves "Monday" from it, not from its own clock."""
