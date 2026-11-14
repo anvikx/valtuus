@@ -32,6 +32,25 @@ REASON_TEXT = MappingProxyType(
         "quantity and delivery day.",
         ReasonCode.PREVIOUSLY_REJECTED: "A person rejected this same order at {rejected_at}: "
         '"{reject_reason}".',
+        ReasonCode.AUTO_ORDERS_OFF: "Automatic orders are off.",
+        ReasonCode.OVER_AUTO_LIMIT: "{total} is over the {limit} limit.",
+        ReasonCode.OVER_LINE_LIMIT: "This line is {line_total}, over the {limit} line limit.",
+        ReasonCode.QUANTITY_OVER_REQUEST: "The cart has {cart_qty}, more than the "
+        "{requested_qty} requested.",
+        ReasonCode.SUBSTITUTE_OUTSIDE_PREFERENCE: "The substitute {substitute} is outside the "
+        "main user's preferences.",
+        ReasonCode.SUBSTITUTE_FOR_REQUESTED: "{substitute} replaces the requested {requested}.",
+        ReasonCode.ALLERGEN_UNKNOWN: "The allergens of this product are not known.",
+        ReasonCode.FORBIDDEN_ALLERGEN: "This product contains an allergen the main user forbids.",
+        ReasonCode.MISSING_ATTRIBUTE: "This product is not {attribute}, which the main user "
+        "requires.",
+        ReasonCode.SALES_BLOCKED: "Valio Aimo has blocked the sale of this product.",
+        ReasonCode.OFFER_EXPIRED: "The offer has expired. Get new offers.",
+        ReasonCode.NEEDS_CLARIFICATION: "The request is not clear. Ask the buyer: {question}",
+        ReasonCode.KEY_REVOKED: "The main user revoked this agent key.",
+        ReasonCode.SCOPE_MISSING: "This agent key does not have the {scope} scope.",
+        ReasonCode.HUMAN_SESSION_REQUIRED: "{agent_name} tried {method} {path}, which only the "
+        "main user can do.",
     }
 )
 
