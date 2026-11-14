@@ -29,6 +29,14 @@ class AgentKeyRepository(Protocol):
         """Adds a key, or replaces the key with the same hash (for example to revoke it)."""
         ...
 
+    def mark_used(self, key_hash: str, at: datetime, cutoff: datetime) -> None:
+        """Sets only last_used_at, and only when it is null or not after cutoff.
+
+        A status change made since the read stays, and of two calls that read the same old time,
+        only the first writes.
+        """
+        ...
+
 
 class UserRepository(Protocol):
     def get(self, user_id: str) -> User | None: ...

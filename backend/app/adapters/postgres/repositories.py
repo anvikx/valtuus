@@ -3,14 +3,17 @@ from datetime import date, datetime
 
 from pydantic import TypeAdapter
 from sqlalchemy import (
+    TIMESTAMP,
     Connection,
     Insert,
     Select,
     Table,
+    Text,
     Update,
     and_,
     delete,
     func,
+    literal,
     or_,
     select,
     text,
@@ -152,6 +155,20 @@ class PostgresAgentKeyRepository:
             "body": _AGENT_KEY.dump_python(agent_key, mode="json"),
         }
         _upsert(self._database.writer(), agent_keys, row)
+
+    def mark_used(self, key_hash: str, at: datetime, cutoff: datetime) -> None:
+        last_used_at = agent_keys.c.body["last_used_at"].astext.cast(TIMESTAMP(timezone=True))
+        # Merge one field into the stored body, so a revoke written since the read is kept.
+        used = func.jsonb_build_object("last_used_at", literal(at.isoformat(), Text))
+        statement = (
+            update(agent_keys)
+            .where(
+                agent_keys.c.key_hash == key_hash,
+                or_(last_used_at.is_(None), last_used_at <= cutoff),
+            )
+            .values(body=agent_keys.c.body.op("||")(used))
+        )
+        self._database.writer().execute(statement)
 
 
 class PostgresUserRepository:

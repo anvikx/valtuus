@@ -603,3 +603,14 @@ def test_search_returns_empty_result_and_one_record():
     assert response.json()["hint"]["code"] == "NO_MATCH"
     assert len(records.records) == 1
     assert records.records[0].step == AuditStep.SEARCH
+
+
+def test_agent_call_shows_on_the_agent_list(agent_keys: InMemoryAgentKeyRepository) -> None:
+    """The main user tells a working agent from a dead one by the time of its last call."""
+    client = _client(create_app(agent_keys=agent_keys))
+
+    client.get("/api/v1/mandate", headers=_AUTH)
+
+    seeded = agent_keys.by_hash(hash_agent_key(_AGENT_KEY))
+    assert seeded is not None
+    assert seeded.last_used_at is not None
