@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { Cart } from '../api.ts'
+import type { Cart, OrderTrust } from '../api.ts'
 import { formatDateTime } from '../format.ts'
 import { ResultScreen } from './ResultScreen.tsx'
 import { TrustMark } from './TrustMark.tsx'
@@ -10,6 +10,7 @@ const PROTOTYPE_ORDER_NOTE =
 
 interface OrderedResultProps {
   readonly cart: Cart
+  readonly trust: OrderTrust
 }
 
 // No approver: the agent's checkout placed it under the rules, for example after a limit raise.
@@ -23,7 +24,7 @@ function decisionSentence({ decidedBy, decidedAt }: Cart): string {
 }
 
 // The order confirmation the main user sees after an approval, or on a reload of an ordered cart.
-export function OrderedResult({ cart }: OrderedResultProps): ReactElement {
+export function OrderedResult({ cart, trust }: OrderedResultProps): ReactElement {
   return (
     <ResultScreen
       cart={cart}
@@ -32,7 +33,7 @@ export function OrderedResult({ cart }: OrderedResultProps): ReactElement {
       title="Order placed"
       sentence={decisionSentence(cart)}
     >
-      <TrustMark />
+      <TrustMark trust={trust} />
       <p className="muted">{PROTOTYPE_ORDER_NOTE}</p>
     </ResultScreen>
   )

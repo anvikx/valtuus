@@ -22,6 +22,7 @@ from app.services.catalog_service import CatalogService
 from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
+from app.services.ports.signer import Signer
 from app.services.session_service import SessionService
 
 _BEARER = "bearer"
@@ -58,6 +59,7 @@ class Services:
     mandates: MandateService
     audit: AuditService
     sessions: SessionService
+    signer: Signer
 
 
 def get_services(request: Request) -> Services:

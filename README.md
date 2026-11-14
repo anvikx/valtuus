@@ -117,7 +117,7 @@ Make the 4 calls in this order. REST paths are relative to the base URL.
 | Product search                                           | Started |
 | Checkout, orders, approve and reject                     | Started |
 | Approval page, "Agent permissions" page, audit timeline  | Planned |
-| Signed offers and order confirmations                    | Planned |
+| Signed offers and order confirmations                    | Built   |
 
 What is not real in the prototype, and the known trust limits, are listed openly in
 [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md).

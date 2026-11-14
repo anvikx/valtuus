@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import dataclasses
 import logging
 from collections.abc import AsyncIterator, Callable
@@ -37,10 +38,10 @@ from app.adapters.postgres.repositories import (
     PostgresUserRepository,
 )
 from app.adapters.product_store import ProductStore
-from app.adapters.signer import NullSigner
+from app.adapters.signer import Ed25519Signer, NullSigner
 from app.adapters.valio_client import ValioClient
 from app.adapters.valio_requests import ValioRequests
-from app.api import health
+from app.api import health, well_known
 from app.api.deps import AgentKeyGuard, Services
 from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
@@ -71,6 +72,7 @@ from app.services.ports.repositories import (
     SessionRepository,
     UserRepository,
 )
+from app.services.ports.signer import Signer
 from app.services.ports.unit_of_work import UnitOfWork
 from app.services.seed import DEMO_MAIN_USER_ID, seed_demo
 from app.services.session_service import SessionService
@@ -169,6 +171,16 @@ def _open_store(settings: Settings) -> _Store:
     return _memory_store()
 
 
+def _signer(settings: Settings) -> Signer:
+    seed = settings.signing_private_key.get_secret_value()
+    if not seed:
+        _logger.warning("SIGNING_PRIVATE_KEY is empty: offers and orders go out unsigned")
+        return NullSigner()
+
+    # A bad key raises here, so the deploy fails instead of signing what nobody can check.
+    return Ed25519Signer(base64.b64decode(seed, validate=True))
+
+
 def _build_services(
     settings: Settings,
     store: _Store,
@@ -176,7 +188,7 @@ def _build_services(
     clock: Clock,
     requests: ValioRequests,
 ) -> Services:
-    signer = NullSigner()
+    signer = _signer(settings)
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key, requests)
 
     audit_service = AuditService(
@@ -255,6 +267,7 @@ def _build_services(
             DEMO_MAIN_USER_ID,
             settings.main_user_password.get_secret_value(),
         ),
+        signer=signer,
     )
 
 
@@ -348,6 +361,7 @@ def create_app(
     install_error_handlers(app)
     for router in _ROUTERS:
         app.include_router(router, prefix=_API_PREFIX)
+    app.include_router(well_known.router)
     app.mount(_MCP_PATH, AgentKeyGuard(mcp_app, services.agent_keys))
     app.state.services = services
     app.state.public_url = settings.public_url

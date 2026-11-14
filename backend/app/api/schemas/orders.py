@@ -39,5 +39,6 @@ class OrderConfirmation(BaseModel):
     mandate_version: int = Field(description="Mandate version that allowed the order.")
     issuer: str = Field(description="Who signs the confirmation.")
     signature: str | None = Field(
-        description="Signature of the confirmation. null in the prototype."
+        description="Compact JWS (EdDSA) over this body without signature. Check it with the "
+        "key in /.well-known/jwks.json. null: the gateway has no signing key."
     )

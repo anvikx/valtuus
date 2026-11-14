@@ -160,5 +160,8 @@ class OfferResponse(BaseModel):
         description="Several products for a quantity one product cannot cover. null: not needed.",
     )
     rejected: list[RejectedProduct] = Field(description="Products with no offer line, and why.")
-    signature: str | None = Field(description="Signature of the offer. null in the prototype.")
+    signature: str | None = Field(
+        description="Compact JWS (EdDSA) over this body without signature. Check it with the "
+        "key in /.well-known/jwks.json. null: the gateway has no signing key.",
+    )
     request_id: str | None = Field(description="Id of the buyer request the offer belongs to.")

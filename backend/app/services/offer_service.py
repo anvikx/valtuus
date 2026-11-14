@@ -21,6 +21,7 @@ from app.domain.offer import (
 )
 from app.domain.ranking import rank_offer_lines
 from app.domain.screening import reject, screen
+from app.domain.units import json_number
 from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
@@ -136,6 +137,9 @@ class OfferService:
                 "contains": list(line.allergens.contains),
                 "free_from": list(line.allergens.free_from),
             }
+        # The body sends the quantity as a JSON number. As a Decimal it would sign "2.5".
+        quantity = offer.requested.quantity
+        body["requested"]["quantity"] = None if quantity is None else json_number(quantity)
         return replace(offer, signature=self._signer.sign(body))
 
     def _record(self, agent: AgentKey, query: OfferQuery, offer: Offer) -> None:
