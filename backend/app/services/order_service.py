@@ -139,9 +139,12 @@ class OrderService:
             now = self._clock.now()
             mandate, result = self._cart_service.current_policy(locked, now)
             if not _allows(result.decision, approved_by):
+                # A person's yes that ends in DENY must still show in the timeline.
+                self._record_approval(locked, approved_by, mandate.version)
                 return self._hold(locked, mandate, result)
 
             if fresh is not None and fresh.changed(locked):
+                self._record_approval(locked, approved_by, mandate.version)
                 return self._expire_changed(locked)
 
             if claim is not None:
@@ -294,17 +297,7 @@ class OrderService:
         result: PolicyResult,
         approved_by: User | None,
     ) -> None:
-        if approved_by is not None:
-            self._audit.record(
-                AuditStep.APPROVAL,
-                approved_by.user_id,
-                f"Approved by {approved_by.user_id}.",
-                cart_id=cart.cart_id,
-                phase=FlowPhase.APPROVAL,
-                output_data={"order_id": order.order_id},
-                mandate_version=order.mandate_version,
-            )
-
+        self._record_approval(cart, approved_by, order.mandate_version, order.order_id)
         self._audit.record(
             AuditStep.POLICY,
             _GATEWAY_ACTOR,
@@ -325,6 +318,27 @@ class OrderService:
             phase=FlowPhase.ORDER,
             output_data={"order_id": order.order_id},
             mandate_version=order.mandate_version,
+        )
+
+    def _record_approval(
+        self,
+        cart: Cart,
+        approved_by: User | None,
+        mandate_version: int,
+        order_id: str | None = None,
+    ) -> None:
+        """No order_id: the gateway's next record says why no order followed."""
+        if approved_by is None:
+            return
+
+        self._audit.record(
+            AuditStep.APPROVAL,
+            approved_by.user_id,
+            f"Approved by {approved_by.user_id}.",
+            cart_id=cart.cart_id,
+            phase=FlowPhase.APPROVAL,
+            output_data=None if order_id is None else {"order_id": order_id},
+            mandate_version=mandate_version,
         )
 
 
