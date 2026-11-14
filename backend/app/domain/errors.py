@@ -30,3 +30,18 @@ class ConflictError(GatewayError):
 
 class UpstreamUnavailableError(GatewayError):
     code = ErrorCode.UPSTREAM_UNAVAILABLE
+
+
+class UpstreamRateLimitedError(UpstreamUnavailableError):
+    """Valio Aimo paused our calls after a 429. The door sends retry_after as Retry-After."""
+
+    def __init__(self, retry_after: int) -> None:
+        super().__init__(
+            "The Valio Aimo price or stock service paused our calls.",
+            f"Try again in {retry_after} seconds.",
+        )
+        self.retry_after = retry_after
+
+
+class InvalidRequestError(GatewayError):
+    code = ErrorCode.VALIDATION_ERROR

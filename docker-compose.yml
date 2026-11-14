@@ -11,6 +11,10 @@ services:
       # backend would fall back to memory and lose every order.
       SKIP_DATABASE_MIGRATIONS: ${SKIP_DATABASE_MIGRATIONS:-false}
       DATABASE_URL: postgresql+psycopg://valtuus:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/valtuus
+    volumes:
+      # Keeps the last good catalog across deploys, so startup can fall back to it when the
+      # upstream download fails.
+      - catalog_data:/app/data
     depends_on:
       db:
         condition: service_healthy
@@ -51,6 +55,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  catalog_data:
   pg_data:
   caddy_data:
   caddy_config:

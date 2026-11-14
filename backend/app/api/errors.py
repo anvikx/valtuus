@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 from app.api.schemas.common import ErrorBody
 from app.domain.enums import ErrorCode
-from app.domain.errors import GatewayError
+from app.domain.errors import GatewayError, UpstreamRateLimitedError
 
 _STATUS = {
     ErrorCode.VALIDATION_ERROR: HTTPStatus.UNPROCESSABLE_ENTITY,
@@ -39,7 +39,14 @@ def error_response(body: ErrorBody) -> JSONResponse:
 
 
 async def _gateway_error(_: Request, exc: GatewayError) -> JSONResponse:
-    return error_response(ErrorBody(error=exc.code, message=exc.message, next_step=exc.next_step))
+    response = error_response(
+        ErrorBody(error=exc.code, message=exc.message, next_step=exc.next_step),
+    )
+    # RFC 9110 section 10.2.3: tells the agent when a retry can pass the Valio Aimo pause.
+    if isinstance(exc, UpstreamRateLimitedError):
+        response.headers["Retry-After"] = str(exc.retry_after)
+
+    return response
 
 
 async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:

@@ -8,7 +8,7 @@ from app.api.errors import ERROR_RESPONSES
 from app.api.results import offer_response
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.domain.agent_key import AgentKey
-from app.domain.constants import MAX_OFFER_CANDIDATES, OFFER_TTL_MINUTES
+from app.domain.constants import OFFER_TTL_MINUTES
 from app.domain.enums import AgentScope
 
 router = APIRouter(prefix="/v1/offers", tags=["offers"], responses=ERROR_RESPONSES)
@@ -22,8 +22,8 @@ Live price and stock from Valio Aimo for chosen products, ranked by the mandate.
 {{"product_ids": ["464306"], "quantity": 1000, "unit": "L", "deliver_by": "2026-11-16"}}
 ```
 
-**Limit:** at most {MAX_OFFER_CANDIDATES} product ids. The stock snapshot is valid for
-{OFFER_TTL_MINUTES} minutes (`valid_until`). The price holds until `price_valid_to`.
+Send all candidates from the search. The stock snapshot is valid for {OFFER_TTL_MINUTES}
+minutes (`valid_until`). The price holds until `price_valid_to`.
 
 **Scope:** `offer`.
 """

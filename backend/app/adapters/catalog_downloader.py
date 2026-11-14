@@ -12,6 +12,8 @@ from pydantic import SecretStr
 _LOG = logging.getLogger(__name__)
 _TIMEOUT = 60
 _ATTEMPTS = 3
+_DOWNLOAD_ERRORS = (HTTPError, URLError, TimeoutError, OSError)
+_PRODUCTS_FILE = "valio_products.json"
 
 
 @dataclass(frozen=True)
@@ -29,17 +31,30 @@ class CatalogDownloader:
 
     def download(self) -> DownloadedCatalog:
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        products = self._download("products/download", "valio_products.json")
+        products = self._products()
         reliability = self._optional(
             "delivery-reliability/download", "valio_delivery_reliability.csv"
         )
         carbon = self._optional("carbon-footprint/download", "valio_carbon_foot_print.csv")
         return DownloadedCatalog(products, reliability, carbon)
 
+    def _products(self) -> Path:
+        # Startup downloads the catalog, so an upstream outage during a restart took the site
+        # down although the last good file was still on disk. _download replaces the file only
+        # after a full read, so the file on disk is always a complete earlier catalog.
+        previous = self._data_dir / _PRODUCTS_FILE
+        try:
+            return self._download("products/download", _PRODUCTS_FILE)
+        except _DOWNLOAD_ERRORS as exc:
+            if not previous.is_file():
+                raise
+            _LOG.warning("Could not download products, using previous file: %s", type(exc).__name__)
+            return previous
+
     def _optional(self, endpoint: str, filename: str) -> Path | None:
         try:
             return self._download(endpoint, filename)
-        except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        except _DOWNLOAD_ERRORS as exc:
             _LOG.warning("Could not download %s: %s", filename, type(exc).__name__)
             return None
 

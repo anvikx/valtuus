@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from types import MappingProxyType
 
-from app.domain.catalog import Allergens
+from app.domain.catalog import Allergens, Product
 from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
 
 
@@ -20,7 +20,7 @@ class Price:
 
     product_id: str
     unit_price: Decimal
-    vat_rate: Decimal
+    vat_rate: Decimal | None
     comparison_price: ComparisonPrice | None
     valid_from: date
     valid_to: date
@@ -36,6 +36,8 @@ class Availability:
     available_date: date | None
     closing_time: datetime | None
     is_sales_blocked: bool
+    # The unit of `amount`, as the raw code (KI, ST, ...). It must match the product's sales unit.
+    sales_unit: str | None = None
 
 
 @dataclass(frozen=True)
@@ -80,9 +82,9 @@ class OfferLine:
     rank: int
     tier: OfferTier | None
     product_id: str
-    gtin: str
+    gtin: str | None
     name: str
-    brand: str
+    brand: str | None
     country_of_origin: str | None
     labels: tuple[str, ...]
     allergens: Allergens
@@ -91,19 +93,30 @@ class OfferLine:
     sales_units_needed: int
     unit_price: Decimal
     currency: str
-    vat_rate: Decimal
+    vat_rate: Decimal | None
     comparison_price: ComparisonPrice
     price_valid_from: date
     price_valid_to: date
-    stock_model: StockModel
+    # None: Valio Aimo sent no logistic model. Ranked as unconfirmed stock.
+    stock_model: StockModel | None
     available_qty: int | None
     available_date: date
     closing_time: datetime
     line_total: Decimal
-    max_auto_qty: int
+    # None: not computed. It needs the mandate.
+    max_auto_qty: int | None
     substitute_for: SubstituteFor | None
     reason_codes: tuple[ReasonCode, ...]
     reason_sentences: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Candidate:
+    """A product that passed the reject rules, with its live price and stock."""
+
+    product: Product
+    price: Price
+    availability: Availability
 
 
 @dataclass(frozen=True)

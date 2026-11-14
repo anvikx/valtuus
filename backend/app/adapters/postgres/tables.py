@@ -45,6 +45,16 @@ users = Table(
     Column("body", JSONB, nullable=False),
 )
 
+sessions = Table(
+    "sessions",
+    metadata,
+    # Only the hash: a leaked table must not give an attacker a working session.
+    Column("token_hash", Text, primary_key=True),
+    Column("user_id", Text, nullable=False),
+    Column("expires_at", DateTime(timezone=True), nullable=False, index=True),
+    Column("password_tag", Text, nullable=False, server_default=""),
+)
+
 offers = Table(
     "offers",
     metadata,

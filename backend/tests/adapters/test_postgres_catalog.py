@@ -93,7 +93,7 @@ def test_allergen_migration_preserves_codes_and_search_index(database):
     from sqlalchemy import text
 
     migration = import_module(
-        "app.adapters.postgres.migrations.versions.0006_allergen_declarations"
+        "app.adapters.postgres.migrations.versions.0008_allergen_declarations"
     )
     catalog = PostgresCatalog(database)
     catalog.replace([_product("1", "Maito"), _product("2", "Kaura")])

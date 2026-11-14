@@ -1,5 +1,5 @@
 from io import BytesIO
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import pytest
 from pydantic import SecretStr
@@ -37,17 +37,27 @@ def test_download_retries_and_does_not_reuse_failed_enrichment(tmp_path, monkeyp
     assert (tmp_path / "valio_delivery_reliability.csv").read_text() == "old"
 
 
-def test_required_failure_preserves_previous_file(tmp_path, monkeypatch):
+def _unreachable(request, timeout):
+    raise URLError(ConnectionRefusedError("refused"))
+
+
+def test_unreachable_upstream_falls_back_to_previous_products(tmp_path, monkeypatch):
+    """A restart during an upstream outage must not take the site down while a catalog exists."""
     destination = tmp_path / "valio_products.json"
     destination.write_text("old")
-
-    def fail(request, timeout):
-        raise HTTPError(request.full_url, 403, "forbidden", {}, None)
-
-    monkeypatch.setattr("app.adapters.catalog_downloader.urlopen", fail)
+    monkeypatch.setattr("app.adapters.catalog_downloader.urlopen", _unreachable)
     downloader = CatalogDownloader("https://example.test/api", SecretStr("secret"), tmp_path)
 
-    with pytest.raises(HTTPError):
-        downloader_download(downloader)
+    result = downloader_download(downloader)
 
+    assert result.products == destination
     assert destination.read_text() == "old"
+
+
+def test_unreachable_upstream_without_previous_products_fails(tmp_path, monkeypatch):
+    """With no catalog at all the gateway cannot quote, so startup must fail loudly."""
+    monkeypatch.setattr("app.adapters.catalog_downloader.urlopen", _unreachable)
+    downloader = CatalogDownloader("https://example.test/api", SecretStr("secret"), tmp_path)
+
+    with pytest.raises(URLError):
+        downloader_download(downloader)

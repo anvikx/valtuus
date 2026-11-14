@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 from typing import Protocol
 
 from app.domain.agent_key import AgentKey, User
@@ -9,6 +9,7 @@ from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
 from app.domain.order import Order
+from app.domain.session import Session
 
 
 class MandateRepository(Protocol):
@@ -33,6 +34,18 @@ class UserRepository(Protocol):
     def get(self, user_id: str) -> User | None: ...
 
     def add(self, user: User) -> None: ...
+
+
+class SessionRepository(Protocol):
+    def get(self, token_hash: str) -> Session | None: ...
+
+    def add(self, session: Session) -> None: ...
+
+    def remove(self, token_hash: str) -> None:
+        """Does nothing for an unknown hash, so a second logout is not an error."""
+        ...
+
+    def remove_expired(self, now: datetime) -> None: ...
 
 
 class OfferRepository(Protocol):
