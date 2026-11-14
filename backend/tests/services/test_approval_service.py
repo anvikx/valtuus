@@ -376,6 +376,35 @@ def test_approve_under_a_mandate_that_now_forbids_the_cart_denies_it() -> None:
     assert world.orders.by_cart(world.cart.cart_id) is None
 
 
+def test_denied_approve_records_the_person() -> None:
+    """The timeline must show that a person said yes and the mandate still said no."""
+    world = _World()
+    world.deny.is_on = True
+
+    world.approve()
+
+    approval, policy = world.audit.for_cart(world.cart.cart_id)
+    assert [approval.step, policy.step] == [AuditStep.APPROVAL, AuditStep.POLICY]
+    assert approval.actor == _MAIN_USER.user_id
+    assert "order_id" not in approval.output_data
+    assert policy.decision is Decision.DENY
+
+
+def test_approve_after_a_price_change_records_the_person() -> None:
+    """The timeline must show that a person said yes before the changed price ended the cart."""
+    world = _World()
+    # The offer snapshot ran out, so the order path reads price and stock again. The fake has
+    # no price, so the line no longer holds.
+    world.carts.save(dataclasses.replace(world.cart, valid_until=_BEFORE_DEADLINE))
+
+    result = world.approve()
+
+    assert result.reason_codes == (ReasonCode.PRICE_OR_STOCK_CHANGED,)
+    approval, expiry = world.audit.for_cart(world.cart.cart_id)
+    assert [approval.step, expiry.step] == [AuditStep.APPROVAL, AuditStep.CART]
+    assert approval.actor == _MAIN_USER.user_id
+
+
 def test_approve_of_other_buyers_cart_is_not_found() -> None:
     """The main user of one buyer must not order, or learn about, another buyer's cart."""
     world = _World()
