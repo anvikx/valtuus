@@ -2,7 +2,7 @@
 
 import dataclasses
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,6 +14,7 @@ from app.adapters.memory.repositories import (
     InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryOrderRepository,
+    InMemorySessionRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
 )
@@ -25,11 +26,13 @@ from app.adapters.postgres.repositories import (
     PostgresMandateRepository,
     PostgresOfferRepository,
     PostgresOrderRepository,
+    PostgresSessionRepository,
     PostgresUserRepository,
 )
 from app.domain.agent_key import User
 from app.domain.enums import AgentKeyStatus, CartState, UserRole
 from app.domain.idempotency import IdempotencyRecord
+from app.domain.session import Session
 from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
@@ -38,6 +41,7 @@ from app.services.ports.repositories import (
     MandateRepository,
     OfferRepository,
     OrderRepository,
+    SessionRepository,
     UserRepository,
 )
 from app.services.ports.unit_of_work import UnitOfWork
@@ -54,6 +58,7 @@ class _Store:
     orders: OrderRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
+    sessions: SessionRepository
     unit_of_work: UnitOfWork
 
 
@@ -67,6 +72,7 @@ def _memory_store() -> _Store:
         orders=InMemoryOrderRepository(),
         audit=InMemoryAuditRepository(),
         idempotency=InMemoryIdempotencyRepository(),
+        sessions=InMemorySessionRepository(),
         unit_of_work=InMemoryUnitOfWork(),
     )
 
@@ -82,6 +88,7 @@ def _postgres_store(request: pytest.FixtureRequest) -> _Store:
         orders=PostgresOrderRepository(database),
         audit=PostgresAuditRepository(database),
         idempotency=PostgresIdempotencyRepository(database),
+        sessions=PostgresSessionRepository(database),
         unit_of_work=database,
     )
 
@@ -147,6 +154,27 @@ def test_user_round_trip(store: _Store) -> None:
 
     assert store.users.get("u_1") == user
     assert store.users.get("u_2") is None
+
+
+def test_session_remove_and_expiry(store: _Store) -> None:
+    """Logout and the prune must remove only their own sessions, so others stay logged in."""
+    now = datetime(2026, 11, 14, 12, tzinfo=UTC)
+    live = Session("h_live", "u_1", now + timedelta(hours=1))
+    expired = Session("h_expired", "u_1", now)
+    logged_out = Session("h_out", "u_1", now + timedelta(hours=1))
+    with store.unit_of_work.transaction():
+        store.sessions.add(live)
+        store.sessions.add(expired)
+        store.sessions.add(logged_out)
+
+    with store.unit_of_work.transaction():
+        store.sessions.remove("h_out")
+        store.sessions.remove("h_unknown")
+        store.sessions.remove_expired(now)
+
+    assert store.sessions.get("h_live") == live
+    assert store.sessions.get("h_expired") is None
+    assert store.sessions.get("h_out") is None
 
 
 def test_offer_round_trip(store: _Store) -> None:

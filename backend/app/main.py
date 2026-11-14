@@ -18,6 +18,7 @@ from app.adapters.memory.repositories import (
     InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryOrderRepository,
+    InMemorySessionRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
 )
@@ -31,6 +32,7 @@ from app.adapters.postgres.repositories import (
     PostgresMandateRepository,
     PostgresOfferRepository,
     PostgresOrderRepository,
+    PostgresSessionRepository,
     PostgresUserRepository,
 )
 from app.adapters.product_store import ProductStore
@@ -40,7 +42,7 @@ from app.api import health
 from app.api.deps import AgentKeyGuard, Services
 from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
-from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders
+from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
 from app.config import Settings
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -59,10 +61,12 @@ from app.services.ports.repositories import (
     MandateRepository,
     OfferRepository,
     OrderRepository,
+    SessionRepository,
     UserRepository,
 )
 from app.services.ports.unit_of_work import UnitOfWork
-from app.services.seed import seed_demo
+from app.services.seed import DEMO_MAIN_USER_ID, seed_demo
+from app.services.session_service import SessionService
 
 _logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ _API_DESCRIPTION = f"""
 Lets outside AI agents buy Valio Aimo products within the buyer's mandate.
 
 * **Auth:** an agent sends `Authorization: Bearer <agent key>`. Use **Authorize** to try a call.
-  Routes marked *Main user* need the main user's login session instead.
+  Routes marked *Main user* need the main user's session from `POST /api/v1/session` instead.
 * **Flow:** read the mandate, search, get offers, create a cart. Then check out an AUTO cart, or
   poll a HUMAN cart while the main user decides.
 * **Retries:** create cart and checkout need an `Idempotency-Key` header. Send the same key again
@@ -94,6 +98,7 @@ _ROUTERS = (
     mandate.router,
     agents.router,
     audit.router,
+    session.router,
 )
 
 
@@ -107,6 +112,7 @@ class _Store:
     orders: OrderRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
+    sessions: SessionRepository
     unit_of_work: UnitOfWork
     close: Callable[[], None]
     database: Database | None = None
@@ -122,6 +128,7 @@ def _memory_store() -> _Store:
         orders=InMemoryOrderRepository(),
         audit=InMemoryAuditRepository(),
         idempotency=InMemoryIdempotencyRepository(),
+        sessions=InMemorySessionRepository(),
         unit_of_work=InMemoryUnitOfWork(),
         close=lambda: None,
     )
@@ -139,6 +146,7 @@ def _postgres_store(url: SecretStr) -> _Store:
         orders=PostgresOrderRepository(database),
         audit=PostgresAuditRepository(database),
         idempotency=PostgresIdempotencyRepository(database),
+        sessions=PostgresSessionRepository(database),
         unit_of_work=database,
         close=database.close,
         database=database,
@@ -212,6 +220,14 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         ),
         mandates=mandate_service,
         audit=audit_service,
+        sessions=SessionService(
+            store.users,
+            store.sessions,
+            clock,
+            store.unit_of_work,
+            DEMO_MAIN_USER_ID,
+            settings.main_user_password.get_secret_value(),
+        ),
     )
 
 
@@ -233,13 +249,12 @@ def create_app(
             store.unit_of_work,
             agent_key=settings.agent_key.get_secret_value(),
         )
+        loader = ProductStore(settings.data_dir)
+        catalog_store = PostgresCatalog(store.database) if store.database else loader
+        services = _build_services(settings, store, catalog_store)
     except Exception:
         store.close()
         raise
-
-    loader = ProductStore(settings.data_dir)
-    catalog_store = PostgresCatalog(store.database) if store.database else loader
-    services = _build_services(settings, store, catalog_store)
 
     mcp_server = create_mcp_server(services, settings.public_url)
     mcp_app = build_mcp_app(mcp_server)

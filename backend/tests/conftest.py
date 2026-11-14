@@ -10,9 +10,10 @@ from app.adapters.memory.repositories import InMemoryAgentKeyRepository
 from app.adapters.postgres.database import Database
 from app.adapters.product_store import ProductStore
 
-# Tests never read the real key or database from .env. app.main builds the app at import
+# Tests never read the real keys, password or database from .env. app.main builds the app at import
 # time, so the values must be set before any test module imports it.
 os.environ["AGENT_KEY"] = "test-agent-key-0123456789"
+os.environ["MAIN_USER_PASSWORD"] = "test-main-password"
 os.environ["DATABASE_URL"] = ""
 
 TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "")
@@ -27,7 +28,7 @@ def no_catalog_network(monkeypatch: pytest.MonkeyPatch) -> None:
 # TRUNCATE, not DELETE: the audit trigger refuses DELETE, and TRUNCATE fires no row trigger.
 _TRUNCATE = text(
     "TRUNCATE mandates, agent_keys, users, offers, carts, orders, audit_records,"
-    " idempotency_keys, products RESTART IDENTITY",
+    " idempotency_keys, products, sessions RESTART IDENTITY",
 )
 
 

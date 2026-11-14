@@ -1,8 +1,19 @@
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import TypeAdapter
-from sqlalchemy import Connection, Insert, Select, Table, Update, func, select, true, update
+from sqlalchemy import (
+    Connection,
+    Insert,
+    Select,
+    Table,
+    Update,
+    delete,
+    func,
+    select,
+    true,
+    update,
+)
 from sqlalchemy.dialects.postgresql import insert
 
 from app.adapters.postgres.database import Database
@@ -14,6 +25,7 @@ from app.adapters.postgres.tables import (
     mandates,
     offers,
     orders,
+    sessions,
     users,
 )
 from app.domain.agent_key import AgentKey, User
@@ -23,6 +35,7 @@ from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
 from app.domain.order import Order
+from app.domain.session import Session
 
 # mode="json" writes Decimal as a string and datetime as ISO 8601 with its offset, so a
 # body never holds a float for money. Loading runs the dataclass again, with its checks.
@@ -146,6 +159,32 @@ class PostgresUserRepository:
             "body": _USER.dump_python(user, mode="json"),
         }
         _upsert(self._database.writer(), users, row)
+
+
+class PostgresSessionRepository:
+    def __init__(self, database: Database) -> None:
+        self._database = database
+
+    def get(self, token_hash: str) -> Session | None:
+        query = select(sessions).where(sessions.c.token_hash == token_hash)
+        with self._database.reader() as connection:
+            row = connection.execute(query).mappings().one_or_none()
+
+        return None if row is None else Session(**row)
+
+    def add(self, session: Session) -> None:
+        row = {
+            "token_hash": session.token_hash,
+            "user_id": session.user_id,
+            "expires_at": session.expires_at,
+        }
+        self._database.writer().execute(insert(sessions).values(row))
+
+    def remove(self, token_hash: str) -> None:
+        self._database.writer().execute(delete(sessions).where(sessions.c.token_hash == token_hash))
+
+    def remove_expired(self, now: datetime) -> None:
+        self._database.writer().execute(delete(sessions).where(sessions.c.expires_at <= now))
 
 
 class PostgresOfferRepository:

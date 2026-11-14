@@ -1,7 +1,7 @@
 import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, datetime
 
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
@@ -10,6 +10,7 @@ from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
 from app.domain.order import Order
+from app.domain.session import Session
 
 
 class InMemoryMandateRepository:
@@ -142,6 +143,32 @@ class InMemoryIdempotencyRepository:
             if slot in self._by_key:
                 raise ValueError(f"idempotency key {record.key} is used")
             self._by_key[slot] = record
+
+
+class InMemorySessionRepository:
+    def __init__(self) -> None:
+        self._by_hash: dict[str, Session] = {}
+        # Routes run in a thread pool, and the prune walks the dict while a login adds to it.
+        self._lock = threading.Lock()
+
+    def get(self, token_hash: str) -> Session | None:
+        return self._by_hash.get(token_hash)
+
+    def add(self, session: Session) -> None:
+        with self._lock:
+            self._by_hash[session.token_hash] = session
+
+    def remove(self, token_hash: str) -> None:
+        with self._lock:
+            self._by_hash.pop(token_hash, None)
+
+    def remove_expired(self, now: datetime) -> None:
+        with self._lock:
+            self._by_hash = {
+                token_hash: session
+                for token_hash, session in self._by_hash.items()
+                if session.is_live(now)
+            }
 
 
 class InMemoryUnitOfWork:
