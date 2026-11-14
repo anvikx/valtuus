@@ -13,10 +13,11 @@ from app.domain.cart import (
     CartDraft,
     CartLine,
     CartLineInput,
+    CartRevision,
     PricedLine,
 )
 from app.domain.constants import CURRENCY, REJECT_MEMORY_MINUTES
-from app.domain.enums import AuditStep, CartState, ReasonCode
+from app.domain.enums import AuditStep, CartState, ReasonCode, RevisionAuthor
 from app.domain.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord, request_hash
 from app.domain.mandate import Mandate
@@ -34,6 +35,7 @@ from app.services.mandate_service import MandateService
 from app.services.ports.clock import Clock
 from app.services.ports.repositories import (
     CartRepository,
+    CartRevisionRepository,
     IdempotencyRepository,
     OfferRepository,
     OrderRepository,
@@ -61,6 +63,7 @@ class CartService:
         self,
         offers: OfferRepository,
         carts: CartRepository,
+        revisions: CartRevisionRepository,
         orders: OrderRepository,
         idempotency: IdempotencyRepository,
         mandates: MandateService,
@@ -71,6 +74,7 @@ class CartService:
     ) -> None:
         self._offers = offers
         self._carts = carts
+        self._revisions = revisions
         self._orders = orders
         self._idempotency = idempotency
         self._mandates = mandates
@@ -93,6 +97,7 @@ class CartService:
                 IdempotencyRecord(agent.buyer_id, idempotency_key, fingerprint, cart.cart_id)
             )
             self._carts.add(cart)
+            self._revisions.add(CartRevision(cart, RevisionAuthor.AGENT, self._clock.now()))
             self._record_cart(agent, draft, cart)
             self._record_policy(agent, cart, result)
 

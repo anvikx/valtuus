@@ -35,3 +35,5 @@ class Order:
     signature: str | None
     status: OrderStatus = OrderStatus.CONFIRMED
     ledger: Ledger = Ledger.PROTOTYPE
+    # The cart revision this order was placed from.
+    revision: int = 1

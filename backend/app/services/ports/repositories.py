@@ -4,7 +4,7 @@ from typing import Protocol
 
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
-from app.domain.cart import Cart
+from app.domain.cart import Cart, CartRevision
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -67,6 +67,18 @@ class CartRepository(Protocol):
 
     def save(self, cart: Cart) -> None:
         """Stores a new state of a known cart. Lines and prices must not change."""
+        ...
+
+
+class CartRevisionRepository(Protocol):
+    """Append only: a stored revision never changes."""
+
+    def add(self, revision: CartRevision) -> None:
+        """Refuses a revision number the cart already has."""
+        ...
+
+    def for_cart(self, cart_id: str) -> Sequence[CartRevision]:
+        """The revisions of the cart, the first one first."""
         ...
 
 

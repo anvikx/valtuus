@@ -8,14 +8,23 @@ import pytest
 from app.adapters.memory.repositories import (
     InMemoryAuditRepository,
     InMemoryCartRepository,
+    InMemoryCartRevisionRepository,
     InMemoryIdempotencyRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryOrderRepository,
     InMemoryUnitOfWork,
 )
-from app.domain.cart import CartDraft, CartLineInput, PricedLine
-from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode, StockModel
+from app.domain.cart import CartDraft, CartLineInput, CartRevision, PricedLine
+from app.domain.enums import (
+    AuditStep,
+    CartState,
+    Decision,
+    FlowPhase,
+    ReasonCode,
+    RevisionAuthor,
+    StockModel,
+)
 from app.domain.errors import ConflictError, GatewayError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
@@ -83,6 +92,7 @@ class _World:
         self.clock = _Clock(NOW)
         self.offers = InMemoryOfferRepository()
         self.carts = InMemoryCartRepository()
+        self.revisions = InMemoryCartRevisionRepository()
         self.orders = InMemoryOrderRepository()
         self.idempotency = idempotency or InMemoryIdempotencyRepository()
         self.mandates = InMemoryMandateRepository()
@@ -102,6 +112,7 @@ class _World:
         self.service = CartService(
             self.offers,
             self.carts,
+            self.revisions,
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
@@ -296,6 +307,18 @@ def test_cart_is_stored_with_its_key_and_cart_and_policy_records() -> None:
     assert policy_record.decision is Decision.HUMAN
     assert policy_record.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
     assert policy_record.mandate_version == 1
+
+
+def test_new_cart_is_revision_one_by_the_agent() -> None:
+    """Every later change is shown against what the agent first asked for."""
+    world = _world_with_offer()
+
+    cart = world.create(_buy(1000))
+
+    assert cart.revision == 1
+    assert world.revisions.for_cart(cart.cart_id) == [
+        CartRevision(cart, RevisionAuthor.AGENT, NOW),
+    ]
 
 
 def test_run_1_cart_and_policy_records_read_as_plain_sentences() -> None:

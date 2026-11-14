@@ -10,6 +10,7 @@ from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryAuditRepository,
     InMemoryCartRepository,
+    InMemoryCartRevisionRepository,
     InMemoryIdempotencyRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
@@ -22,6 +23,7 @@ from app.adapters.postgres.repositories import (
     PostgresAgentKeyRepository,
     PostgresAuditRepository,
     PostgresCartRepository,
+    PostgresCartRevisionRepository,
     PostgresIdempotencyRepository,
     PostgresMandateRepository,
     PostgresOfferRepository,
@@ -30,13 +32,15 @@ from app.adapters.postgres.repositories import (
     PostgresUserRepository,
 )
 from app.domain.agent_key import User
-from app.domain.enums import AgentKeyStatus, CartState, UserRole
+from app.domain.cart import CartRevision
+from app.domain.enums import AgentKeyStatus, CartState, RevisionAuthor, UserRole
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.session import Session
 from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
     CartRepository,
+    CartRevisionRepository,
     IdempotencyRepository,
     MandateRepository,
     OfferRepository,
@@ -55,6 +59,7 @@ class _Store:
     users: UserRepository
     offers: OfferRepository
     carts: CartRepository
+    revisions: CartRevisionRepository
     orders: OrderRepository
     audit: AuditRepository
     idempotency: IdempotencyRepository
@@ -69,6 +74,7 @@ def _memory_store() -> _Store:
         users=InMemoryUserRepository(),
         offers=InMemoryOfferRepository(),
         carts=InMemoryCartRepository(),
+        revisions=InMemoryCartRevisionRepository(),
         orders=InMemoryOrderRepository(),
         audit=InMemoryAuditRepository(),
         idempotency=InMemoryIdempotencyRepository(),
@@ -85,6 +91,7 @@ def _postgres_store(request: pytest.FixtureRequest) -> _Store:
         users=PostgresUserRepository(database),
         offers=PostgresOfferRepository(database),
         carts=PostgresCartRepository(database),
+        revisions=PostgresCartRevisionRepository(database),
         orders=PostgresOrderRepository(database),
         audit=PostgresAuditRepository(database),
         idempotency=PostgresIdempotencyRepository(database),
@@ -221,6 +228,26 @@ def test_get_locked_reads_the_cart_in_a_transaction(store: _Store) -> None:
     with store.unit_of_work.transaction():
         assert store.carts.get_locked("c_1") == samples.cart()
         assert store.carts.get_locked("c_missing") is None
+
+
+def _revision(revision: int, author: RevisionAuthor) -> CartRevision:
+    cart = dataclasses.replace(samples.cart(), revision=revision)
+    return CartRevision(cart=cart, author=author, created_at=samples.NOW)
+
+
+def test_cart_revisions_are_kept_in_order_and_never_replaced(store: _Store) -> None:
+    """The main user compares what they approve with what the agent first asked for."""
+    second = _revision(2, RevisionAuthor.MAIN_USER)
+    first = _revision(1, RevisionAuthor.AGENT)
+    with store.unit_of_work.transaction():
+        store.revisions.add(second)
+        store.revisions.add(first)
+
+    with pytest.raises(ValueError, match="exists"), store.unit_of_work.transaction():
+        store.revisions.add(_revision(1, RevisionAuthor.MAIN_USER))
+
+    assert store.revisions.for_cart("c_1") == [first, second]
+    assert store.revisions.for_cart("c_missing") == []
 
 
 def test_second_order_for_one_cart_is_refused(store: _Store) -> None:

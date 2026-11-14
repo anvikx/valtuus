@@ -4,7 +4,7 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from app.domain.catalog import SearchQuery
-from app.domain.enums import CartState, Decision, ReasonCode, StockModel
+from app.domain.enums import CartState, Decision, ReasonCode, RevisionAuthor, StockModel
 from app.domain.offer import SubstituteFor
 
 # Checkout and approve act only on these. Every other state is final.
@@ -102,3 +102,14 @@ class Cart:
     decided_by: str | None
     decided_at: datetime | None
     reject_reason: str | None
+    # A body stored before revisions existed loads as the first one.
+    revision: int = 1
+
+
+@dataclass(frozen=True)
+class CartRevision:
+    """One stored version of a cart. Its id and number come from the cart snapshot."""
+
+    cart: Cart
+    author: RevisionAuthor
+    created_at: datetime

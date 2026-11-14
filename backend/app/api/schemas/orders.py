@@ -23,6 +23,7 @@ class OrderLine(BaseModel):
 class OrderConfirmation(BaseModel):
     order_id: str = Field(description="Order id.")
     cart_id: str = Field(description="Cart the order came from.")
+    revision: int = Field(description="Cart revision that was ordered.")
     buyer_id: str = Field(description="Buyer id.")
     status: OrderStatus = Field(description="CONFIRMED.")
     ledger: Ledger = Field(
