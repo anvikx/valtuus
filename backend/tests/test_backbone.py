@@ -511,6 +511,6 @@ def test_search_returns_empty_result_and_one_record():
 
     assert response.status_code == HTTPStatus.OK
     assert response.json()["candidates"] == []
-    assert response.json()["status"] == "NO_MATCH"
+    assert response.json()["hint"]["code"] == "NO_MATCH"
     assert len(records.records) == 1
     assert records.records[0].step == AuditStep.SEARCH

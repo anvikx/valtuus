@@ -5,6 +5,7 @@ from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
 from app.domain.catalog import ExcludedProduct, Product, SearchQuery, SearchResult
 from app.domain.catalog_candidate import candidate
+from app.domain.catalog_response import search_hint, summarize_categories
 from app.domain.catalog_search import (
     NameMatch,
     NameMatcher,
@@ -12,7 +13,7 @@ from app.domain.catalog_search import (
     fits_search,
     validate_query,
 )
-from app.domain.enums import AllergenStatus, AuditStep, Decision, ReasonCode, SearchStatus
+from app.domain.enums import AllergenStatus, AuditStep, Decision, ReasonCode
 from app.domain.errors import NotFoundError
 from app.domain.mandate import Mandate
 from app.services.audit_service import AuditService
@@ -30,18 +31,6 @@ def _allergen_reason(product: Product, mandate: Mandate) -> ReasonCode | None:
     ):
         return ReasonCode.ALLERGEN_UNKNOWN
     return None
-
-
-def _excluded_in(
-    excluded: list[tuple[Product, ReasonCode]],
-    category: str | None,
-) -> tuple[ExcludedProduct, ...]:
-    # No category means no candidate, so every exclusion explains the NO_MATCH.
-    return tuple(
-        ExcludedProduct(product.product_id, reason)
-        for product, reason in sorted(excluded, key=lambda item: item[0].product_id)
-        if category is None or product.category == category
-    )
 
 
 class CatalogService:
@@ -77,16 +66,15 @@ class CatalogService:
             self._audit.record(
                 AuditStep.SEARCH,
                 agent.agent_id,
-                "No product matched."
-                if result.status == SearchStatus.NO_MATCH
-                else "Catalog search completed.",
+                result.hint.sentence,
                 request_id=result.request_id,
                 buyer_id=agent.buyer_id,
-                input_data=asdict(query),
+                input_data=asdict(result.understood),
                 output_data={
                     "candidate_ids": [item.product_id for item in result.candidates],
                     "hint_category": result.hint_category,
-                    "status": result.status,
+                    "total_hits": result.total_hits,
+                    "hint": asdict(result.hint),
                 },
                 mandate_version=mandate.version,
             )
@@ -110,21 +98,22 @@ class CatalogService:
         missing = tuple(
             field for field in ("quantity", "unit", "deliver_by") if getattr(query, field) is None
         )
-        status = SearchStatus.NEEDS_CLARIFICATION if missing else SearchStatus.OK
-        if not selected:
-            status = SearchStatus.NO_MATCH
+        candidates = tuple(
+            candidate(product, match, query) for product, match in selected[: self._candidate_guard]
+        )
+        exclusions = tuple(
+            ExcludedProduct(product.product_id, reason)
+            for product, reason in sorted(excluded, key=lambda item: item[0].product_id)
+        )
         return SearchResult(
-            status=status,
-            truncated=len(selected) > self._candidate_guard,
-            interpreted_request=query,
-            missing=missing,
-            options=(),
-            candidates=tuple(
-                candidate(product, match, query)
-                for product, match in selected[: self._candidate_guard]
-            ),
-            excluded=_excluded_in(excluded, category),
+            understood=query,
+            candidates=candidates,
+            total_hits=len(hits),
+            categories=summarize_categories(tuple(product for product, _ in hits)),
+            hint=search_hint(len(candidates), len(selected), len(exclusions), missing),
             hint_category=category,
+            excluded=exclusions,
+            missing_fields=missing,
             request_id=request_id,
         )
 

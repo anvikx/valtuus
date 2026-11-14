@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, Field, WithJsonSchema
@@ -7,7 +6,7 @@ from pydantic import BaseModel, Field, WithJsonSchema
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, RequestModel
 from app.domain.catalog import SearchQuery
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE, VALID_ATTRIBUTES
-from app.domain.enums import Decision, ReasonCode, SearchMatch, SearchStatus, Unit
+from app.domain.enums import ReasonCode, SearchHintCode, SearchMatch, Unit
 
 # The schema lists the codes, but validate_query rejects a wrong one. A pydantic enum would make
 # the MCP SDK refuse the call first, with its own text and no error code or next_step.
@@ -115,57 +114,42 @@ class ExcludedProduct(BaseModel):
     reason_code: ReasonCode = Field(description="Why the product was left out.")
 
 
-class OptionRequest(BaseModel):
-    query: str = Field(description="Product words to search with.")
-    required_attributes: list[str] = Field(description="Attribute codes to search with.")
-    quantity: Quantity | None = Field(description="Quantity, in `unit`.")
-    unit: Unit | None = Field(description="Unit of `quantity`.")
-    deliver_by: date | None = Field(description="Latest delivery date.")
+class UnderstoodRequest(InterpretedRequest):
+    category: str | None = Field(description="Requested category code, when given.")
 
 
-class OptionEstimate(BaseModel):
-    """Advice for a repeat option. The cart policy still decides."""
-
-    unit_price: Decimal = Field(description="Price per sales unit, EUR ex VAT.")
-    total_ex_vat: Decimal = Field(description="Estimated total, EUR ex VAT.")
-    expected_decision: Decision = Field(description="The decision a cart would likely get.")
-    expected_reason_codes: list[ReasonCode] = Field(description="Reasons for that decision.")
-    expected_reason_sentences: list[str] = Field(
-        description="One sentence per reason code, in the same order.",
-    )
-    max_auto_qty: int = Field(
-        description="Largest quantity the agent may order without the main user.",
-    )
+class CategorySummary(BaseModel):
+    category: str = Field(description="Product category code; names are not available.")
+    hits: int = Field(description="All filtered hits in this category, before the safety guard.")
+    examples: list[str] = Field(description="Up to two distinct example product names.")
 
 
-class SearchOption(BaseModel):
-    label: str = Field(description="Short text to show the buyer as a choice.")
-    request: OptionRequest = Field(description="The search to send when the buyer picks it.")
-    estimate: OptionEstimate | None = Field(description="Price and decision estimate, if known.")
+class SearchHint(BaseModel):
+    code: SearchHintCode = Field(description="One deterministic advice code for the next step.")
+    sentence: str = Field(description="Fixed advice for the agent; never blocks another call.")
 
 
 class SearchResponse(BaseModel):
-    hint_category: str | None = Field(
-        default=None, description="Category of all returned candidates."
+    understood: UnderstoodRequest = Field(
+        description="Normalized request and effective attributes."
     )
-    status: SearchStatus = Field(
-        description="OK: candidates found. NEEDS_CLARIFICATION: ask the buyer first. "
-        "NO_MATCH: no product matches.",
-    )
-    truncated: bool = Field(
-        description="true when more products matched than the list holds. Narrow the search.",
-    )
-    interpreted_request: InterpretedRequest = Field(
-        description="The request as the gateway read it."
-    )
-    missing: list[str] = Field(
-        description="Request fields that the offers need and the request does not have.",
-    )
-    options: list[SearchOption] = Field(description="Choices to show the buyer.")
     candidates: list[SearchCandidate] = Field(
-        description="Matching products. No price and no stock: get them from get_offers.",
+        description="Every hit in hint_category, subject to the safety guard. No price or stock.",
+    )
+    total_hits: int = Field(
+        description="All filtered hits across categories, before the safety guard."
+    )
+    categories: list[CategorySummary] = Field(
+        description="Top eight categories from all filtered hits."
+    )
+    hint: SearchHint = Field(description="Exactly one advisory hint, selected by fixed priority.")
+    hint_category: str | None = Field(
+        description="Requested or selected category; null when neither is available."
     )
     excluded: list[ExcludedProduct] = Field(
-        description="Products that matched but that the buyer's rules leave out.",
+        description="Products removed by mandate allergen rules."
+    )
+    missing_fields: list[str] = Field(
+        description="Missing quantity, unit or deliver_by for offers."
     )
     request_id: str = Field(description="Send it with get_offers for the same request.")

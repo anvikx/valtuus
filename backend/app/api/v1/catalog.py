@@ -23,7 +23,14 @@ GET /api/v1/catalog/search?query=milk&required_attributes=FREE_FROM_LACTOSE
 ```
 
 Return every match of the requested category, or the category with the most hits.
-Only the configurable safety guard can truncate the category.
+Only the configurable safety guard can cut the category. `total_hits` and the top-eight
+`categories` summary count all filtered hits before that guard. Each category includes its
+hit count and up to two distinct example product names.
+
+`understood` holds the normalized request. Follow the single `hint` advice code:
+EXCLUDED_ONLY, NO_MATCH, MISSING_FIELDS, GUARD_CUT or READY. READY means the category is
+complete; it does not identify the buyer's intended type. Use `category` to select another.
+Ask for `missing_fields` before offers. Send `request_id` with get_offers.
 
 **Scope:** `catalog:read`.
 """

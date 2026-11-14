@@ -65,7 +65,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             "Search en/fi/sv names, including inside words, with accents folded. "
             f"Use {QUERY_RULE}. Negated names do not match. "
             "Returns the complete hint category, subject to the safety guard. "
-            "No price or stock; call get_offers with all candidates. "
+            "Follow hint.code: EXCLUDED_ONLY, NO_MATCH, MISSING_FIELDS, GUARD_CUT or READY. "
+            "Inspect categories and examples to choose a type; use category to reach another. "
+            "READY means complete for hint_category, not certainty about the intended type. "
+            "No price or stock; call get_offers with all candidates and the returned request_id. "
             "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION
         )
     )
