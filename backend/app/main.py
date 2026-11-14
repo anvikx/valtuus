@@ -47,7 +47,7 @@ from app.api import health, well_known
 from app.api.deps import AgentKeyGuard, Services
 from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
-from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
+from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session, verify
 from app.config import Settings
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.daily_limit import DailyLimit
@@ -114,6 +114,7 @@ _ROUTERS = (
     agents.router,
     audit.router,
     session.router,
+    verify.router,
 )
 
 
