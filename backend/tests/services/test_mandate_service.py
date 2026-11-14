@@ -96,6 +96,13 @@ def test_summary_states_the_limits_and_the_fixed_rules() -> None:
     )
 
 
+def test_summary_says_a_person_approves_every_order_when_automatic_orders_are_off() -> None:
+    """The limits mean nothing while the switch is off, so the page must not show them."""
+    summary = _summary(_mandate(can_auto_order=False))
+
+    assert summary[0] == "The agent may not order by itself. A person approves every order."
+
+
 def test_summary_names_the_preferred_brands() -> None:
     """After the main user picks Arla, the page must show that the agent knows it."""
     summary = _summary(_mandate(preferred_brands=("Arla", "Valio")))
@@ -220,3 +227,16 @@ def test_update_with_no_mandate_is_not_found() -> None:
 
     with pytest.raises(NotFoundError):
         service.update(other, MandateChanges(max_auto_order_value=_RAISED))
+
+
+def test_turning_on_automatic_orders_is_a_new_version_on_the_record() -> None:
+    """An auditor must see who let the agent order alone, and from which version."""
+    records = _Records()
+    service, _ = _service(records)
+    service.update(_MAIN_USER, MandateChanges(can_auto_order=False))
+
+    updated = service.update(_MAIN_USER, MandateChanges(can_auto_order=True))
+
+    assert updated.version == 3
+    assert updated.can_auto_order is True
+    assert records.records[-1].input_data == {"can_auto_order": True}

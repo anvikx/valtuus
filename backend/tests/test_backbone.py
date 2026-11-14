@@ -173,7 +173,11 @@ def test_mandate_answers_with_rules_and_gateway_time() -> None:
     assert response.status_code == HTTPStatus.OK
     body = response.json()
     assert body["mandate"]["version"] == 1
-    assert body["mandate"]["summary"][0].startswith("This agent may place orders up to")
+    assert body["mandate"]["can_auto_order"] is False
+    assert (
+        body["mandate"]["summary"][0]
+        == "The agent may not order by itself. A person approves every order."
+    )
     assert body["timezone"] == "Europe/Helsinki"
     assert datetime.fromisoformat(body["now"]).utcoffset() is not None
 
@@ -198,6 +202,20 @@ def test_main_user_raise_reaches_the_agent() -> None:
     agent_view = client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]
     assert agent_view["version"] == 2
     assert Decimal(agent_view["max_auto_order_value"]) == Decimal(1500)
+
+
+def test_main_user_turns_on_automatic_orders_for_the_agent() -> None:
+    """Until the main user does this, every cart waits for a person, however small."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.put(_MANDATE_PATH, json={"can_auto_order": True})
+
+    assert response.status_code == HTTPStatus.OK
+    agent_view = client.get(_MANDATE_PATH, headers=_AUTH).json()["mandate"]
+    assert agent_view["version"] == 2
+    assert agent_view["can_auto_order"] is True
+    assert agent_view["summary"][0].startswith("This agent may place orders up to 500.00 EUR")
 
 
 def test_main_user_inbox_lists_the_buyers_carts() -> None:

@@ -64,6 +64,7 @@ def mandate(version: int = 1) -> Mandate:
         allergen_unknown_policy=Decision.HUMAN,
         preferred_brands=("Valio",),
         ranking_weights=RankingWeights(price=0.5, reliability=0.3, co2=0.2),
+        can_auto_order=True,
     )
 
 

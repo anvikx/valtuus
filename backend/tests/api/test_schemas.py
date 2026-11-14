@@ -192,6 +192,7 @@ _MANDATE = {
         "allergen_unknown_policy": "HUMAN",
         "preferred_brands": [],
         "ranking_weights": {"price": 1.0, "reliability": 0.0, "co2": 0.0},
+        "can_auto_order": False,
         "summary": ["This agent may place orders up to 500.00 EUR per order."],
     },
     "now": "2026-11-14T10:00:00+02:00",
@@ -274,3 +275,10 @@ def test_mandate_limit_is_stored_as_plain_cents(field: str, value: str, stored: 
     changes = MandateUpdateRequest.model_validate({field: value}).to_domain()
 
     assert str(getattr(changes, field)) == stored
+
+
+def test_mandate_update_passes_the_automatic_order_switch() -> None:
+    """False is a real change. Read as "missing", it would leave the agent ordering alone."""
+    changes = MandateUpdateRequest.model_validate({"can_auto_order": False}).to_domain()
+
+    assert changes.can_auto_order is False
