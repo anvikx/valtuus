@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from app.domain.cart import PricedLine
-from app.domain.enums import Decision, ReasonCode
+from app.domain.enums import Decision, ReasonCode, StockModel
 from app.domain.money import line_total
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.check import CheckResult, PolicyContext
@@ -33,6 +33,9 @@ def _lines(qty: int, unit_price: Decimal = _OAT_MILK_PRICE) -> tuple[PricedLine,
         delivery_date=samples.DELIVERY_DATE,
         closing_time=samples.NOW,
         substitute_for=None,
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        needed_qty=1,
     )
     return (line,)
 

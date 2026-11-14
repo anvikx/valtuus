@@ -15,7 +15,7 @@ from app.adapters.memory.repositories import (
     InMemoryUnitOfWork,
 )
 from app.domain.cart import CartDraft, CartLineInput, PricedLine
-from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode, StockModel
 from app.domain.errors import ConflictError, GatewayError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
@@ -24,6 +24,7 @@ from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.stock_check import StockCheck
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
@@ -89,7 +90,7 @@ class _World:
         for mandate in (_mandate(1, _LIMIT),) if mandates is None else mandates:
             self.mandates.add(mandate)
 
-        checks = [OrderLimit(), *([extra_check] if extra_check else [])]
+        checks = [OrderLimit(), StockCheck(), *([extra_check] if extra_check else [])]
         self.service = CartService(
             self.offers,
             self.carts,
@@ -193,6 +194,49 @@ def test_over_the_limit_waits_for_the_main_user() -> None:
     assert cart.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
     assert cart.reason_sentences == ("1,010.00 EUR is over the 500.00 EUR limit.",)
     assert cart.current_reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
+
+
+def test_partial_stock_waits_for_the_main_user() -> None:
+    """Valio Aimo can deliver only part of what the kitchen needs, so a person decides."""
+    world = _world_with_offer(_offer("o_1", _line(available_qty=50, sales_units_needed=100)))
+
+    cart = world.create(_buy(50))
+
+    assert cart.state is CartState.PENDING_APPROVAL
+    assert cart.reason_codes == (ReasonCode.PARTIAL_AVAILABILITY,)
+    assert cart.reason_sentences == ("Only 50 of 100 in stock.",)
+
+
+def test_more_than_the_confirmed_stock_is_denied() -> None:
+    """Valio Aimo cannot deliver it, so not even a person may order it."""
+    world = _world_with_offer(_offer("o_1", _line(available_qty=50, sales_units_needed=100)))
+
+    cart = world.create(_buy(100))
+
+    assert cart.state is CartState.DENIED
+    assert cart.decision is Decision.DENY
+    assert cart.reason_codes == (ReasonCode.PARTIAL_AVAILABILITY,)
+
+
+def test_unconfirmed_stock_waits_for_the_main_user() -> None:
+    """A terminal product has no stock answer, so the agent may not order it alone."""
+    world = _world_with_offer(_offer("o_1", _line(stock_model=StockModel.TERMINAL)))
+
+    cart = world.create(_buy(10))
+
+    assert cart.state is CartState.PENDING_APPROVAL
+    assert cart.reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)
+
+
+def test_rerun_keeps_the_stock_facts_of_the_offer() -> None:
+    """Checkout and approve rerun the policy from the stored cart, not from the offer."""
+    world = _world_with_offer(_offer("o_1", _line(available_qty=50, sales_units_needed=100)))
+    cart = world.create(_buy(50))
+
+    _, result = world.service.current_policy(world.carts.get(cart.cart_id), NOW)
+
+    assert result.decision is Decision.HUMAN
+    assert [reason.reason_code for reason in result.reasons] == [ReasonCode.PARTIAL_AVAILABILITY]
 
 
 def test_cart_is_stored_with_its_key_and_cart_and_policy_records() -> None:

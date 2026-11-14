@@ -337,6 +337,9 @@ def _priced(item: CartLineInput, offer: Offer, now: datetime) -> PricedLine:
         delivery_date=offer_line.available_date,
         closing_time=offer_line.closing_time,
         substitute_for=offer_line.substitute_for,
+        stock_model=offer_line.stock_model,
+        available_qty=offer_line.available_qty,
+        needed_qty=offer_line.sales_units_needed,
     )
 
 
@@ -395,6 +398,9 @@ def _cart_line(line: PricedLine, reasons: Iterable[CheckResult]) -> CartLine:
         substitute_for=line.substitute_for,
         reason_codes=tuple(reason.reason_code for reason in own),
         reason_sentences=tuple(reason.sentence for reason in own),
+        stock_model=line.stock_model,
+        available_qty=line.available_qty,
+        needed_qty=line.needed_qty,
     )
 
 
@@ -409,6 +415,9 @@ def _priced_again(line: CartLine) -> PricedLine:
         delivery_date=line.delivery_date,
         closing_time=line.closing_time,
         substitute_for=line.substitute_for,
+        stock_model=line.stock_model,
+        available_qty=line.available_qty,
+        needed_qty=line.needed_qty,
     )
 
 

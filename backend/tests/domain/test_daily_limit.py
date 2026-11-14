@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from app.domain.cart import PricedLine
-from app.domain.enums import Decision, ReasonCode
+from app.domain.enums import Decision, ReasonCode, StockModel
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.daily_limit import DailyLimit
@@ -28,6 +28,9 @@ def _line(total: str, day: date = _DAY) -> PricedLine:
         delivery_date=day,
         closing_time=samples.NOW,
         substitute_for=None,
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        needed_qty=1,
     )
 
 

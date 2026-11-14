@@ -4,7 +4,7 @@ from decimal import Decimal
 from types import MappingProxyType
 
 from app.domain.catalog import SearchQuery
-from app.domain.enums import CartState, Decision, ReasonCode
+from app.domain.enums import CartState, Decision, ReasonCode, StockModel
 from app.domain.offer import SubstituteFor
 
 # Checkout and approve act only on these. Every other state is final.
@@ -47,6 +47,10 @@ class PricedLine:
     delivery_date: date
     closing_time: datetime
     substitute_for: SubstituteFor | None
+    # The offer line's stock, so the policy sees it at create, checkout and approve.
+    stock_model: StockModel | None
+    available_qty: int | None
+    needed_qty: int
 
 
 @dataclass(frozen=True)
@@ -63,6 +67,10 @@ class CartLine:
     substitute_for: SubstituteFor | None
     reason_codes: tuple[ReasonCode, ...]
     reason_sentences: tuple[str, ...]
+    # Defaults for carts stored before the stock check: the rerun reads them as unconfirmed.
+    stock_model: StockModel | None = None
+    available_qty: int | None = None
+    needed_qty: int = 0
 
 
 @dataclass(frozen=True)

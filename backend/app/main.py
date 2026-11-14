@@ -51,6 +51,7 @@ from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.stock_check import StockCheck
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
@@ -210,7 +211,7 @@ def _build_services(
         store.orders,
         store.idempotency,
         mandate_service,
-        PolicyEngine([AutoOrderSwitch(), OrderLimit(), DailyLimit()]),
+        PolicyEngine([AutoOrderSwitch(), OrderLimit(), DailyLimit(), StockCheck()]),
         clock,
         audit_service,
         store.unit_of_work,
