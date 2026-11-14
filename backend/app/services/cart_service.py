@@ -5,6 +5,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey
+from app.domain.audit import cart_sentence, policy_sentence
 from app.domain.cart import (
     OPEN_STATES,
     STATE_BY_DECISION,
@@ -15,7 +16,7 @@ from app.domain.cart import (
     PricedLine,
 )
 from app.domain.constants import CURRENCY, GATEWAY_TIMEZONE, REJECT_MEMORY_MINUTES
-from app.domain.enums import AuditStep, CartState, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, CartState, ReasonCode
 from app.domain.errors import ConflictError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord, request_hash
 from app.domain.mandate import Mandate
@@ -38,7 +39,6 @@ from app.services.ports.unit_of_work import UnitOfWork
 
 _OPERATION = "create_cart"
 _GATEWAY_ACTOR = "gateway"
-_WITHIN_MANDATE = "The cart is within the mandate."
 
 
 class CartService:
@@ -272,7 +272,6 @@ class CartService:
             _GATEWAY_ACTOR,
             sentence,
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={"state": cart.state},
             output_data={"state": expired.state},
             reason_codes=expired.reason_codes,
@@ -284,9 +283,8 @@ class CartService:
         self._audit.record(
             AuditStep.CART,
             agent.agent_id,
-            f"Cart {cart.cart_id}: {len(cart.lines)} lines, {cart.total_ex_vat} {CURRENCY}.",
+            cart_sentence((line.product_id for line in cart.lines), cart.total_ex_vat),
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={
                 "lines": [asdict(item) for item in draft.lines],
                 "request_text": draft.request_text,
@@ -302,9 +300,8 @@ class CartService:
         self._audit.record(
             AuditStep.POLICY,
             agent.agent_id,
-            " ".join(cart.reason_sentences) or _WITHIN_MANDATE,
+            policy_sentence(result.decision, cart.reason_sentences),
             cart_id=cart.cart_id,
-            phase=FlowPhase.ORDER,
             input_data={"total_ex_vat": str(cart.total_ex_vat)},
             output_data={"reason_sentences": list(cart.reason_sentences)},
             decision=result.decision,

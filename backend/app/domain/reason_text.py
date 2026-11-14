@@ -1,9 +1,12 @@
 """One sentence per reason code. The page, the agent's reply and the audit use the same text."""
 
 from datetime import date
+from decimal import Decimal
 from types import MappingProxyType
 
+from app.domain.constants import CURRENCY
 from app.domain.enums import ReasonCode
+from app.domain.money import round_money
 
 REASON_TEXT = MappingProxyType(
     {
@@ -34,3 +37,9 @@ def reason_sentence(code: ReasonCode, **values: object) -> str:
 def day_text(day: date) -> str:
     """Mon 16 Nov: the style of the order pages."""
     return f"{day:%a} {day.day} {day:%b}"
+
+
+def money_text(amount: Decimal) -> str:
+    """1,010.00 EUR: grouped, so the main user reads a large total at a glance."""
+    # Rounded here, because the format spec alone rounds half even.
+    return f"{round_money(amount):,.2f} {CURRENCY}"

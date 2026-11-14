@@ -2,7 +2,7 @@ from dataclasses import replace
 
 from app.domain.agent_key import User
 from app.domain.cart import Cart
-from app.domain.enums import AuditStep, CartState, FlowPhase
+from app.domain.enums import AuditStep, CartState
 from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError
 from app.domain.order import Order
 from app.services.audit_service import AuditService
@@ -101,7 +101,6 @@ class ApprovalService:
             user.user_id,
             f"Rejected by {user.user_id}: {reason}",
             cart_id=cart_id,
-            phase=FlowPhase.APPROVAL,
             input_data={"reason": reason},
             output_data={"state": rejected.state},
             mandate_version=cart.mandate_version,

@@ -15,7 +15,7 @@ from app.adapters.memory.repositories import (
     InMemoryUnitOfWork,
 )
 from app.domain.cart import CartDraft, CartLineInput, PricedLine
-from app.domain.enums import AuditStep, CartState, Decision, ReasonCode
+from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode
 from app.domain.errors import ConflictError, GatewayError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
@@ -185,7 +185,7 @@ def test_over_the_limit_waits_for_the_main_user() -> None:
     assert cart.state is CartState.PENDING_APPROVAL
     assert cart.decision is Decision.HUMAN
     assert cart.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
-    assert cart.reason_sentences == ("Total is over this agent's 500.00 EUR limit.",)
+    assert cart.reason_sentences == ("1,010.00 EUR is over the 500.00 EUR limit.",)
     assert cart.current_reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
 
 
@@ -204,6 +204,23 @@ def test_cart_is_stored_with_its_key_and_cart_and_policy_records() -> None:
     assert policy_record.decision is Decision.HUMAN
     assert policy_record.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
     assert policy_record.mandate_version == 1
+
+
+def test_run_1_cart_and_policy_records_read_as_plain_sentences() -> None:
+    """The main user reads the trail, not the fields, so each step must say what happened."""
+    world = _world_with_offer()
+
+    cart = world.create(_buy(1000))
+
+    cart_record, policy_record = world.audit.for_cart(cart.cart_id)
+    assert cart_record.phase is FlowPhase.ORDER
+    assert cart_record.sentence == (
+        "The agent built a cart with 464306. 1,010.00 EUR ex VAT, fixed price."
+    )
+    assert policy_record.phase is FlowPhase.APPROVAL
+    assert policy_record.sentence == (
+        "The policy sent the cart to a person: 1,010.00 EUR is over the 500.00 EUR limit."
+    )
 
 
 def test_unknown_offer_and_other_buyers_offer_get_the_same_404() -> None:

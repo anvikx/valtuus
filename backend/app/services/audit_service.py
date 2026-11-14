@@ -1,9 +1,9 @@
 from collections.abc import Mapping, Sequence
 from uuid import uuid4
 
-from app.domain.audit import AuditRecord
+from app.domain.audit import AuditRecord, audit_phase
 from app.domain.cart import Cart
-from app.domain.enums import AuditStep, Decision, FlowPhase, ReasonCode
+from app.domain.enums import AuditStep, Decision, ReasonCode
 from app.domain.errors import NotFoundError
 from app.services.ports.clock import Clock
 from app.services.ports.repositories import AuditRepository, CartRepository, OfferRepository
@@ -37,7 +37,6 @@ class AuditService:
         cart_id: str | None = None,
         request_id: str | None = None,
         buyer_id: str | None = None,
-        phase: FlowPhase | None = None,
         input_data: Mapping[str, object] | None = None,
         output_data: Mapping[str, object] | None = None,
         decision: Decision | None = None,
@@ -49,7 +48,7 @@ class AuditService:
             cart_id=cart_id,
             request_id=request_id,
             step=step,
-            phase=phase,
+            phase=audit_phase(step, cart_id),
             actor=actor,
             input_data=input_data or {},
             output_data=output_data or {},
