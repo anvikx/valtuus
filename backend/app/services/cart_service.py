@@ -25,6 +25,7 @@ from app.domain.mandate import Mandate
 from app.domain.money import line_total, total_ex_vat
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
+from app.domain.policy.baseline import build_baseline
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.daily_limit import auto_day_total
 from app.domain.policy.duplicate_order import duplicate_order
@@ -399,6 +400,8 @@ class CartService:
         )
         return PolicyContext(
             mandate=mandate,
+            baseline=build_baseline(self._orders.list_confirmed(buyer_id)),
+            offers={line.offer_id: self._offer(buyer_id, line.offer_id) for line in lines},
             day_orders=tuple(day_orders.values()),
             recent_rejects=recent_rejects,
             now=now,

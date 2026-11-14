@@ -91,6 +91,10 @@ class CartRevisionRepository(Protocol):
 
 
 class OrderRepository(Protocol):
+    def list_confirmed(self, buyer_id: str) -> Sequence[Order]:
+        """All placed orders explicitly approved for this buyer, with no time window."""
+        ...
+
     def get(self, order_id: str) -> Order | None: ...
 
     def by_cart(self, cart_id: str) -> Order | None: ...

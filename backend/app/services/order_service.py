@@ -15,6 +15,7 @@ from app.domain.mandate import Mandate
 from app.domain.offer import Availability, Price
 from app.domain.order import Order, OrderLine
 from app.domain.policy.engine import PolicyResult
+from app.domain.policy.line_reasons import apply_line_reasons
 from app.domain.reason_text import reason_sentence
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService, CurrentPolicy
@@ -190,6 +191,7 @@ class OrderService:
             state=STATE_BY_DECISION[result.decision],
             decision=result.decision,
             reason_codes=codes,
+            lines=apply_line_reasons(cart.lines, result),
             reason_sentences=tuple(reason.sentence for reason in result.reasons),
             current_decision=result.decision,
             current_reason_codes=codes,

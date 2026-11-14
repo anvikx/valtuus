@@ -617,6 +617,8 @@ def test_current_decision_follows_a_new_mandate() -> None:
 
 
 def _stored(world: _World, cart_id: str, state: CartState, deadline: datetime, **changes):
+    if world.offers.get("of_1") is None:
+        world.offers.add(samples.offer())
     cart = dataclasses.replace(samples.cart(cart_id, state), approve_before=deadline, **changes)
     world.carts.add(cart)
     return cart

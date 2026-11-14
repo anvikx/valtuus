@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from app.domain.enums import Decision
+from app.domain.enums import Decision, EnvelopeMode
+
+_DEFAULT_QUANTITY_FACTOR = Decimal("2")
+_DEFAULT_PRICE_INCREASE_PCT = Decimal("10")
 
 # Every GS1 allergen type code the catalog declares (checked 15 Nov 2026, 17,546 products).
 # The policy compares codes exactly, so a code outside this list would match no product.
@@ -78,3 +81,6 @@ class Mandate:
     ranking_weights: RankingWeights
     # Off unless the main user turns it on. A version stored before this field loads as off.
     can_auto_order: bool = False
+    envelope_mode: EnvelopeMode = EnvelopeMode.HUMAN
+    quantity_factor: Decimal = _DEFAULT_QUANTITY_FACTOR
+    price_increase_pct: Decimal = _DEFAULT_PRICE_INCREASE_PCT
