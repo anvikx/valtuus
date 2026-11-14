@@ -109,3 +109,23 @@ def test_logout_ends_the_session() -> None:
     service.logout(token)
 
     assert service.user_for(token) is None
+
+
+def test_password_change_ends_old_sessions() -> None:
+    """A restart with a new password must not keep sessions opened with the old one."""
+    sessions = InMemorySessionRepository()
+    token = _service(sessions=sessions).login(_PASSWORD)
+
+    assert _service(sessions=sessions, password="a-new-password").user_for(token) is None
+    assert _service(sessions=sessions).user_for(token) == _MAIN_USER
+
+
+def test_store_holds_no_password() -> None:
+    """A leaked sessions table must not give the password either."""
+    sessions = InMemorySessionRepository()
+    token = _service(sessions=sessions).login(_PASSWORD)
+
+    stored = sessions.get(hash_session_token(token))
+
+    assert stored is not None
+    assert _PASSWORD not in repr(stored)
