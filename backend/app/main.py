@@ -168,7 +168,13 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
     signer = NullSigner()
     valio = ValioClient(settings.valio_base_url, settings.valio_api_key)
 
-    audit_service = AuditService(store.audit, clock, store.unit_of_work)
+    audit_service = AuditService(
+        store.audit,
+        store.carts,
+        store.offers,
+        clock,
+        store.unit_of_work,
+    )
     mandate_service = MandateService(
         store.mandates,
         clock,

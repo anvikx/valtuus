@@ -46,6 +46,7 @@ _SEARCH = {
         },
     ],
     "excluded": [{"product_id": "465039", "reason_code": "MISSING_ATTRIBUTE"}],
+    "request_id": "r_0123456789abcdef0123456789abcdef",
 }
 
 _OFFER = {
@@ -97,6 +98,7 @@ _OFFER = {
         },
     ],
     "signature": None,
+    "request_id": "r_0123456789abcdef0123456789abcdef",
 }
 
 _CART = {

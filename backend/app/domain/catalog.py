@@ -119,3 +119,4 @@ class SearchResult:
     options: tuple[SearchOption, ...]
     candidates: tuple[SearchCandidate, ...]
     excluded: tuple[ExcludedProduct, ...]
+    request_id: str

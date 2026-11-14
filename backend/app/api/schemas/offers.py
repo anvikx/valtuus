@@ -4,6 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reasons, RequestModel
+from app.domain.audit import REQUEST_ID_PATTERN
 from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
 from app.domain.offer import OfferQuery
 
@@ -37,6 +38,12 @@ class OfferRequest(RequestModel):
         default=False,
         description="true: also offer substitutes for products that cannot be delivered.",
     )
+    request_id: str | None = Field(
+        default=None,
+        pattern=REQUEST_ID_PATTERN,
+        description="request_id from search_products, so the audit trail links the search "
+        "to the cart. null: the gateway starts a new request.",
+    )
 
     def to_domain(self) -> OfferQuery:
         return OfferQuery(
@@ -46,6 +53,7 @@ class OfferRequest(RequestModel):
             deliver_by=self.deliver_by,
             preferred_brands=tuple(self.preferred_brands),
             include_substitutes=self.include_substitutes,
+            request_id=self.request_id,
         )
 
 
@@ -153,3 +161,4 @@ class OfferResponse(BaseModel):
     )
     rejected: list[RejectedProduct] = Field(description="Products with no offer line, and why.")
     signature: str | None = Field(description="Signature of the offer. null in the prototype.")
+    request_id: str | None = Field(description="Id of the buyer request the offer belongs to.")

@@ -58,6 +58,8 @@ class OfferQuery:
     deliver_by: date | None
     preferred_brands: tuple[str, ...]
     include_substitutes: bool
+    # From the search the agent ran first. None: the offer starts a new request.
+    request_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -156,3 +158,5 @@ class Offer:
     proposed_split: ProposedSplit | None
     rejected: tuple[RejectedProduct, ...]
     signature: str | None
+    # None only on offers stored before the field existed.
+    request_id: str | None = None

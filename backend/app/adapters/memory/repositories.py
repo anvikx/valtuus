@@ -129,8 +129,21 @@ class InMemoryAuditRepository:
     def append(self, record: AuditRecord) -> None:
         self._records.append(record)
 
-    def for_cart(self, cart_id: str) -> Sequence[AuditRecord]:
-        return [record for record in self._records if record.cart_id == cart_id]
+    def for_cart(
+        self,
+        cart_id: str,
+        *,
+        buyer_id: str | None = None,
+        request_ids: Sequence[str] = (),
+    ) -> Sequence[AuditRecord]:
+        def linked(record: AuditRecord) -> bool:
+            return (
+                buyer_id is not None
+                and record.buyer_id == buyer_id
+                and record.request_id in request_ids
+            )
+
+        return [record for record in self._records if record.cart_id == cart_id or linked(record)]
 
 
 class InMemoryIdempotencyRepository:

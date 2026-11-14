@@ -143,3 +143,4 @@ class SearchResponse(BaseModel):
     excluded: list[ExcludedProduct] = Field(
         description="Products that matched but that the buyer's rules leave out.",
     )
+    request_id: str = Field(description="Send it with get_offers for the same request.")

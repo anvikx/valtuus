@@ -61,14 +61,20 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
 
     @server.tool()
     def search_products(request: SearchRequest, ctx: Context) -> SearchResponse:
-        """Search the product file. No price and no stock."""
+        """Search the product file. No price and no stock.
+
+        Send the returned request_id with get_offers for the same buyer request.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CATALOG_READ)
             return search_response(services.catalog.search(agent, request.to_domain()))
 
     @server.tool()
     def get_offers(request: OfferRequest, ctx: Context) -> OfferResponse:
-        """Live price and stock for chosen products, ranked by the mandate."""
+        """Live price and stock for chosen products, ranked by the mandate.
+
+        Send request_id from search_products, so the audit trail shows the search.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.OFFER)
             return offer_response(services.offers.get_offers(agent, request.to_domain()))

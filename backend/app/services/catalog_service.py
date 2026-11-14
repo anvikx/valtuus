@@ -20,5 +20,8 @@ class CatalogService:
         self._audit = audit
 
     def search(self, agent: AgentKey, query: SearchQuery) -> SearchResult:
-        """Products whose en, fi or sv name has every query word, also inside a word."""
+        """Products whose en, fi or sv name has every query word, also inside a word.
+
+        Mints request_id with new_request_id and writes the SEARCH record with it.
+        """
         raise NotImplementedError("CatalogService.search")

@@ -87,7 +87,18 @@ class AuditRepository(Protocol):
 
     def append(self, record: AuditRecord) -> None: ...
 
-    def for_cart(self, cart_id: str) -> Sequence[AuditRecord]: ...
+    def for_cart(
+        self,
+        cart_id: str,
+        *,
+        buyer_id: str | None = None,
+        request_ids: Sequence[str] = (),
+    ) -> Sequence[AuditRecord]:
+        """Records of the cart and of the requests that led to it, in insert order.
+
+        A request record joins only when it has this buyer_id. No buyer_id joins none.
+        """
+        ...
 
 
 class IdempotencyRepository(Protocol):

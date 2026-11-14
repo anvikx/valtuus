@@ -261,6 +261,25 @@ def test_audit_for_cart_keeps_the_insert_order(store: _Store) -> None:
     assert records == [samples.audit_record("a_2"), samples.audit_record("a_1")]
 
 
+def test_audit_for_cart_adds_the_records_of_its_requests(store: _Store) -> None:
+    """Search and offer records have no cart yet, so the request id joins them to it."""
+    search = samples.audit_record("a_1", cart_id=None, request_id="r_1")
+    other = samples.audit_record("a_2", cart_id=None, request_id="r_2")
+    intruder = samples.audit_record("a_3", cart_id=None, request_id="r_1", buyer_id="hotel-2")
+    unowned = samples.audit_record("a_4", cart_id=None, request_id="r_1", buyer_id=None)
+    cart = samples.audit_record("a_5", request_id=None)
+    with store.unit_of_work.transaction():
+        for record in (search, other, intruder, unowned, cart):
+            store.audit.append(record)
+
+    linked = store.audit.for_cart("c_1", buyer_id=samples.BUYER_ID, request_ids=["r_1"])
+    no_buyer = store.audit.for_cart("c_1", request_ids=["r_1"])
+
+    assert linked == [search, cart]
+    # Without a buyer, a record with no buyer must not count as a match.
+    assert no_buyer == [cart]
+
+
 def test_used_idempotency_key_is_refused(store: _Store) -> None:
     """Two retries with one key must not both create a cart or an order."""
     record = IdempotencyRecord(
