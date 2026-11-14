@@ -92,6 +92,118 @@ blockquote {
   background: var(--surface-200);
 }
 
+.stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.title {
+  font: var(--type-title);
+}
+
+.heading {
+  font: var(--type-heading);
+}
+
+.label {
+  color: var(--ink-muted);
+  font: var(--type-label);
+}
+
+/* Approval page: facts, quote, chips, reason banners, lines, total, trust mark. */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font: var(--type-small);
+}
+
+.facts dt {
+  color: var(--ink-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.quote {
+  padding: var(--space-2) var(--space-3);
+  border-left: var(--space-1) solid var(--brand);
+  font: var(--type-heading);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font: var(--type-label);
+}
+
+/* Text stays ink: decide on decide-tint is only 4.63:1, so the colour goes on the frame. */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--decide);
+  border-radius: var(--radius-md);
+  background: var(--decide-tint);
+}
+
+.banner-icon {
+  flex: none;
+  color: var(--decide);
+}
+
+.line-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.line-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.trust-mark {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) dashed var(--ink-muted);
+  border-radius: var(--radius-pill);
+  color: var(--ink-muted);
+  font: var(--type-label);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 /* Buttons and inputs: 48 px tap targets. */
 .button {
   min-height: var(--tap-target);
