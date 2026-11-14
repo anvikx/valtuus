@@ -1,6 +1,9 @@
+/* Values come from tokens.css. Light theme only, so form controls do not switch to dark. */
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
+  color-scheme: light;
+  font: var(--type-body);
+  color: var(--ink);
+  background: var(--surface-100);
 }
 
 body {
@@ -8,7 +11,154 @@ body {
 }
 
 main {
-  max-width: 960px;
+  max-width: var(--page-max-width);
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: var(--space-4) var(--space-3);
+}
+
+h1,
+h2,
+h3,
+p,
+blockquote {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--brand);
+  outline-offset: var(--space-1);
+}
+
+/* Page frame: header with the Prototype tag, content, footer. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-bottom: var(--border-width) solid var(--line);
+  background: var(--surface-200);
+}
+
+.app-name {
+  font: var(--type-heading);
+}
+
+.app-footer {
+  margin-top: auto;
+  padding: var(--space-4) var(--space-3);
+  border-top: var(--border-width) solid var(--line);
+  color: var(--ink-muted);
+  font: var(--type-small);
+  text-align: center;
+}
+
+.tag {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--brand-tint);
+  color: var(--brand);
+  font: var(--type-label);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.muted {
+  color: var(--ink-muted);
+  font: var(--type-small);
+}
+
+.card {
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-200);
+}
+
+/* Buttons and inputs: 48 px tap targets. */
+.button {
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font: var(--type-heading);
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
+}
+
+.button-primary {
+  width: 100%;
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.button-text {
+  background: none;
+  color: var(--deny);
+  text-decoration: underline;
+}
+
+.button-quiet {
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-200);
+  color: var(--ink);
+  font: var(--type-small);
+  cursor: pointer;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-label {
+  font: var(--type-label);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--ink-muted);
+  border-radius: var(--radius-sm);
+  background: var(--surface-200);
+  color: var(--ink);
+  font: var(--type-body);
+}
+
+textarea.input {
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+
+.input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.alert {
+  padding: var(--space-3);
+  border-left: var(--space-1) solid var(--deny);
+  border-radius: var(--radius-sm);
+  background: var(--surface-200);
+  color: var(--ink);
 }
