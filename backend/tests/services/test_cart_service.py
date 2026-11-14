@@ -79,7 +79,7 @@ class _World:
         self.mandates = InMemoryMandateRepository()
         self.audit = InMemoryAuditRepository()
         unit_of_work = InMemoryUnitOfWork()
-        audit = AuditService(self.audit, self.clock)
+        audit = AuditService(self.audit, self.clock, unit_of_work)
         for mandate in (_mandate(1, _LIMIT),) if mandates is None else mandates:
             self.mandates.add(mandate)
 

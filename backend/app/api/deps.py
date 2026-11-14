@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, NoReturn
 
 from fastapi import Depends, Request, Security
 from fastapi.security import APIKeyCookie, HTTPAuthorizationCredentials, HTTPBearer
@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.api.errors import error_response
 from app.api.schemas.common import ErrorBody
 from app.domain.agent_key import AgentKey, User
-from app.domain.enums import AgentScope, ErrorCode, UserRole
+from app.domain.enums import AgentScope, ErrorCode, ReasonCode, UserRole
 from app.domain.errors import ForbiddenError, UnauthenticatedError
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -117,6 +117,26 @@ def require_main_user(request: Request, token: _SessionDep) -> User:
 MainUserDep = Annotated[User, Depends(require_main_user)]
 
 
+def require_human_session(
+    request: Request,
+    session: _SessionDep,
+    credentials: _BearerDep,
+) -> User:
+    """The main user, for acts an agent must not do itself, such as approving its own cart.
+
+    A live session decides first, because the browser of the main user may also send a key.
+    A dead cookie does not, so an agent cannot hide its try behind a junk cookie.
+    """
+    has_session = get_services(request).sessions.user_for(session or "") is not None
+    if credentials is not None and not has_session:
+        _refuse_agent_key(request, credentials.credentials)
+
+    return require_main_user(request, session)
+
+
+HumanSessionDep = Annotated[User, Depends(require_human_session)]
+
+
 def require_buyer(scope: AgentScope) -> Callable[..., str]:
     """The buyer_id of an agent key with the scope, or of the main user session.
 
@@ -144,12 +164,34 @@ def buyer_of(user: User) -> str:
 
 
 def _agent_key(request: Request, token: str, scope: AgentScope) -> AgentKey:
+    agent_key = _authenticated(request, token)
+    check_scope(agent_key, scope)
+    return agent_key
+
+
+def _authenticated(request: Request, token: str) -> AgentKey:
     agent_key = get_services(request).agent_keys.authenticate(token)
     if agent_key is None:
         raise UnauthenticatedError(_UNAUTHENTICATED.message, _UNAUTHENTICATED.next_step)
 
-    check_scope(agent_key, scope)
     return agent_key
+
+
+def _refuse_agent_key(request: Request, token: str) -> NoReturn:
+    """A known agent is refused on the record, so the main user sees what it tried."""
+    agent_key = _authenticated(request, token)
+    method = request.method
+    path = request.url.path
+    get_services(request).audit.record_refusal(
+        agent_key.agent_id,
+        f"{agent_key.agent_name} tried {method} {path}, which only the main user can do.",
+        ReasonCode.HUMAN_SESSION_REQUIRED,
+        {"method": method, "path": path},
+    )
+    raise ForbiddenError(
+        "Only the main user can do this. An agent key cannot.",
+        "Ask the main user to do it on the approve page.",
+    )
 
 
 def _bearer_token(scope: Scope) -> str:

@@ -12,6 +12,8 @@ from fastapi.testclient import TestClient
 
 from app.adapters.memory.repositories import InMemoryAgentKeyRepository, InMemoryOrderRepository
 from app.domain.agent_key import hash_agent_key
+from app.domain.audit import AuditRecord
+from app.domain.enums import AgentKeyStatus, AuditStep, ReasonCode
 from app.domain.order import Order
 from app.main import create_app
 
@@ -72,13 +74,27 @@ _OFFERS_PATH = "/api/v1/offers"
 _CARTS_PATH = "/api/v1/carts"
 _LIVE_PATHS = {_OFFERS_PATH, _CARTS_PATH, "/api/v1/carts/c_1"}
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
-_MAIN_USER_CALLS = [
+# A person must do these. An agent key that tries one is refused and recorded.
+_HUMAN_ACTIONS = [
     ("POST", "/api/v1/carts/c_1/approve", None),
     ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
     ("PUT", "/api/v1/mandate", {"max_auto_order_value": "300.00"}),
+]
+_MAIN_USER_READS = [
     ("GET", "/api/v1/agents", None),
     ("GET", "/api/v1/auth/me", None),
 ]
+
+
+class _Records:
+    def __init__(self) -> None:
+        self.records: list[AuditRecord] = []
+
+    def append(self, record: AuditRecord) -> None:
+        self.records.append(record)
+
+    def for_cart(self, cart_id: str) -> list[AuditRecord]:
+        return [record for record in self.records if record.cart_id == cart_id]
 
 
 def _client(app: FastAPI | None = None) -> TestClient:
@@ -174,13 +190,85 @@ def test_a_huge_cart_qty_is_a_validation_error(qty) -> None:
     assert response.json()["error"] == "VALIDATION_ERROR"
 
 
-@pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_CALLS)
+@pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_READS)
 def test_agent_key_does_not_open_main_user_route(method, path, body) -> None:
-    """Only a person approves or changes the rules, so an agent key is not a session."""
+    """An agent key is not a session, so the main user's own pages stay closed to it."""
     response = _client().request(method, path, headers=_AUTH, json=body)
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
     assert response.json()["error"] == "UNAUTHENTICATED"
+
+
+@pytest.mark.parametrize(("method", "path", "body"), _HUMAN_ACTIONS)
+def test_agent_key_on_human_action_is_refused_and_recorded(method, path, body) -> None:
+    """An agent that tries to approve its own cart is stopped, and the main user sees the try."""
+    audit = _Records()
+
+    response = _client(create_app(audit=audit)).request(method, path, headers=_AUTH, json=body)
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.json()["error"] == "FORBIDDEN"
+    [record] = audit.records
+    assert record.step is AuditStep.REFUSED
+    assert record.reason_codes == (ReasonCode.HUMAN_SESSION_REQUIRED,)
+    assert record.input_data == {"method": method, "path": path}
+
+
+def test_dead_session_cookie_does_not_hide_the_agent_try() -> None:
+    """An agent that sends a junk cookie with its key is still refused on the record."""
+    audit = _Records()
+    client = _client(create_app(audit=audit))
+    client.cookies.set("valtuus_session", "not-a-session")
+
+    response = client.post("/api/v1/carts/c_1/approve", headers=_AUTH)
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert [record.step for record in audit.records] == [AuditStep.REFUSED]
+
+
+@pytest.mark.parametrize(("method", "path", "body"), _HUMAN_ACTIONS)
+def test_unknown_key_on_human_action_is_unauthenticated(method, path, body) -> None:
+    """A wrong key proves nothing about the caller, so it gets 401 and writes no record."""
+    audit = _Records()
+
+    response = _client(create_app(audit=audit)).request(
+        method,
+        path,
+        headers={"Authorization": "Bearer not-a-key"},
+        json=body,
+    )
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.json()["error"] == "UNAUTHENTICATED"
+    assert audit.records == []
+
+
+@pytest.mark.parametrize(("method", "path", "body"), _HUMAN_ACTIONS)
+def test_revoked_key_on_human_action_is_unauthenticated(
+    method, path, body, agent_keys: InMemoryAgentKeyRepository
+) -> None:
+    """A revoked agent no longer acts for the buyer, so its tries do not fill the buyer's log."""
+    audit = _Records()
+    app = create_app(agent_keys=agent_keys, audit=audit)
+    seeded = agent_keys.by_hash(hash_agent_key(_AGENT_KEY))
+    agent_keys.add(dataclasses.replace(seeded, status=AgentKeyStatus.REVOKED))
+
+    response = _client(app).request(method, path, headers=_AUTH, json=body)
+
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert audit.records == []
+
+
+@pytest.mark.parametrize(("method", "path", "body"), _HUMAN_ACTIONS)
+def test_session_opens_human_action(method, path, body) -> None:
+    """The browser of the main user may also send a key, so the session decides first."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.request(method, path, headers=_AUTH, json=body)
+
+    # 501: the session check passed and the stub service ran.
+    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
 @pytest.mark.parametrize(("method", "path", "headers", "body"), _SHARED_READS)
