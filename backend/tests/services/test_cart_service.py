@@ -20,6 +20,7 @@ from app.domain.errors import ConflictError, GatewayError, InvalidRequestError, 
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
+from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
@@ -41,6 +42,11 @@ class _Clock:
 
     def now(self) -> datetime:
         return self.at
+
+
+def _auto_order(order_id: str, cart_id: str, delivery_date: date) -> Order:
+    order = samples.order(order_id, cart_id, delivery_date=delivery_date)
+    return dataclasses.replace(order, approved_by=None)
 
 
 class _RacedKeys(InMemoryIdempotencyRepository):
@@ -343,11 +349,12 @@ def test_missing_mandate_is_a_server_error_not_a_404() -> None:
     assert not isinstance(error.value, GatewayError)
 
 
-def test_delivery_day_total_counts_every_placed_order_on_that_date() -> None:
-    """The page says what the whole delivery costs, approved orders included."""
+def test_delivery_day_total_counts_only_auto_orders_on_that_date() -> None:
+    """The page shows the total the daily limit checks. A person approved the other orders."""
     world = _world_with_offer()
-    world.orders.add(samples.order("o_1", "c_old", delivery_date=MONDAY))
-    world.orders.add(samples.order("o_2", "c_other_day", delivery_date=_TUESDAY))
+    world.orders.add(_auto_order("o_1", "c_auto", MONDAY))
+    world.orders.add(samples.order("o_2", "c_approved", delivery_date=MONDAY))
+    world.orders.add(_auto_order("o_3", "c_other_day", _TUESDAY))
 
     cart = world.create(_buy(100))
 
@@ -357,7 +364,7 @@ def test_delivery_day_total_counts_every_placed_order_on_that_date() -> None:
 def test_delivery_day_total_takes_the_highest_date() -> None:
     """With lines on two dates, the larger date total is the one near its limit."""
     world = _world_with_offer(_offer("o_1"), _offer("o_2", _line(_OAT_ID, available_date=_TUESDAY)))
-    world.orders.add(samples.order("o_1", "c_old", delivery_date=_TUESDAY))
+    world.orders.add(_auto_order("o_1", "c_old", _TUESDAY))
 
     cart = world.create(_buy(100), _buy(10, offer_id="o_2", product_id=_OAT_ID))
 
