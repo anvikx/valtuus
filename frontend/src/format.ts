@@ -5,6 +5,8 @@ const HELSINKI = 'Europe/Helsinki'
 const UTC = 'UTC'
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/
+const SECONDS_PER_MINUTE = 60
+const SECONDS_PER_HOUR = 3600
 
 interface Instant {
   readonly date: Date
@@ -65,6 +67,28 @@ export function formatDateTime(value: string): string {
     minute: '2-digit',
   })
   return `${formatDate(value)} ${hour}:${minute}`
+}
+
+/** "10:00:05" */
+export function formatClock(value: string): string {
+  const { hour, minute, second } = partsOf(value, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+  return `${hour}:${minute}:${second}`
+}
+
+/** "41 s", "4 min 7 s" or "31 h 0 min". */
+export function formatElapsed(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR)
+  const minutes = Math.floor((totalSeconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE)
+  const seconds = totalSeconds % SECONDS_PER_MINUTE
+  if (hours > 0) {
+    return `${hours} h ${minutes} min`
+  }
+
+  return minutes > 0 ? `${minutes} min ${seconds} s` : `${seconds} s`
 }
 
 /** 1000 gives "1,000". */

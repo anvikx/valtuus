@@ -224,6 +224,36 @@ blockquote {
   color: var(--deny);
 }
 
+/* Audit timeline: 4 numbered groups, the time in front of each sentence. */
+.timeline,
+.timeline-entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.timeline-entry {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.timeline-time {
+  flex: none;
+  color: var(--ink-muted);
+  font: var(--type-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-elapsed {
+  font: var(--type-label);
+}
+
 .actions {
   display: flex;
   flex-direction: column;

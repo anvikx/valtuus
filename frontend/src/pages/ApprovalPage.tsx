@@ -10,6 +10,7 @@ import {
   type Cart,
   type Session,
 } from '../api.ts'
+import { AuditTimeline } from '../components/AuditTimeline.tsx'
 import { CartReview } from '../components/CartReview.tsx'
 import { DecisionPanel } from '../components/DecisionPanel.tsx'
 import { ResultCard } from '../components/ResultCard.tsx'
@@ -134,6 +135,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     return (
       <main className="stack">
         <ResultCard cart={cart} status={cart.status} />
+        <AuditTimeline audit={audit} requestText={cart.requestText} />
       </main>
     )
   }
