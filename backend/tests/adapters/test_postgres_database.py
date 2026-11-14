@@ -135,6 +135,24 @@ def test_mandate_stored_before_the_switch_loads_with_automatic_orders_off(
     assert latest.can_auto_order is False
 
 
+def test_cart_stored_before_the_stock_facts_reruns_as_unconfirmed(database: Database) -> None:
+    """Rows written before the stock check have no stock facts. The rerun must fail closed."""
+    repository = PostgresCartRepository(database)
+    with database.transaction():
+        repository.add(samples.cart())
+        database.writer().execute(
+            text(
+                "UPDATE carts SET body = jsonb_set(body, '{lines,0}', "
+                "(body #> '{lines,0}') - 'stock_model' - 'available_qty' - 'needed_qty')"
+            ),
+        )
+
+    loaded = repository.get("c_1")
+
+    assert loaded is not None
+    assert loaded.lines[0].stock_model is None
+
+
 def test_racing_orders_for_one_cart_give_one_order(database: Database) -> None:
     """Checkout and approve can run at once on one cart; only one may place the order."""
     repository = PostgresOrderRepository(database)

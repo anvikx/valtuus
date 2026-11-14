@@ -158,6 +158,9 @@ def cart(
         substitute_for=_SUBSTITUTE,
         reason_codes=(ReasonCode.OVER_AUTO_LIMIT,),
         reason_sentences=("Over the limit.",),
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        needed_qty=2,
     )
     return Cart(
         cart_id=cart_id,
