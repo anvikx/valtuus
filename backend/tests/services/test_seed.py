@@ -3,12 +3,12 @@ from decimal import Decimal
 
 import pytest
 
-from app.adapters.memory import (
+from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryMandateRepository,
     InMemoryUserRepository,
 )
-from app.domain.access import hash_agent_key
+from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentScope, UserRole
 from app.services.seed import DEMO_BUYER_ID, DEMO_MAIN_USER_ID, seed_demo
 
