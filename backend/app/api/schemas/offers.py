@@ -4,7 +4,6 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reasons, RequestModel
-from app.domain.constants import MAX_OFFER_CANDIDATES
 from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
 from app.domain.offer import OfferQuery
 
@@ -25,8 +24,7 @@ class OfferRequest(RequestModel):
 
     product_ids: list[str] = Field(
         min_length=1,
-        max_length=MAX_OFFER_CANDIDATES,
-        description="Product codes from search_products.",
+        description="Product codes from search_products. Send all candidates.",
     )
     quantity: PositiveQuantity | None = Field(default=None, description="Quantity, in `unit`.")
     unit: Unit | None = Field(default=None, description="Unit of `quantity`.")
@@ -79,9 +77,9 @@ class OfferLine(Reasons):
     rank: int = Field(description="1 is the best line by the mandate's ranking.")
     tier: OfferTier | None = Field(description="Ranking tier of the line.")
     product_id: str = Field(description="Valio Aimo product code.")
-    gtin: str = Field(description="GTIN of the unit that is ordered.")
+    gtin: str | None = Field(description="GTIN of the unit that is ordered. null: no data.")
     name: str = Field(description="Product name.")
-    brand: str = Field(description="Brand.")
+    brand: str | None = Field(description="Brand. null: no data.")
     country_of_origin: str | None = Field(description="2 letter country code.")
     labels: list[str] = Field(description="Package label codes.")
     allergens: Allergens = Field(description="Allergen data of the product.")
@@ -92,13 +90,15 @@ class OfferLine(Reasons):
     sales_units_needed: int = Field(description="Sales units that cover the requested quantity.")
     unit_price: Decimal = Field(description="Price per sales unit, EUR ex VAT.")
     currency: str = Field(description="Always EUR.")
-    vat_rate: Decimal = Field(description="VAT rate. Prices exclude VAT.")
+    vat_rate: Decimal | None = Field(
+        description="VAT rate. Prices exclude VAT. null: Valio Aimo sent no tax."
+    )
     comparison_price: ComparisonPrice = Field(description="Price per L or per KG, to compare.")
     price_valid_from: date = Field(description="First day of the price.")
     price_valid_to: date = Field(description="Last day of the price.")
-    stock_model: StockModel = Field(
+    stock_model: StockModel | None = Field(
         description="STOCK: Valio Aimo gives a stock count. TERMINAL: no real count, so "
-        "available_qty is null.",
+        "available_qty is null. null: not given, ranked as stock not confirmed.",
     )
     available_qty: int | None = Field(
         description="Stock at source_time, not a reservation. null: not known, or no limit.",
@@ -106,8 +106,9 @@ class OfferLine(Reasons):
     available_date: date = Field(description="First delivery date.")
     closing_time: datetime = Field(description="Order deadline for that date.")
     line_total: Decimal = Field(description="sales_units_needed x unit_price, EUR ex VAT.")
-    max_auto_qty: int = Field(
-        description="Largest quantity the agent may order without the main user.",
+    max_auto_qty: int | None = Field(
+        description="Largest quantity the agent may order without the main user. null: not "
+        "computed, so the cart policy decides. Never read null as 0 or as no limit.",
     )
     substitute_for: SubstituteFor | None = Field(
         description="Product this line replaces. null when it is not a substitute.",

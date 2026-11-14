@@ -16,7 +16,7 @@ from pydantic import SecretStr
 
 from app.domain.constants import GATEWAY_TIMEZONE, VALIO_COOLDOWN_SECONDS
 from app.domain.enums import StockModel, Unit
-from app.domain.errors import UpstreamUnavailableError
+from app.domain.errors import UpstreamRateLimitedError, UpstreamUnavailableError
 from app.domain.offer import Availability, AvailabilitySnapshot, ComparisonPrice, Price
 
 _LOG = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ _SERVER_ERROR = 500
 # The API ignores the customer field and gives every buyer the same price.
 _CUSTOMER = "valtuus"
 _STOCK_MODELS = {"Stock": StockModel.STOCK, "Terminal": StockModel.TERMINAL}
-_PARSE_ERRORS = (KeyError, IndexError, TypeError, ValueError, ArithmeticError)
+_PARSE_ERRORS = (KeyError, IndexError, TypeError, ValueError, ArithmeticError, AttributeError)
 
 type _Json = dict[str, Any]
 
@@ -57,7 +57,7 @@ class ValioClient:
         # A call during the pause would extend the mock's block, so it fails here at once.
         wait = math.ceil(self._paused_until - monotonic())
         if wait > 0:
-            raise _unavailable(f"Try again in {wait} seconds.")
+            raise UpstreamRateLimitedError(wait)
 
         body = {
             "customer": _CUSTOMER,
@@ -82,7 +82,7 @@ class ValioClient:
 
             self._paused_until = monotonic() + VALIO_COOLDOWN_SECONDS
             _LOG.warning("Valio %s answered 429. Pausing all calls.", route)
-            raise _unavailable(f"Try again in {VALIO_COOLDOWN_SECONDS} seconds.") from exc
+            raise UpstreamRateLimitedError(VALIO_COOLDOWN_SECONDS) from exc
         except (OSError, HTTPException, ValueError) as exc:
             raise _unavailable() from exc
 
@@ -141,11 +141,22 @@ def _price(item: _Json) -> Price | None:
     return Price(
         product_id=_text(item["productId"]),
         unit_price=unit_price,
-        vat_rate=_not_negative(item["tax"]["taxRate"]),
+        vat_rate=_vat_rate(item),
         comparison_price=_comparison(item),
         valid_from=_helsinki(catalog["validFrom"]).date(),
         valid_to=_helsinki(catalog["validTo"]).date(),
     )
+
+
+def _vat_rate(item: _Json) -> Decimal | None:
+    # A null tax is real data. Reading it as a failure broke the answer for every other product.
+    # A missing key or a tax that is not an object is still a broken answer: the subscript
+    # raises KeyError or TypeError, which fail closed.
+    tax = item["tax"]
+    if tax is None or tax["taxRate"] is None:
+        return None
+
+    return _not_negative(tax["taxRate"])
 
 
 def _comparison(item: _Json) -> ComparisonPrice | None:
@@ -171,6 +182,7 @@ def _availability(item: _Json) -> Availability:
     amount = first.get("availableAmount")
     available_date = first.get("availableDate")
     closing_time = item.get("closingTime")
+    sales_unit = first.get("salesUnit")
     return Availability(
         product_id=_text(item["productId"]),
         stock_model=_STOCK_MODELS.get(item.get("logisticModel")),
@@ -180,6 +192,7 @@ def _availability(item: _Json) -> Availability:
         available_date=None if available_date is None else date.fromisoformat(available_date),
         closing_time=None if closing_time is None else _helsinki(closing_time),
         is_sales_blocked=bool(item.get("salesBlock") or first.get("salesBlock")),
+        sales_unit=None if sales_unit is None else _text(sales_unit),
     )
 
 

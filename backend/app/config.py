@@ -27,3 +27,5 @@ class Settings(BaseSettings):
     # postgresql+psycopg://... Empty means the in-memory store, which loses all data on
     # restart; Compose refuses to start without it. Secret: the URL holds the password.
     database_url: SecretStr = SecretStr("")
+    # Most product ids one get_offers call takes. Only a guard: a search sends all candidates.
+    candidate_guard: int = 500
