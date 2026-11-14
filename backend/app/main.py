@@ -67,6 +67,20 @@ _API_PREFIX = "/api"
 _MCP_PATH = f"{_API_PREFIX}/mcp"
 _DOCS_PATH = f"{_API_PREFIX}/docs"
 _OPENAPI_PATH = f"{_API_PREFIX}/openapi.json"
+# The first page a reader of /api/docs sees: the rules every call follows.
+_API_DESCRIPTION = f"""
+Lets outside AI agents buy Valio Aimo products within the buyer's mandate.
+
+* **Auth:** an agent sends `Authorization: Bearer <agent key>`. Use **Authorize** to try a call.
+  Routes marked *Main user* need the main user's login session instead.
+* **Flow:** read the mandate, search, get offers, create a cart. Then check out an AUTO cart, or
+  poll a HUMAN cart while the main user decides.
+* **Retries:** create cart and checkout need an `Idempotency-Key` header. Send the same key again
+  on a retry.
+* **Money:** EUR ex VAT, as a decimal string such as `"12.50"`.
+* **Errors:** every error has the body `{{error, message, next_step}}`. Follow `next_step`.
+* **MCP:** the same operations are tools at `{_MCP_PATH}/`.
+"""
 _ROUTERS = (
     health.router,
     catalog.router,
@@ -236,6 +250,7 @@ def create_app(
     app = FastAPI(
         title=settings.app_name,
         lifespan=lifespan,
+        description=_API_DESCRIPTION,
         docs_url=_DOCS_PATH,
         openapi_url=_OPENAPI_PATH,
         # Agents authenticate with a Bearer key, not OAuth2, so Swagger needs no redirect page.

@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -15,6 +16,11 @@ _STATUS = {
     ErrorCode.NOT_FOUND: HTTPStatus.NOT_FOUND,
     ErrorCode.CONFLICT: HTTPStatus.CONFLICT,
     ErrorCode.UPSTREAM_UNAVAILABLE: HTTPStatus.SERVICE_UNAVAILABLE,
+}
+# For the OpenAPI spec of each v1 router: every error status the handlers below can answer,
+# with the body they really send. Built from _STATUS, so a new error code shows up by itself.
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status.value: {"model": ErrorBody, "description": status.phrase} for status in _STATUS.values()
 }
 # RFC 6750 section 3: a 401 names the scheme the client must use.
 _CHALLENGE = {"WWW-Authenticate": "Bearer"}
