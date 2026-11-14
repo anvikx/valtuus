@@ -1,11 +1,225 @@
-import type { ReactElement } from 'react'
+import { useCallback, useEffect, useState, type ReactElement } from 'react'
 
-// Carts that wait for the main user.
-// TODO: needs a list route for open carts. The backend has none yet (CartService.list_for_inbox).
-export function InboxPage(): ReactElement {
+import { getSession, listCarts, type Cart, type CartStatus, type Session } from '../api.ts'
+import { Icon } from '../components/Icon.tsx'
+import { money } from '../components/ResultScreen.tsx'
+import { formatDateTime } from '../format.ts'
+import { isSignedOut, redirectToLogin } from '../session.ts'
+
+interface InboxData {
+  readonly session: Session
+  readonly carts: readonly Cart[]
+}
+
+type LoadState =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'failed' }
+  | { readonly kind: 'ready'; readonly data: InboxData }
+
+interface Outcome {
+  readonly word: string
+  readonly tone: 'done' | 'deny' | 'muted'
+}
+
+// Words only, never reason codes. The colour repeats the word, it is not the signal.
+const OUTCOME: Readonly<Record<Exclude<CartStatus, 'waiting'>, Outcome>> = {
+  ordered: { word: 'Ordered.', tone: 'done' },
+  rejected: { word: 'Rejected.', tone: 'deny' },
+  denied: { word: 'Denied.', tone: 'deny' },
+  expired: { word: 'Expired.', tone: 'muted' },
+  withdrawn: { word: 'Withdrawn.', tone: 'muted' },
+  closed: { word: 'Closed.', tone: 'muted' },
+}
+
+const EMPTY_SENTENCE =
+  'Your agent orders inside your limits. When an order needs you, it appears here and the agent sends you the link.'
+
+async function loadInbox(): Promise<InboxData> {
+  // The session comes first, so a signed out user never gets a cart request.
+  const session = await getSession()
+  return {
+    session,
+    carts: await listCarts(),
+  }
+}
+
+// Local time: "today" is the user's day, not the server's.
+function isToday(value: string | null): boolean {
+  if (value === null) {
+    return false
+  }
+
+  return new Date(value).toDateString() === new Date().toDateString()
+}
+
+function cartHref({ id }: Cart): string {
+  return `/carts/${encodeURIComponent(id)}`
+}
+
+function decidedDetail(cart: Cart): string {
+  const at = cart.decidedAt === null ? null : formatDateTime(cart.decidedAt)
+  return [ordererOrWhy(cart), at].filter((part) => part !== null && part !== '').join(', ')
+}
+
+// An ordered cart keeps the reason it once waited for ("over the limit"). Shown after
+// "Ordered." it reads as a broken rule, so the line says who placed the order instead.
+function ordererOrWhy(cart: Cart): string | null {
+  if (cart.status === 'ordered') {
+    return cart.decidedBy === null
+      ? 'Placed by the agent inside your limits'
+      : `Approved by ${cart.decidedBy}`
+  }
+
+  return cart.status === 'rejected' ? cart.rejectReason : (cart.reasons[0] ?? null)
+}
+
+function WaitingRow({ cart }: { readonly cart: Cart }): ReactElement {
+  const [first, ...others] = cart.reasons
+
   return (
-    <main>
-      <h1>Inbox</h1>
+    <li className="inbox-item">
+      <a className="inbox-row inbox-row-waiting" href={cartHref(cart)}>
+        <span className="inbox-request">{cart.requestText}</span>
+        <span className="inbox-total">{money(cart.total, cart.currency)}</span>
+        <span className="inbox-why">
+          {first}
+          {others.length === 0 ? null : (
+            <span className="inbox-more">
+              {' '}
+              +{others.length} more {others.length === 1 ? 'reason' : 'reasons'}
+            </span>
+          )}
+        </span>
+        <span className="inbox-deadline">Approve before {formatDateTime(cart.approveBefore)}</span>
+        <Icon className="inbox-chevron" name="chevron" />
+      </a>
+    </li>
+  )
+}
+
+function DecidedRow({ cart }: { readonly cart: Cart }): ReactElement {
+  const { word, tone } = OUTCOME[cart.status as Exclude<CartStatus, 'waiting'>]
+
+  return (
+    <li className="inbox-item">
+      <a className="inbox-row inbox-row-decided" href={cartHref(cart)}>
+        <span className="inbox-request">{cart.requestText}</span>
+        <span className="inbox-total">{money(cart.total, cart.currency)}</span>
+        <span className="inbox-result">
+          <span className={`inbox-outcome inbox-outcome-${tone}`}>{word}</span>{' '}
+          <span className="muted">{decidedDetail(cart)}</span>
+        </span>
+        <Icon className="inbox-chevron" name="chevron" />
+      </a>
+    </li>
+  )
+}
+
+function InboxView({ data }: { readonly data: InboxData }): ReactElement {
+  const waiting = data.carts.filter((cart) => cart.status === 'waiting')
+  const decided = data.carts.filter((cart) => cart.status !== 'waiting' && isToday(cart.decidedAt))
+
+  return (
+    <main className="inbox">
+      <header className="inbox-head">
+        <h1 className="page-title">Approvals</h1>
+        <span className="muted">{data.session.buyerId} · Main user</span>
+      </header>
+
+      <section aria-labelledby="inbox-waiting" className="inbox-section">
+        {waiting.length === 0 ? (
+          <div className="inbox-empty">
+            <h2 className="heading" id="inbox-waiting">
+              Nothing waits for you
+            </h2>
+            <p>{EMPTY_SENTENCE}</p>
+          </div>
+        ) : (
+          <>
+            <h2 className="heading" id="inbox-waiting">
+              Waits for you <span className="inbox-count">({waiting.length})</span>
+            </h2>
+            <ul className="inbox-list" role="list">
+              {waiting.map((cart) => (
+                <WaitingRow cart={cart} key={cart.id} />
+              ))}
+            </ul>
+            <p className="muted">Prices are ex VAT. Open an order to approve or reject it.</p>
+          </>
+        )}
+      </section>
+
+      {decided.length === 0 ? null : (
+        <section aria-labelledby="inbox-decided" className="inbox-section">
+          <h2 className="heading" id="inbox-decided">
+            Decided today
+          </h2>
+          <ul className="inbox-list" role="list">
+            {decided.map((cart) => (
+              <DecidedRow cart={cart} key={cart.id} />
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   )
+}
+
+// Carts that wait for the main user.
+export function InboxPage(): ReactElement {
+  const [state, setState] = useState<LoadState>({ kind: 'loading' })
+
+  const load = useCallback(
+    () =>
+      loadInbox().then(
+        (data) => {
+          setState({ kind: 'ready', data })
+        },
+        (error: unknown) => {
+          if (isSignedOut(error)) {
+            redirectToLogin()
+            return
+          }
+
+          setState({ kind: 'failed' })
+        },
+      ),
+    [],
+  )
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  if (state.kind === 'loading') {
+    return (
+      <main>
+        <p className="muted" role="status">
+          Loading the orders.
+        </p>
+      </main>
+    )
+  }
+
+  if (state.kind === 'failed') {
+    return (
+      <main className="stack">
+        <p className="alert" role="alert">
+          The orders could not be loaded.
+        </p>
+        <button
+          className="button button-primary"
+          type="button"
+          onClick={() => {
+            setState({ kind: 'loading' })
+            void load()
+          }}
+        >
+          Retry
+        </button>
+      </main>
+    )
+  }
+
+  return <InboxView data={state.data} />
 }

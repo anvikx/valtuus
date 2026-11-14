@@ -79,6 +79,15 @@ export function formatClock(value: string): string {
   return `${hour}:${minute}:${second}`
 }
 
+/** "10:00" */
+export function formatHourMinute(value: string): string {
+  const { hour, minute } = partsOf(value, {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${hour}:${minute}`
+}
+
 /** "41 s", "4 min 7 s" or "31 h 0 min". */
 export function formatElapsed(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / SECONDS_PER_HOUR)
@@ -100,4 +109,28 @@ export function formatCount(count: number): string {
 export function formatAttribute(code: string): string {
   const words = code.toLowerCase().replaceAll('_', ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
+}
+
+// GS1 allergen type codes of the 14 EU allergens, as the catalog declares them. The backend
+// matches forbidden_allergens against these codes, so the mandate must store the code.
+export const ALLERGEN_WORDS: Readonly<Record<string, string>> = {
+  AM: 'Milk',
+  AW: 'Cereals with gluten',
+  AE: 'Eggs',
+  AF: 'Fish',
+  AC: 'Crustaceans',
+  UM: 'Molluscs',
+  AP: 'Peanuts',
+  AN: 'Tree nuts',
+  AY: 'Soy',
+  AS: 'Sesame',
+  BC: 'Celery',
+  BM: 'Mustard',
+  NL: 'Lupin',
+  AU: 'Sulphites',
+}
+
+/** AM gives "Milk". A code outside the 14 shows as it is, so a stored value is never hidden. */
+export function formatAllergen(code: string): string {
+  return ALLERGEN_WORDS[code] ?? code
 }

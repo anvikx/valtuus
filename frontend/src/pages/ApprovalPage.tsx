@@ -3,18 +3,22 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import {
   ApiError,
   approveCart,
+  changeCart,
   getAudit,
   getCart,
   getSession,
   rejectCart,
   type AuditTrail,
   type Cart,
+  type CartChange,
   type Session,
 } from '../api.ts'
 import { AuditTimeline } from '../components/AuditTimeline.tsx'
-import { CartReview } from '../components/CartReview.tsx'
+import { CartReview, UPDATE_NOTE_ID } from '../components/CartReview.tsx'
 import { DecisionPanel } from '../components/DecisionPanel.tsx'
-import { ResultCard } from '../components/ResultCard.tsx'
+import { OrderedResult } from '../components/OrderedResult.tsx'
+import { ClosedResult } from '../components/ClosedResult.tsx'
+import { UpdateBar } from '../components/UpdateBar.tsx'
 import { isSignedOut, redirectToLogin } from '../session.ts'
 
 interface ApprovalPageProps {
@@ -59,6 +63,40 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   const [failedCall, setFailedCall] = useState<DecisionCall | null>(null)
   // A ref, not state: a second tap before React renders still reads the old isBusy.
   const isBusyRef = useRef(false)
+  const retryButton = useRef<HTMLButtonElement>(null)
+  // The revision the user tapped Review on. A newer revision needs a new tap.
+  const [reviewedRevision, setReviewedRevision] = useState<number | null>(null)
+  // Set after a 409 or a saved change, until the user taps Review.
+  const [shouldFocusReview, setShouldFocusReview] = useState(false)
+  const reviewButton = useRef<HTMLButtonElement>(null)
+  const [isNoteSent, setIsNoteSent] = useState(false)
+  const noteSentLine = useRef<HTMLParagraphElement>(null)
+
+  // The busy state disables the button that had focus, so focus falls to the page body.
+  // Retry takes it once it is enabled, and a keyboard user can send the decision again.
+  useEffect(() => {
+    if (failedCall !== null && !isBusy) {
+      retryButton.current?.focus()
+    }
+  }, [failedCall, isBusy])
+
+  // Same focus loss after a 409 or a saved change: Review is the next step, so it takes the
+  // focus. A note alone makes no new version and no bar, so the "sent" line takes it.
+  useEffect(() => {
+    if (!shouldFocusReview || isBusy) {
+      return
+    }
+
+    const target = reviewButton.current ?? (isNoteSent ? noteSentLine.current : null)
+    target?.focus()
+  }, [shouldFocusReview, isNoteSent, isBusy])
+
+  // The button that had focus leaves with the bar, so focus moves to the "Updated" line.
+  useEffect(() => {
+    if (reviewedRevision !== null) {
+      document.getElementById(UPDATE_NOTE_ID)?.focus()
+    }
+  }, [reviewedRevision])
 
   const load = useCallback(
     () =>
@@ -93,11 +131,18 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     }
 
     if (isConflict(error)) {
+      setShouldFocusReview(true)
       await load()
       return
     }
 
     setFailedCall(() => call)
+  }
+
+  async function sendChange(revision: number, change: CartChange): Promise<void> {
+    await changeCart(cartId, revision, change)
+    setShouldFocusReview(true)
+    setIsNoteSent(change.note.trim() !== '')
   }
 
   async function decide(call: DecisionCall): Promise<void> {
@@ -108,6 +153,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     isBusyRef.current = true
     setIsBusy(true)
     setFailedCall(null)
+    setIsNoteSent(false)
     try {
       await call()
       await load()
@@ -149,39 +195,102 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     )
   }
 
-  const { session, cart, audit } = state.data
+  const { session, cart: latest, audit } = state.data
+  const { update } = latest
+  // Only a waiting cart holds the old version back. A decided cart shows what was decided, even
+  // after a reload resets reviewedRevision.
+  const isReviewPending =
+    latest.status === 'waiting' && update !== null && reviewedRevision !== latest.revision
+  // Until Review, the user keeps the version they were reading. A decision names that version.
+  const cart =
+    update !== null && isReviewPending
+      ? {
+          ...latest,
+          lines: update.previousLines,
+          total: update.previousTotal,
+          deliveryDayTotal: update.previousDeliveryDayTotal,
+          reasons: update.previousReasons,
+        }
+      : latest
+  const timeline = (
+    <AuditTimeline
+      cartId={cartId}
+      audit={audit}
+      requestText={cart.requestText}
+      status={cart.status}
+      initialState={cart.status === 'waiting' ? 'collapsed' : 'open'}
+    />
+  )
+  if (cart.status === 'ordered') {
+    return (
+      <main className="stack">
+        <OrderedResult cart={cart} />
+        {timeline}
+      </main>
+    )
+  }
+
   if (cart.status !== 'waiting') {
     return (
       <main className="stack">
-        <ResultCard cart={cart} status={cart.status} />
-        <AuditTimeline audit={audit} requestText={cart.requestText} />
+        <ClosedResult cart={cart} status={cart.status} />
+        {timeline}
       </main>
     )
   }
 
   return (
-    <main className="stack">
-      <CartReview cart={cart} buyerId={session.buyerId} agentName={audit?.agentName ?? null} />
-      {failedCall === null ? null : (
-        <div className="stack-tight">
-          <p className="alert" role="alert">
-            Your decision was not saved.
+    <main className="approval">
+      <div className="approval-main">
+        {isReviewPending ? (
+          <UpdateBar
+            ref={reviewButton}
+            onReview={() => {
+              setShouldFocusReview(false)
+              setReviewedRevision(latest.revision)
+            }}
+          />
+        ) : null}
+        <CartReview
+          cart={cart}
+          buyerId={session.buyerId}
+          agentName={audit?.agentName ?? null}
+          update={isReviewPending ? undefined : (update ?? undefined)}
+        />
+        {timeline}
+      </div>
+      <aside className="decision" aria-label="Decision">
+        {failedCall === null ? null : (
+          <div className="stack-tight">
+            <p className="alert" role="alert">
+              Your decision was not saved.
+            </p>
+            <button
+              className="button button-primary"
+              type="button"
+              ref={retryButton}
+              disabled={isBusy}
+              onClick={() => void decide(failedCall)}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+        {isNoteSent ? (
+          <p className="muted" ref={noteSentLine} role="status" tabIndex={-1}>
+            Your note was sent to the agent. Its update shows on this page.
           </p>
-          <button
-            className="button button-primary"
-            type="button"
-            disabled={isBusy}
-            onClick={() => void decide(failedCall)}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-      <DecisionPanel
-        isBusy={isBusy}
-        onApprove={() => void decide(() => approveCart(cartId))}
-        onReject={(reason) => void decide(() => rejectCart(cartId, reason))}
-      />
+        ) : null}
+        <DecisionPanel
+          cart={cart}
+          isBusy={isBusy}
+          isReviewPending={isReviewPending}
+          update={isReviewPending ? undefined : (update ?? undefined)}
+          onApprove={() => void decide(() => approveCart(cartId, latest.revision))}
+          onReject={(reason) => void decide(() => rejectCart(cartId, latest.revision, reason))}
+          onChange={(change: CartChange) => void decide(() => sendChange(latest.revision, change))}
+        />
+      </aside>
     </main>
   )
 }

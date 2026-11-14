@@ -5,8 +5,8 @@
   --ink: #1c2321;
   --ink-muted: #56625e;
   --line: #d8dedb;
-  --brand: #0e5a4b;
-  --brand-tint: #e2f0eb;
+  --brand: #005670;
+  --brand-tint: #e0ebee;
   --on-brand: #ffffff;
   --decide: #a8560c;
   --decide-tint: #fbefe1;
@@ -14,12 +14,14 @@
   --done: #1f6f3a;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, monospace;
   --type-display: 650 32px/38px var(--font-sans);
   --type-title: 600 22px/28px var(--font-sans);
   --type-heading: 600 17px/24px var(--font-sans);
   --type-body: 400 16px/24px var(--font-sans);
   --type-small: 400 14px/20px var(--font-sans);
   --type-label: 600 13px/18px var(--font-sans);
+  --type-code: 400 13px/18px var(--font-mono);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -35,5 +37,8 @@
   --focus-ring-width: 3px;
   --border-width: 1px;
   --page-max-width: 640px;
+  --page-wide-width: 1120px;
+  --panel-width: 360px;
+  --scrim: rgb(28 35 33 / 0.55);
   --disabled-opacity: 0.6;
 }

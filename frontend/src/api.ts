@@ -17,6 +17,7 @@ const HTTP_STATUS = {
 const HTTP_METHOD = {
   get: 'GET',
   post: 'POST',
+  put: 'PUT',
 } as const
 
 const AUTH_PATH = {
@@ -54,6 +55,12 @@ const WIRE_STEP = {
 } as const
 
 const MS_PER_SECOND = 1000
+const FIRST_REVISION = 1
+
+const WIRE_UPDATER_TO_LABEL: Readonly<Record<string, string>> = {
+  AGENT: 'the agent',
+  MAIN_USER: 'you',
+}
 
 // Wire types: the backend's JSON, field by field. Fixtures use them too.
 
@@ -98,6 +105,17 @@ export interface WireCartLine {
   readonly substitute_for: unknown
 }
 
+// The version the user last saw, kept while an update waits for Review.
+export interface WireCartVersion {
+  readonly lines: readonly WireCartLine[]
+  readonly total_ex_vat: string
+  readonly delivery_day_total_ex_vat: string
+  readonly reason_sentences: readonly string[]
+  readonly updated_at: string
+  readonly updated_by: string
+  readonly summary: string
+}
+
 export interface WireCart {
   readonly cart_id: string
   readonly state: string
@@ -123,6 +141,9 @@ export interface WireCart {
   readonly decided_at: string | null
   readonly reject_reason: string | null
   readonly approve_url: string | null
+  // Not on the backend yet, so both are optional. A missing revision reads as 1.
+  readonly revision?: number
+  readonly previous_version?: WireCartVersion | null
 }
 
 export interface WireOrderLine {
@@ -175,6 +196,28 @@ export interface WireAudit {
   readonly records: readonly WireAuditRecord[]
 }
 
+export interface WireMandate {
+  readonly buyer_id: string
+  readonly version: number
+  readonly max_auto_order_value: string
+  readonly max_auto_value_per_delivery_date: string
+  readonly preferred_brands: readonly string[]
+  readonly forbidden_allergens: readonly string[]
+  readonly allergen_unknown_policy: string
+}
+
+export interface WireMandateResponse {
+  readonly mandate: WireMandate
+}
+
+export interface WireMandateUpdate {
+  readonly max_auto_order_value: string
+  readonly max_auto_value_per_delivery_date: string
+  readonly preferred_brands: readonly string[]
+  readonly forbidden_allergens: readonly string[]
+  readonly allergen_unknown_policy: string
+}
+
 interface HealthResponse {
   readonly status: string
 }
@@ -188,6 +231,9 @@ export type CartStatus =
   'waiting' | 'ordered' | 'rejected' | 'expired' | 'denied' | 'withdrawn' | 'closed'
 
 export type FlowPhase = 'request' | 'lookup' | 'order' | 'approval'
+
+// ask: the main user decides. block: the agent may not order the product.
+export type AllergenPolicy = 'ask' | 'block' | 'order'
 
 export type ApiErrorKind = 'unauthenticated' | 'conflict' | 'failed'
 
@@ -211,8 +257,31 @@ export interface CartLine {
   readonly deliveryDate: string
 }
 
+export interface CartUpdate {
+  readonly at: string
+  readonly by: string
+  // Plain words for what changed, for example "1,000 L to 800 L". The backend writes it.
+  readonly summary: string
+  readonly previousLines: readonly CartLine[]
+  readonly previousTotal: string
+  readonly previousDeliveryDayTotal: string
+  // The reasons name the total, so the old ones stay with the old total until Review.
+  readonly previousReasons: readonly string[]
+}
+
+// What the change sheet sends. A line with no entry is unchanged.
+export interface CartChange {
+  readonly quantities: Readonly<Record<string, number>>
+  readonly removed: readonly string[]
+  readonly note: string
+}
+
 export interface Cart {
   readonly id: string
+  // Approve and reject send it, so a decision only applies to the version the user saw.
+  readonly revision: number
+  // Set while the cart differs from the version the user last saw.
+  readonly update: CartUpdate | null
   readonly status: CartStatus
   readonly requestText: string
   readonly clarifications: readonly string[]
@@ -243,6 +312,11 @@ export interface AuditEntry {
   readonly phase: FlowPhase
   readonly sentence: string
   readonly at: string
+  // Who the gateway recorded. Null for the request line the UI builds from the cart.
+  readonly actor: string | null
+  // Pretty JSON of the call and the answer. Null when the record carries none.
+  readonly input: string | null
+  readonly output: string | null
 }
 
 export interface AuditTrail {
@@ -251,6 +325,18 @@ export interface AuditTrail {
   readonly startedAt: string | null
   readonly elapsedSeconds: number | null
 }
+
+export interface Mandate {
+  readonly version: number
+  // Money stays a string both ways. Never parse it to a number.
+  readonly maxOrder: string
+  readonly maxPerDay: string
+  readonly preferredBrands: readonly string[]
+  readonly forbidden: readonly string[]
+  readonly unknownPolicy: AllergenPolicy
+}
+
+export type MandateEdit = Omit<Mandate, 'version'>
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind
@@ -358,9 +444,27 @@ function toCartLine(wire: WireCartLine): CartLine {
   }
 }
 
+function toUpdate(wire: WireCartVersion | null | undefined): CartUpdate | null {
+  if (wire === null || wire === undefined) {
+    return null
+  }
+
+  return {
+    at: wire.updated_at,
+    by: WIRE_UPDATER_TO_LABEL[wire.updated_by] ?? 'the agent',
+    summary: wire.summary,
+    previousLines: wire.lines.map(toCartLine),
+    previousTotal: wire.total_ex_vat,
+    previousDeliveryDayTotal: wire.delivery_day_total_ex_vat,
+    previousReasons: wire.reason_sentences,
+  }
+}
+
 function toCart(wire: WireCart): Cart {
   return {
     id: wire.cart_id,
+    revision: wire.revision ?? FIRST_REVISION,
+    update: toUpdate(wire.previous_version),
     status: WIRE_STATE_TO_STATUS[wire.state] ?? 'closed',
     requestText: wire.request_text,
     clarifications: wire.clarifications,
@@ -388,6 +492,12 @@ function toConfirmation(wire: WireOrderConfirmation): OrderConfirmation {
   }
 }
 
+const JSON_INDENT = 2
+
+function prettyJson(value: Readonly<Record<string, unknown>>): string | null {
+  return Object.keys(value).length === 0 ? null : JSON.stringify(value, null, JSON_INDENT)
+}
+
 function toAuditEntries(records: readonly WireAuditRecord[]): AuditEntry[] {
   return records.flatMap((record) => {
     const phase = record.phase === null ? undefined : WIRE_PHASE_TO_PHASE[record.phase]
@@ -401,6 +511,9 @@ function toAuditEntries(records: readonly WireAuditRecord[]): AuditEntry[] {
         phase,
         sentence: record.sentence,
         at: record.created_at,
+        actor: record.actor,
+        input: prettyJson(record.input),
+        output: prettyJson(record.output),
       },
     ]
   })
@@ -427,6 +540,30 @@ function toAuditTrail(wire: WireAudit): AuditTrail {
     agentName: cartRecord?.actor ?? null,
     startedAt: wire.records[0]?.created_at ?? null,
     elapsedSeconds: elapsedSeconds(wire.records),
+  }
+}
+
+const WIRE_POLICY_TO_POLICY: Readonly<Record<string, AllergenPolicy>> = {
+  HUMAN: 'ask',
+  DENY: 'block',
+  AUTO: 'order',
+}
+
+const POLICY_TO_WIRE_POLICY: Readonly<Record<AllergenPolicy, string>> = {
+  ask: 'HUMAN',
+  block: 'DENY',
+  order: 'AUTO',
+}
+
+function toMandate({ mandate }: WireMandateResponse): Mandate {
+  return {
+    version: mandate.version,
+    maxOrder: mandate.max_auto_order_value,
+    maxPerDay: mandate.max_auto_value_per_delivery_date,
+    preferredBrands: mandate.preferred_brands,
+    forbidden: mandate.forbidden_allergens,
+    // An unknown value must not read as permission to order.
+    unknownPolicy: WIRE_POLICY_TO_POLICY[mandate.allergen_unknown_policy] ?? 'ask',
   }
 }
 
@@ -471,17 +608,57 @@ export async function getCart(cartId: string): Promise<Cart> {
   return toCart((await call(HTTP_METHOD.get, cartPath(cartId))) as WireCart)
 }
 
+// The backend orders the list: carts that wait first (earliest deadline on top), then the rest.
+export async function listCarts(): Promise<readonly Cart[]> {
+  const wire = (await call(HTTP_METHOD.get, '/carts')) as readonly WireCart[]
+  return wire.map(toCart)
+}
+
 export async function getAudit(cartId: string): Promise<AuditTrail> {
   const path = `/audit/${encodeURIComponent(cartId)}`
   return toAuditTrail((await call(HTTP_METHOD.get, path)) as WireAudit)
 }
 
-export async function approveCart(cartId: string): Promise<OrderConfirmation> {
-  const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/approve`, {})
+export async function approveCart(cartId: string, revision: number): Promise<OrderConfirmation> {
+  const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/approve`, { revision })
   return toConfirmation(wire as WireOrderConfirmation)
 }
 
-export async function rejectCart(cartId: string, reason: string): Promise<Cart> {
-  const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/reject`, { reason })
+export async function rejectCart(cartId: string, revision: number, reason: string): Promise<Cart> {
+  const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/reject`, { revision, reason })
   return toCart(wire as WireCart)
+}
+
+// Backend gap: this route does not exist yet. The answer is the cart as a new revision.
+export async function changeCart(
+  cartId: string,
+  revision: number,
+  { quantities, removed, note }: CartChange,
+): Promise<Cart> {
+  const wire = await call(HTTP_METHOD.post, `${cartPath(cartId)}/changes`, {
+    revision,
+    quantities,
+    removed_product_ids: removed,
+    note,
+  })
+  return toCart(wire as WireCart)
+}
+
+// Backend gap: GET /api/v1/mandate takes an agent key (require_scope), not the main user
+// session, so on the real backend this answers 401 or 403 for the browser. It needs a session
+// route, for example GET /api/v1/mandate/current. Fixture mode answers it.
+export async function getMandate(): Promise<Mandate> {
+  return toMandate((await call(HTTP_METHOD.get, '/mandate')) as WireMandateResponse)
+}
+
+// Saving makes a new version. The answer carries it.
+export async function saveMandate(edit: MandateEdit): Promise<Mandate> {
+  const update: WireMandateUpdate = {
+    max_auto_order_value: edit.maxOrder,
+    max_auto_value_per_delivery_date: edit.maxPerDay,
+    preferred_brands: edit.preferredBrands,
+    forbidden_allergens: edit.forbidden,
+    allergen_unknown_policy: POLICY_TO_WIRE_POLICY[edit.unknownPolicy],
+  }
+  return toMandate((await call(HTTP_METHOD.put, '/mandate', update)) as WireMandateResponse)
 }

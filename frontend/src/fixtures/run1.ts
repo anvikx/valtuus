@@ -57,6 +57,8 @@ export const PENDING_CART: WireCart = {
   decided_at: null,
   reject_reason: null,
   approve_url: 'https://junction.anvik.fi/carts/c_demo',
+  revision: 1,
+  previous_version: null,
 }
 
 export const ORDER_CONFIRMATION: WireOrderConfirmation = {
@@ -157,7 +159,8 @@ export function withdrawnCart(cartId: string): WireCart {
 function record(
   cartId: string | null,
   id: string,
-  fields: Pick<WireAuditRecord, 'step' | 'phase' | 'actor' | 'sentence' | 'created_at'>,
+  fields: Pick<WireAuditRecord, 'step' | 'phase' | 'actor' | 'sentence' | 'created_at'> &
+    Partial<Pick<WireAuditRecord, 'input' | 'output'>>,
 ): WireAuditRecord {
   return {
     record_id: `a_${id}`,
@@ -180,6 +183,8 @@ export function waitingRecords(cartId: string): WireAuditRecord[] {
       phase: 'LOOKUP',
       actor: AGENT,
       sentence: 'The agent searched for lactose free milk. 6 products matched.',
+      input: { query: 'lactose free milk' },
+      output: { matched: 6 },
       created_at: '2026-11-14T10:00:05+02:00',
     }),
     record(null, 'offer', {
@@ -187,6 +192,8 @@ export function waitingRecords(cartId: string): WireAuditRecord[] {
       phase: 'LOOKUP',
       actor: AGENT,
       sentence: 'The gateway gave 3 signed offers and rejected 3 products: order deadline passed.',
+      input: { product_ids: ['464306', '464398', '469363'], quantity: 1000, unit: 'L' },
+      output: { offers: 3, rejected: 3, reason_codes: ['CUTOFF_PASSED'] },
       created_at: '2026-11-14T10:00:41+02:00',
     }),
     record(cartId, 'cart', {
