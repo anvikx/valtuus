@@ -497,7 +497,7 @@ blockquote {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) 0;
+  padding: var(--space-3) 0;
   border-top: var(--border-width) solid var(--line);
 }
 
