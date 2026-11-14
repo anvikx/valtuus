@@ -100,6 +100,22 @@ export function formatElapsed(totalSeconds: number): string {
   return minutes > 0 ? `${minutes} min ${seconds} s` : `${seconds} s`
 }
 
+/** "28 h left", "40 min left" or "Time is up", from now to a deadline. */
+export function formatTimeLeft(deadline: string, now: Date): string {
+  const seconds = (toInstant(deadline).date.getTime() - now.getTime()) / 1000
+  if (seconds <= 0) {
+    return 'Time is up'
+  }
+
+  // Rounds down, so the page never promises more time than is left. The last minute shows as 1.
+  const hours = Math.floor(seconds / SECONDS_PER_HOUR)
+  if (hours > 0) {
+    return `${hours} h left`
+  }
+
+  return `${Math.max(1, Math.floor(seconds / SECONDS_PER_MINUTE))} min left`
+}
+
 /** 1000 gives "1,000". */
 export function formatCount(count: number): string {
   return count.toLocaleString(LOCALE)
