@@ -29,6 +29,14 @@ class AgentKeyRepository(Protocol):
         """Adds a key, or replaces the key with the same hash (for example to revoke it)."""
         ...
 
+    def mark_used(self, key_hash: str, at: datetime, cutoff: datetime) -> None:
+        """Sets only last_used_at, and only when it is null or not after cutoff.
+
+        A status change made since the read stays, and of two calls that read the same old time,
+        only the first writes.
+        """
+        ...
+
 
 class UserRepository(Protocol):
     def get(self, user_id: str) -> User | None: ...
@@ -66,7 +74,7 @@ class CartRepository(Protocol):
     def add(self, cart: Cart) -> None: ...
 
     def save(self, cart: Cart) -> None:
-        """Stores a new state of a known cart. Lines and prices must not change."""
+        """Stores a new state of a known cart. Lines and prices change only with a new revision."""
         ...
 
 

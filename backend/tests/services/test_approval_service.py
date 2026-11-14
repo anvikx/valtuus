@@ -27,7 +27,7 @@ from app.adapters.postgres.repositories import (
 )
 from app.adapters.signer import NullSigner
 from app.domain.agent_key import User
-from app.domain.cart import Cart, PricedLine
+from app.domain.cart import Cart, CartDraft, CartLineInput, PricedLine
 from app.domain.enums import AuditStep, CartState, Decision, FlowPhase, ReasonCode, UserRole
 from app.domain.errors import (
     ConflictError,
@@ -45,7 +45,7 @@ from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
 from app.services.order_service import OrderService
 from tests.adapters import samples
-from tests.fakes.offer_data import FakePriceSource
+from tests.fakes.offer_data import FakeCatalog, FakePriceSource
 
 _MAIN_USER = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
 _BEFORE_DEADLINE = samples.NOW - timedelta(hours=1)
@@ -116,6 +116,7 @@ class _World:
             self.orders,
             idempotency,
             mandate_service,
+            FakeCatalog(),
             PolicyEngine([OrderLimit(), self.deny]),
             self.clock,
             audit,
@@ -456,3 +457,55 @@ def test_postgres_racing_approves_give_one_order(database: Database) -> None:
     assert isinstance(first, Order)
     assert second == first
     assert world.steps().count(AuditStep.ORDER) == 1
+
+
+def _revise(world: _World) -> Cart:
+    line = CartLineInput(offer_id="of_1", product_id="p_2", qty=3)
+    draft = CartDraft(lines=(line,), request_text="make it 3", clarifications=())
+    return world.cart_service.revise_cart(samples.agent_key(), world.cart.cart_id, 1, draft, "k-r1")
+
+
+def test_withdrawn_cart_cannot_be_approved() -> None:
+    """The buyer said "forget it", so a person's yes must not order it any more."""
+    world = _World()
+    world.cart_service.withdraw_cart(samples.agent_key(), world.cart.cart_id)
+
+    with pytest.raises(ConflictError, match=CartState.WITHDRAWN):
+        world.approve()
+
+    assert world.orders.by_cart(world.cart.cart_id) is None
+
+
+def _approve_while_the_agent_revises(world: _World, monkeypatch) -> Order | Cart:
+    real_get_cart = world.cart_service.get_cart
+
+    def agent_revises_after_the_read(buyer_id: str, cart_id: str) -> Cart:
+        cart = real_get_cart(buyer_id, cart_id)
+        _revise(world)
+        return cart
+
+    monkeypatch.setattr(world.cart_service, "get_cart", agent_revises_after_the_read)
+    return world.approve()
+
+
+def test_approve_of_a_revision_the_main_user_did_not_see_is_refused(monkeypatch) -> None:
+    """The main user said yes to the lines they saw. A newer revision needs its own yes."""
+    world = _World()
+
+    with pytest.raises(ConflictError) as error:
+        _approve_while_the_agent_revises(world, monkeypatch)
+
+    assert "revision 2" in error.value.message
+    assert world.orders.by_cart(world.cart.cart_id) is None
+    assert world.carts.get(world.cart.cart_id).revision == 2
+
+
+def test_postgres_approve_of_an_unseen_revision_is_refused(database: Database, monkeypatch) -> None:
+    """The revision number must survive the store, or the guard would pass a stale yes."""
+    world = _World(database=database)
+
+    with pytest.raises(ConflictError):
+        _approve_while_the_agent_revises(world, monkeypatch)
+
+    assert world.orders.by_cart(world.cart.cart_id) is None
+    assert world.carts.get(world.cart.cart_id).revision == 2

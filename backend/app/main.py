@@ -47,19 +47,20 @@ from app.api import health, well_known
 from app.api.deps import AgentKeyGuard, Services
 from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
-from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
+from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session, verify
 from app.config import Settings
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.checks.cutoff import Cutoff
 from app.domain.policy.checks.envelope import KnownProduct, Quantity
 from app.domain.policy.checks.line_limit import LineLimit
-from app.domain.policy.checks.product_rules import Allergen, Brand, RequiredAttributes, Substitute
+from app.domain.policy.checks.product_rules import Brand, Substitute
 from app.domain.policy.checks.request_rules import Delivery, RequestQuantity
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
+from app.domain.policy.product_safety import ProductSafety
 from app.domain.policy.stock_check import StockCheck
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
@@ -119,6 +120,7 @@ _ROUTERS = (
     agents.router,
     audit.router,
     session.router,
+    verify.router,
 )
 
 
@@ -225,6 +227,7 @@ def _build_services(
         store.orders,
         store.idempotency,
         mandate_service,
+        catalog_store,
         PolicyEngine(
             [
                 AutoOrderSwitch(),
@@ -232,8 +235,6 @@ def _build_services(
                 Quantity(),
                 OrderLimit(),
                 LineLimit(),
-                Allergen(),
-                RequiredAttributes(),
                 Brand(),
                 Substitute(),
                 Delivery(),
@@ -243,12 +244,12 @@ def _build_services(
                 StockCheck(),
                 DuplicateOrder(),
                 PreviouslyRejected(),
+                ProductSafety(),
             ]
         ),
         clock,
         audit_service,
         store.unit_of_work,
-        catalog=catalog_store,
     )
     order_service = OrderService(
         cart_service,
@@ -263,7 +264,7 @@ def _build_services(
         store.unit_of_work,
     )
     return Services(
-        agent_keys=AgentKeyService(store.agent_keys),
+        agent_keys=AgentKeyService(store.agent_keys, clock, store.unit_of_work),
         catalog=CatalogService(
             catalog_store,
             store.mandates,

@@ -1,11 +1,11 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey
-from app.domain.audit import cart_sentence, policy_sentence
+from app.domain.audit import cart_sentence, policy_sentence, revision_sentence
 from app.domain.cart import (
     OPEN_STATES,
     STATE_BY_DECISION,
@@ -15,6 +15,7 @@ from app.domain.cart import (
     CartLineInput,
     CartRevision,
     PricedLine,
+    cart_changes,
 )
 from app.domain.constants import CURRENCY, REJECT_MEMORY_MINUTES
 from app.domain.enums import AuditStep, CartState, ReasonCode, RevisionAuthor
@@ -45,7 +46,19 @@ from app.services.ports.repositories import (
 from app.services.ports.unit_of_work import UnitOfWork
 
 _OPERATION = "create_cart"
+_REVISE = "revise_cart"
 _GATEWAY_ACTOR = "gateway"
+_WITHDRAW_SENTENCE = "The agent withdrew the cart."
+
+
+@dataclass(frozen=True)
+class _CartIdentity:
+    """What a revision keeps from the cart. Everything else comes from the new lines."""
+
+    cart_id: str
+    buyer_id: str
+    agent_name: str
+    revision: int
 
 
 @dataclass(frozen=True)
@@ -69,20 +82,19 @@ class CartService:
         orders: OrderRepository,
         idempotency: IdempotencyRepository,
         mandates: MandateService,
+        catalog: ProductCatalog,
         policy: PolicyEngine,
         clock: Clock,
         audit: AuditService,
         unit_of_work: UnitOfWork,
-        *,
-        catalog: ProductCatalog | None = None,
     ) -> None:
-        self._catalog = catalog
         self._offers = offers
         self._carts = carts
         self._revisions = revisions
         self._orders = orders
         self._idempotency = idempotency
         self._mandates = mandates
+        self._catalog = catalog
         self._policy = policy
         self._clock = clock
         self._audit = audit
@@ -103,10 +115,53 @@ class CartService:
             )
             self._carts.add(cart)
             self._revisions.add(CartRevision(cart, RevisionAuthor.AGENT, self._clock.now()))
-            self._record_cart(agent, draft, cart)
+            sentence = cart_sentence((line.product_id for line in cart.lines), cart.total_ex_vat)
+            self._record_cart(agent, draft, cart, sentence, {})
             self._record_policy(agent, cart, result)
 
         return cart
+
+    def revise_cart(
+        self,
+        agent: AgentKey,
+        cart_id: str,
+        base_revision: int,
+        draft: CartDraft,
+        idempotency_key: str,
+    ) -> Cart:
+        """The next revision of an open cart, with the policy run from the start.
+
+        A retry with the same key gets the cart as get_cart reads it now.
+        """
+        payload = {"cart_id": cart_id, "base_revision": base_revision, **asdict(draft)}
+        fingerprint = request_hash(_REVISE, payload)
+        used = self._idempotency.get(agent.buyer_id, idempotency_key)
+        if used is not None:
+            return self._replay(used, fingerprint)
+
+        claim = IdempotencyRecord(agent.buyer_id, idempotency_key, fingerprint, cart_id)
+        with self._unit_of_work.transaction():
+            cart = self._locked_own(agent.buyer_id, cart_id)
+            # A retry with the same key may have waited on the lock behind the first call. Its
+            # base is now stale, so without this read it would get a 409, not its revision.
+            used = self._idempotency.get(agent.buyer_id, idempotency_key)
+            if used is not None:
+                return self._replay(used, fingerprint)
+
+            if cart.state in OPEN_STATES:
+                return self._store_revision(agent, cart, base_revision, draft, claim)
+
+        # After the commit, so an expiry found on the way is kept.
+        raise _closed(cart)
+
+    def withdraw_cart(self, agent: AgentKey, cart_id: str) -> Cart:
+        """WITHDRAWN is final: the buyer no longer wants the cart, so nobody may approve it."""
+        with self._unit_of_work.transaction():
+            cart = self._locked_own(agent.buyer_id, cart_id)
+            if cart.state in OPEN_STATES:
+                return self._store_withdraw(agent, cart)
+
+        raise _closed(cart)
 
     def get_cart(self, buyer_id: str, cart_id: str) -> Cart:
         """Expiry on read first, then current_decision by the current mandate."""
@@ -174,7 +229,7 @@ class CartService:
         if used.request_hash != fingerprint:
             raise ConflictError(
                 f"Idempotency-Key {used.key} was used for another cart request.",
-                "Use a new Idempotency-Key for a new cart.",
+                "Use a new Idempotency-Key for each new cart or change.",
             )
 
         return self.get_cart(used.buyer_id, used.result_id)
@@ -185,23 +240,99 @@ class CartService:
             self._idempotency.add(claim)
         except ValueError as error:
             raise ConflictError(
-                f"Another call with Idempotency-Key {claim.key} made a cart first.",
+                f"Another call with Idempotency-Key {claim.key} came first.",
                 "Retry with the same Idempotency-Key to get that cart.",
             ) from error
 
-    def _new_cart(self, agent: AgentKey, draft: CartDraft) -> tuple[Cart, PolicyResult]:
+    def _locked_own(self, buyer_id: str, cart_id: str) -> Cart:
+        """The stored cart under its lock, EXPIRED first if its deadline passed."""
+        cart = self._carts.get_locked(cart_id)
+        if cart is None or cart.buyer_id != buyer_id:
+            raise _cart_not_found(cart_id)
+
+        return self.locked_cart(cart_id)
+
+    def _store_revision(
+        self,
+        agent: AgentKey,
+        cart: Cart,
+        base_revision: int,
+        draft: CartDraft,
+        claim: IdempotencyRecord,
+    ) -> Cart:
+        # Every refusal comes before the first write: the memory store cannot roll back.
+        if base_revision != cart.revision:
+            raise _stale_base(cart)
+
+        revised, result = self._decided(cart, draft)
         now = self._clock.now()
+        self._claim(claim)
+        self._keep_base(cart, now)
+        self._carts.save(revised)
+        self._revisions.add(CartRevision(revised, RevisionAuthor.AGENT, now))
+        changes = cart_changes(cart.lines, revised.lines)
+        sentence = revision_sentence(
+            revised.revision,
+            RevisionAuthor.AGENT,
+            changes,
+            revised.total_ex_vat,
+        )
+        self._record_cart(agent, draft, revised, sentence, {"base_revision": base_revision})
+        self._record_policy(agent, revised, result)
+        return revised
+
+    def _keep_base(self, cart: Cart, now: datetime) -> None:
+        """A cart that an older gateway made after the revisions migration has no rows.
+
+        Its base is stored now, so the next revision has one to compare with. The agent is
+        the only author before a revision exists.
+        """
+        stored = {revision.cart.revision for revision in self._revisions.for_cart(cart.cart_id)}
+        if cart.revision not in stored:
+            self._revisions.add(CartRevision(cart, RevisionAuthor.AGENT, now))
+
+    def _store_withdraw(self, agent: AgentKey, cart: Cart) -> Cart:
+        withdrawn = replace(cart, state=CartState.WITHDRAWN)
+        self._carts.save(withdrawn)
+        self._audit.record(
+            AuditStep.CART,
+            agent.agent_id,
+            _WITHDRAW_SENTENCE,
+            cart_id=cart.cart_id,
+            input_data={"state": cart.state, "revision": cart.revision},
+            output_data={"state": withdrawn.state},
+            mandate_version=cart.mandate_version,
+        )
+        return withdrawn
+
+    def _new_cart(self, agent: AgentKey, draft: CartDraft) -> tuple[Cart, PolicyResult]:
+        first = _CartIdentity(f"c_{uuid4().hex}", agent.buyer_id, agent.agent_name, revision=1)
+        return self._built(first, draft)
+
+    def _decided(self, cart: Cart, draft: CartDraft) -> tuple[Cart, PolicyResult]:
+        """The next revision: same cart id and agent, new lines and a new decision."""
+        following = _CartIdentity(
+            cart.cart_id,
+            cart.buyer_id,
+            cart.agent_name,
+            revision=cart.revision + 1,
+        )
+        return self._built(following, draft)
+
+    def _built(self, identity: _CartIdentity, draft: CartDraft) -> tuple[Cart, PolicyResult]:
+        now = self._clock.now()
+        buyer_id = identity.buyer_id
         _refuse_repeated_products(draft.lines)
-        offers = {item.offer_id: self._offer(agent.buyer_id, item.offer_id) for item in draft.lines}
+        offers = {item.offer_id: self._offer(buyer_id, item.offer_id) for item in draft.lines}
         lines = tuple(_priced(item, offers[item.offer_id], now) for item in draft.lines)
-        mandate = self._mandate(agent.buyer_id)
-        context = self._context(agent.buyer_id, mandate, lines, now)
+        mandate = self._mandate(buyer_id)
+        context = self._context(buyer_id, mandate, lines, now)
         result = self._policy.decide(lines, context)
         reason_codes = tuple(reason.reason_code for reason in result.reasons)
         cart = Cart(
-            cart_id=f"c_{uuid4().hex}",
-            buyer_id=agent.buyer_id,
-            agent_name=agent.agent_name,
+            cart_id=identity.cart_id,
+            buyer_id=buyer_id,
+            agent_name=identity.agent_name,
             state=STATE_BY_DECISION[result.decision],
             decision=result.decision,
             reason_codes=reason_codes,
@@ -224,6 +355,7 @@ class CartService:
             decided_by=None,
             decided_at=None,
             reject_reason=None,
+            revision=identity.revision,
         )
         return cart, result
 
@@ -270,15 +402,14 @@ class CartService:
             mandate=mandate,
             baseline=build_baseline(self._orders.list_confirmed(buyer_id)),
             offers={line.offer_id: self._offer(buyer_id, line.offer_id) for line in lines},
-            products={
-                line.product_id: product
-                for line in lines
-                if self._catalog is not None
-                and (product := self._catalog.get(line.product_id)) is not None
-            },
             day_orders=tuple(day_orders.values()),
             recent_rejects=recent_rejects,
             now=now,
+            products={
+                line.product_id: product
+                for line in lines
+                if (product := self._catalog.get(line.product_id)) is not None
+            },
         )
 
     def _with_current_decision(self, cart: Cart, now: datetime) -> Cart:
@@ -314,18 +445,27 @@ class CartService:
         )
         return expired
 
-    def _record_cart(self, agent: AgentKey, draft: CartDraft, cart: Cart) -> None:
+    def _record_cart(
+        self,
+        agent: AgentKey,
+        draft: CartDraft,
+        cart: Cart,
+        sentence: str,
+        extra_input: Mapping[str, object],
+    ) -> None:
         self._audit.record(
             AuditStep.CART,
             agent.agent_id,
-            cart_sentence((line.product_id for line in cart.lines), cart.total_ex_vat),
+            sentence,
             cart_id=cart.cart_id,
             input_data={
+                **extra_input,
                 "lines": [asdict(item) for item in draft.lines],
                 "request_text": draft.request_text,
                 "clarifications": list(draft.clarifications),
             },
             output_data={
+                "revision": cart.revision,
                 "lines": [_priced_record(line) for line in cart.lines],
                 "total_ex_vat": str(cart.total_ex_vat),
             },
@@ -500,3 +640,25 @@ def _by_deadline(cart: Cart) -> tuple[datetime, str]:
 
 def _cart_not_found(cart_id: str) -> NotFoundError:
     return NotFoundError(f"Cart {cart_id} was not found.", "Check the cart id, or make a new cart.")
+
+
+def _closed(cart: Cart) -> ConflictError:
+    if cart.state is CartState.ORDERED:
+        return ConflictError(
+            f"Cart {cart.cart_id} is {cart.state}: already ordered. No change after an order.",
+            "Tell the buyer it is already ordered, and make a new cart for the change.",
+        )
+
+    return ConflictError(
+        f"Cart {cart.cart_id} is {cart.state}, so it cannot change.",
+        "Read the cart to see why. Make a new cart for a new order.",
+    )
+
+
+def _stale_base(cart: Cart) -> ConflictError:
+    current = cart.revision
+    return ConflictError(
+        f"Cart {cart.cart_id} is at revision {current}, not at the base_revision sent.",
+        f"Read the cart, put the change on top of revision {current}, and send "
+        f"base_revision {current}.",
+    )

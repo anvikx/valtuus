@@ -166,6 +166,21 @@ def test_attributes_and_allergens_before_category_and_unit():
     assert {p.product_id for p in result.excluded} == {"forbidden", "unknown"}
 
 
+def test_unknown_allergens_stay_when_nothing_is_forbidden():
+    """Missing allergen data matters only for an allergen the buyer forbids."""
+    unknown = item("unknown", allergens=Allergens(AllergenStatus.UNKNOWN, ()))
+    catalog, _ = service(
+        FakeCatalog(unknown),
+        forbidden_allergens=(),
+        allergen_unknown_policy=Decision.DENY,
+    )
+
+    result = catalog.search(agent_key(), query())
+
+    assert [p.product_id for p in result.candidates] == ["unknown"]
+    assert result.excluded == ()
+
+
 @pytest.mark.parametrize("category", [None, "1"])
 def test_exclusions_are_reported_before_the_category_filter(category):
     unknown = Allergens(AllergenStatus.UNKNOWN, ())

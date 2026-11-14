@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.api.schemas.carts import CartRequest, CartResponse
+from app.api.schemas.carts import CartRequest, CartResponse, RevisionRequest
 from app.api.schemas.catalog import ContentPerSalesUnit, SearchResponse
 from app.api.schemas.mandate import MandateResponse, MandateUpdateRequest
 from app.api.schemas.offers import OfferResponse
@@ -111,6 +111,7 @@ _OFFER = {
 
 _CART = {
     "cart_id": "c_1",
+    "revision": 2,
     "state": "PENDING_APPROVAL",
     "decision": "HUMAN",
     "reason_codes": ["OVER_AUTO_LIMIT"],
@@ -239,6 +240,31 @@ def test_cart_request_refuses_a_price() -> None:
 
     with pytest.raises(ValidationError, match="unit_price"):
         CartRequest.model_validate(body)
+
+
+@pytest.mark.parametrize("base_revision", [None, 0, -1])
+def test_revision_request_needs_a_real_base_revision(base_revision: int | None) -> None:
+    """Without the base, a change could erase a newer revision that the agent never saw."""
+    body = {
+        "lines": [{"offer_id": "o_1", "product_id": "464306", "qty": 800}],
+        "request_text": "make it 800",
+        "base_revision": base_revision,
+    }
+
+    with pytest.raises(ValidationError, match="base_revision"):
+        RevisionRequest.model_validate(body)
+
+
+def test_revision_request_refuses_a_price() -> None:
+    """A revision is priced from the stored offer, the same as a new cart."""
+    body = {
+        "lines": [{"offer_id": "o_1", "product_id": "464306", "qty": 800, "unit_price": "0.01"}],
+        "request_text": "make it 800",
+        "base_revision": 1,
+    }
+
+    with pytest.raises(ValidationError, match="unit_price"):
+        RevisionRequest.model_validate(body)
 
 
 _LIMITS = ["max_auto_order_value", "max_auto_value_per_delivery_date"]

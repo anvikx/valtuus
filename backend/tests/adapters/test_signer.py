@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 from app.adapters.signer import Ed25519Signer, NullSigner
 from app.api.results import order_response
+from app.domain.signature import NotVerified, Verified, VerifyFailure
 from tests.adapters import samples
 
 # RFC 8037 appendix A.1 key and the A.3 thumbprint of its public key.
@@ -83,3 +84,85 @@ def test_null_signer_publishes_no_key():
 
     assert signer.sign(_order_body()) is None
     assert signer.public_keys() == ()
+
+
+def _tampered(token: str) -> str:
+    header, payload, signature = token.split(".")
+    body = json.loads(_b64url_decode(payload))
+    body["total_ex_vat"] = "0.01"
+    changed = base64.urlsafe_b64encode(json.dumps(body).encode()).rstrip(b"=").decode()
+    return f"{header}.{changed}.{signature}"
+
+
+def test_verify_returns_the_signed_payload_and_key():
+    """The page reads the values from the payload, so it must come back exactly as signed."""
+    signer = _signer()
+    token = signer.sign(_order_body())
+
+    result = signer.verify(token)
+
+    assert result == Verified(
+        kid=_RFC_THUMBPRINT,
+        payload=json.loads(_b64url_decode(token.split(".")[1])),
+    )
+
+
+@pytest.mark.parametrize(
+    ("token", "reason"),
+    [
+        pytest.param("not a jws", VerifyFailure.MALFORMED, id="malformed"),
+        pytest.param("a.b.c", VerifyFailure.MALFORMED, id="not-base64-json"),
+        pytest.param(None, VerifyFailure.BAD_SIGNATURE, id="payload-changed"),
+    ],
+)
+def test_verify_refuses_a_changed_or_broken_token(token: str | None, reason: VerifyFailure):
+    """Tamper case 1: one changed payload byte must fail, or a changed price passes as signed."""
+    signer = _signer()
+    token = token or _tampered(signer.sign(_order_body()))
+
+    result = signer.verify(token)
+
+    assert result == NotVerified(reason)
+
+
+def test_verify_refuses_a_token_from_another_key():
+    """A token signed with someone else's key must not pass as Valio Aimo's statement."""
+    other = Ed25519Signer(bytes(range(32)))
+    token = other.sign(_order_body())
+
+    result = _signer().verify(token)
+
+    assert result == NotVerified(VerifyFailure.UNKNOWN_KEY)
+
+
+def test_null_signer_verifies_nothing():
+    """With no signing key the gateway knows no key, so no token can pass."""
+    token = _signer().sign(_order_body())
+
+    result = NullSigner().verify(token)
+
+    assert result == NotVerified(VerifyFailure.UNKNOWN_KEY)
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+@pytest.mark.parametrize("part", [0, 1], ids=["header", "payload"])
+def test_verify_refuses_deep_nesting_without_a_crash(part: int):
+    """The route has no auth. A deeply nested part must give a reason, not a 500."""
+    parts = _signer().sign(_order_body()).split(".")
+    parts[part] = _b64url(b"[" * 100_000 + b"]" * 100_000)
+
+    result = _signer().verify(".".join(parts))
+
+    assert isinstance(result, NotVerified)
+
+
+def test_verify_refuses_junk_in_the_signature_part():
+    """One statement has one signature string. Ignored junk would let two strings pass."""
+    token = _signer().sign(_order_body())
+
+    result = _signer().verify(f"{token}!!!!")
+
+    assert result == NotVerified(VerifyFailure.MALFORMED)

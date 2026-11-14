@@ -2,8 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.domain.audit import audit_phase, policy_sentence
-from app.domain.enums import AuditStep, Decision, FlowPhase
+from app.domain.audit import audit_phase, policy_sentence, revision_sentence
+from app.domain.cart import LineChange
+from app.domain.enums import AuditStep, Decision, FlowPhase, RevisionAuthor
 from app.domain.reason_text import money_text
 
 
@@ -68,3 +69,28 @@ def test_money_text_rounds_half_up():
 def test_policy_sentence_says_the_outcome_then_why(decision, reasons, sentence):
     """The person reads the outcome first and every reason after it, in one line."""
     assert policy_sentence(decision, reasons) == sentence
+
+
+def test_revision_sentence_names_the_author_and_each_change():
+    """The main user reads the trail, so each revision says who changed what."""
+    changes = (
+        LineChange("p_1", "Milk 1 l", qty_before=1000, qty_after=800),
+        LineChange("p_3", "Ground coffee", qty_before=None, qty_after=6),
+        LineChange("p_2", "Oat milk 1 l", qty_before=2, qty_after=None),
+    )
+
+    sentence = revision_sentence(2, RevisionAuthor.MAIN_USER, changes, Decimal("12.50"))
+
+    assert sentence == (
+        "Revision 2 by the main user: Milk 1 l 1,000 to 800, added Ground coffee 6, "
+        "removed Oat milk 1 l. 12.50 EUR ex VAT, fixed price."
+    )
+
+
+def test_revision_with_the_same_lines_says_so():
+    """A revision can change only the request text, and the trail must not look empty."""
+    sentence = revision_sentence(3, RevisionAuthor.AGENT, (), Decimal("1"))
+
+    assert sentence == (
+        "Revision 3 by the agent: the lines did not change. 1.00 EUR ex VAT, fixed price."
+    )

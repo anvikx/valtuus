@@ -65,9 +65,8 @@ class RequestQuantity:
                     ReasonCode.QUANTITY_OVER_REQUEST,
                     reason_sentence(
                         ReasonCode.QUANTITY_OVER_REQUEST,
-                        delivered=delivered,
-                        requested=requested.quantity,
-                        unit=requested.unit or "sales units",
+                        cart_qty=f"{delivered} {requested.unit or 'sales units'}",
+                        requested_qty=f"{requested.quantity} {requested.unit or 'sales units'}",
                     ),
                     line.product_id,
                 )

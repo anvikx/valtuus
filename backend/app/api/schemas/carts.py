@@ -47,6 +47,26 @@ class CartRequest(RequestModel):
         )
 
 
+class RevisionRequest(CartRequest):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "base_revision": 1,
+                    "lines": [{"offer_id": "o_1", "product_id": "464306", "qty": 800}],
+                    "request_text": "make it 800",
+                    "clarifications": [],
+                },
+            ],
+        },
+    )
+
+    base_revision: int = Field(
+        ge=1,
+        description="The revision this change is made on, from the last cart read.",
+    )
+
+
 class RejectRequest(RequestModel):
     model_config = ConfigDict(json_schema_extra={"examples": [{"reason": "Too expensive."}]})
 
@@ -70,6 +90,7 @@ class CartLine(Reasons):
 
 class CartResponse(Reasons):
     cart_id: str = Field(description="Cart id.")
+    revision: int = Field(description="Revision of the lines. Each change makes the next one.")
     state: CartState = Field(
         description="AUTO: check out now. PENDING_APPROVAL: the main user decides. "
         "ORDERED, REJECTED, EXPIRED, DENIED, WITHDRAWN: closed.",
@@ -88,7 +109,7 @@ class CartResponse(Reasons):
     interpreted_request: InterpretedRequest | None = Field(
         description="The search request behind the cart, if known.",
     )
-    lines: list[CartLine] = Field(description="Cart lines. They never change.")
+    lines: list[CartLine] = Field(description="Lines of this revision. They never change.")
     total_ex_vat: Decimal = Field(description="Cart total, EUR ex VAT.")
     currency: str = Field(description="Always EUR.")
     mandate_version: int = Field(description="Mandate version of `decision`.")

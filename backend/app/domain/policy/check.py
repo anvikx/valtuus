@@ -19,12 +19,13 @@ class PolicyContext:
     day_orders: tuple[Order, ...]
     recent_rejects: tuple[Cart, ...]
     now: datetime
+    # By product id. A line with no entry has no product data.
+    products: Mapping[str, Product] = field(default_factory=dict)
     baseline: Mapping[str, ProductBaseline] = field(default_factory=dict)
     offers: Mapping[str, Offer] = field(default_factory=dict)
-    products: Mapping[str, Product] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        for name in ("baseline", "offers", "products"):
+        for name in ("products", "baseline", "offers"):
             object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))
 
 

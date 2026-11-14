@@ -13,16 +13,17 @@ from app.domain.policy.check import PolicyContext
 from app.domain.policy.checks.cutoff import Cutoff
 from app.domain.policy.checks.envelope import KnownProduct, Quantity
 from app.domain.policy.checks.line_limit import LineLimit
-from app.domain.policy.checks.product_rules import Allergen, Brand, RequiredAttributes, Substitute
+from app.domain.policy.checks.product_rules import Brand, Substitute
 from app.domain.policy.checks.request_rules import Delivery, RequestQuantity
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.product_safety import ProductSafety
 from tests.adapters import samples
 from tests.fakes.offer_data import product
 
 _PRODUCT_ID = samples.offer().lines[0].product_id
 _PRICE = Decimal("1.00")
-_ENGINE = PolicyEngine((KnownProduct(), Quantity(), OrderLimit(), Allergen()))
+_ENGINE = PolicyEngine((KnownProduct(), Quantity(), OrderLimit(), ProductSafety()))
 
 
 def _lines(qty=40, **changes):
@@ -161,7 +162,7 @@ def test_unknown_allergens_follow_the_mandate(decision):
         allergen_unknown_policy=decision,
     )
 
-    results = Allergen().evaluate(_lines(), context)
+    results = ProductSafety().evaluate(_lines(), context)
 
     assert [reason.decision for reason in results] == (
         [] if decision is Decision.AUTO else [decision]
@@ -171,18 +172,18 @@ def test_unknown_allergens_follow_the_mandate(decision):
 def test_missing_allergens_are_never_assumed_safe():
     context = replace(_context(forbidden_allergens=("nuts",)), products={}, offers={})
 
-    (result,) = Allergen().evaluate(_lines(), context)
+    (result,) = ProductSafety().evaluate(_lines(), context)
 
     assert result.reason_code is ReasonCode.ALLERGEN_UNKNOWN
     assert result.decision is Decision.HUMAN
 
 
-def test_offer_allergens_apply_without_catalog_data():
+def test_missing_catalog_allergens_need_approval():
     context = replace(_context(forbidden_allergens=("oats",)), products={})
 
-    (result,) = Allergen().evaluate(_lines(), context)
+    (result,) = ProductSafety().evaluate(_lines(), context)
 
-    assert result.reason_code is ReasonCode.FORBIDDEN_ALLERGEN
+    assert result.reason_code is ReasonCode.ALLERGEN_UNKNOWN
 
 
 def test_same_input_produces_the_same_result():
@@ -219,7 +220,7 @@ def test_same_input_produces_the_same_result():
             Decision.HUMAN,
         ),
         (
-            RequiredAttributes(),
+            ProductSafety(),
             {},
             {"attributes": ()},
             {"required_attributes": ("LOW_FAT",)},
@@ -248,7 +249,7 @@ def test_cart_rule_failure(check, line_changes, product_changes, rules, code, de
         (Brand(), {}, {"brand": "Arla"}, {"preferred_brands": ()}),
         (Substitute(), {}, {}, {}),
         (
-            RequiredAttributes(),
+            ProductSafety(),
             {},
             {"attributes": ("LOW_FAT",)},
             {"required_attributes": ("LOW_FAT",)},

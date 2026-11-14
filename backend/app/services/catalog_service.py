@@ -11,9 +11,10 @@ from app.domain.catalog_search import (
     fits_search,
     validate_query,
 )
-from app.domain.enums import AllergenStatus, AuditStep, Decision, ReasonCode
+from app.domain.enums import AuditStep, Decision, ReasonCode
 from app.domain.errors import NotFoundError
 from app.domain.mandate import Mandate
+from app.domain.policy.product_safety import allergen_break
 from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
 from app.services.ports.repositories import MandateRepository
@@ -21,14 +22,11 @@ from app.services.ports.unit_of_work import UnitOfWork
 
 
 def _allergen_reason(product: Product, mandate: Mandate) -> ReasonCode | None:
-    if set(product.allergens.contains) & set(mandate.forbidden_allergens):
-        return ReasonCode.FORBIDDEN_ALLERGEN
-    if (
-        product.allergens.status == AllergenStatus.UNKNOWN
-        and mandate.allergen_unknown_policy == Decision.DENY
-    ):
-        return ReasonCode.ALLERGEN_UNKNOWN
-    return None
+    """Only a refusal hides the product. A HUMAN product stays, and its cart waits for a person."""
+    rule_break = allergen_break(product, mandate)
+    if rule_break is None or rule_break.decision is not Decision.DENY:
+        return None
+    return rule_break.reason_code
 
 
 class CatalogService:

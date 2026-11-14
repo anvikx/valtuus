@@ -3,6 +3,7 @@ from collections.abc import Sequence
 from app.domain.cart import PricedLine
 from app.domain.enums import Decision, ReasonCode
 from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.reason_text import reason_sentence
 
 
 class AutoOrderSwitch:
@@ -15,7 +16,7 @@ class AutoOrderSwitch:
         result = CheckResult(
             decision=Decision.HUMAN,
             reason_code=ReasonCode.AUTO_ORDERS_OFF,
-            sentence="Automatic orders are off.",
+            sentence=reason_sentence(ReasonCode.AUTO_ORDERS_OFF),
             line_id=None,
         )
         return [result]

@@ -45,19 +45,29 @@ from app.domain.order import Order
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.check import CheckResult, PolicyCheck, PolicyContext
 from app.domain.policy.checks.envelope import KnownProduct, Quantity
-from app.domain.policy.checks.product_rules import Allergen
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
+from app.domain.policy.product_safety import ProductSafety
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
 from app.services.offer_service import ISSUER
 from app.services.order_service import OrderService
 from tests.adapters import samples
-from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW, FakePriceSource, price, stock
+from tests.fakes.offer_data import (
+    CLOSING,
+    MILK_ID,
+    MONDAY,
+    NOW,
+    FakeCatalog,
+    FakePriceSource,
+    price,
+    product,
+    stock,
+)
 
 _LIMIT = Decimal("500.00")
 _RAISED = Decimal("1500.00")
@@ -126,6 +136,7 @@ class _World:
         database: Database | None = None,
         *,
         checks: Sequence[PolicyCheck] = (),
+        catalog: FakeCatalog | None = None,
     ) -> None:
         self.clock = _Clock(NOW)
         self.source = source or FakePriceSource([price()], [stock()])
@@ -162,6 +173,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
+            catalog or FakeCatalog(),
             PolicyEngine(
                 [
                     AutoOrderSwitch(),
@@ -707,7 +719,12 @@ def test_auto_order_does_not_expand_confirmed_envelope() -> None:
 
 def test_approval_cannot_override_new_allergen_rule() -> None:
     """An offer that predates a mandate edit must still obey the new forbidden allergens."""
-    world = _World(checks=(Allergen(),))
+    item = dataclasses.replace(
+        product(MILK_ID),
+        allergens=_offer().lines[0].allergens,
+        attributes=samples.mandate().required_attributes,
+    )
+    world = _World(checks=(ProductSafety(),), catalog=FakeCatalog(item))
     cart = world.cart(100)
     user = User(user_id="hotel-1-main", buyer_id=samples.BUYER_ID, role=UserRole.MAIN_USER)
     with world.unit_of_work.transaction():

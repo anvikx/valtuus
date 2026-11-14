@@ -143,6 +143,11 @@ class OrderService:
             if locked.state not in OPEN_STATES:
                 return locked
 
+            # The agent revised the cart after this call read it. The fresh data, and an approve,
+            # were for the old lines, so nothing is placed.
+            if locked.revision != cart.revision:
+                raise _revised(locked)
+
             now = self._clock.now()
             policy = self._cart_service.current_policy(locked, now)
             mandate, result = policy.mandate, policy.result
@@ -367,4 +372,11 @@ def _order_line(line: CartLine, gtin: str | None) -> OrderLine:
         line_total=line.line_total,
         delivery_date=line.delivery_date,
         substitute_for=line.substitute_for,
+    )
+
+
+def _revised(cart: Cart) -> ConflictError:
+    return ConflictError(
+        f"Cart {cart.cart_id} changed to revision {cart.revision} during this call.",
+        "Read the cart again and decide on the current revision.",
     )

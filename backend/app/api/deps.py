@@ -14,6 +14,7 @@ from app.api.schemas.common import ErrorBody
 from app.domain.agent_key import AgentKey, User
 from app.domain.enums import AgentScope, ErrorCode, ReasonCode, UserRole
 from app.domain.errors import ForbiddenError, UnauthenticatedError
+from app.domain.reason_text import reason_sentence
 from app.services.agent_key_service import AgentKeyService
 from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
@@ -186,7 +187,12 @@ def _refuse_agent_key(request: Request, token: str) -> NoReturn:
     path = request.url.path
     get_services(request).audit.record_refusal(
         agent_key.agent_id,
-        f"{agent_key.agent_name} tried {method} {path}, which only the main user can do.",
+        reason_sentence(
+            ReasonCode.HUMAN_SESSION_REQUIRED,
+            agent_name=agent_key.agent_name,
+            method=method,
+            path=path,
+        ),
         ReasonCode.HUMAN_SESSION_REQUIRED,
         {"method": method, "path": path},
     )

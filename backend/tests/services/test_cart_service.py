@@ -30,20 +30,22 @@ from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
-from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.check import CheckResult, PolicyCheck, PolicyContext
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
+from app.domain.policy.product_safety import ProductSafety
 from app.domain.policy.stock_check import StockCheck
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
 from tests.adapters import samples
-from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW
+from tests.fakes.offer_data import CLOSING, MILK_ID, MONDAY, NOW, FakeCatalog, product
 
 _LIMIT = Decimal("500.00")
 _KEY = "k-1"
+_REVISE_KEY = "k-r1"
 _OAT_ID = "465039"
 _TUESDAY = MONDAY + timedelta(days=1)
 
@@ -87,7 +89,7 @@ class _World:
         self,
         idempotency: InMemoryIdempotencyRepository | None = None,
         mandates: Sequence[Mandate] | None = None,
-        extra_check: _SpyCheck | None = None,
+        extra_check: PolicyCheck | None = None,
     ) -> None:
         self.clock = _Clock(NOW)
         self.offers = InMemoryOfferRepository()
@@ -116,6 +118,7 @@ class _World:
             self.orders,
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
+            FakeCatalog(product()),
             PolicyEngine(checks),
             self.clock,
             audit,
@@ -126,8 +129,18 @@ class _World:
         draft = CartDraft(lines=lines, request_text="milk for Monday", clarifications=())
         return self.service.create_cart(samples.agent_key(buyer_id=buyer), draft, key)
 
+    def revise(self, cart_id: str, *lines: CartLineInput, base: int = 1, key: str = _REVISE_KEY):
+        draft = CartDraft(lines=lines, request_text="make it 800", clarifications=())
+        return self.service.revise_cart(samples.agent_key(), cart_id, base, draft, key)
+
+    def withdraw(self, cart_id: str, buyer: str = samples.BUYER_ID):
+        return self.service.withdraw_cart(samples.agent_key(buyer_id=buyer), cart_id)
+
     def steps(self, cart_id: str) -> list[AuditStep]:
         return [record.step for record in self.audit.for_cart(cart_id)]
+
+    def numbers(self, cart_id: str) -> list[int]:
+        return [revision.cart.revision for revision in self.revisions.for_cart(cart_id)]
 
 
 def _mandate(version: int, limit: Decimal) -> Mandate:
@@ -502,6 +515,38 @@ def test_policy_sees_the_day_orders_and_recent_rejects() -> None:
     assert [order.order_id for order in context.day_orders] == ["o_1"]
     assert [cart.cart_id for cart in context.recent_rejects] == ["c_recent"]
     assert context.now == NOW
+    assert list(context.products) == [MILK_ID]
+
+
+def _milk_rules(version: int, *forbidden: str) -> Mandate:
+    return dataclasses.replace(
+        _mandate(version, _LIMIT),
+        required_attributes=(),
+        forbidden_allergens=forbidden,
+    )
+
+
+def test_cart_with_a_forbidden_allergen_is_denied() -> None:
+    """The agent can skip search and send any product id, so the cart applies the rules."""
+    world = _world_with_offer(mandates=[_milk_rules(1, "AM")], extra_check=ProductSafety())
+
+    cart = world.create(_buy(10))
+
+    assert cart.state is CartState.DENIED
+    assert cart.reason_codes == (ReasonCode.FORBIDDEN_ALLERGEN,)
+
+
+def test_rerun_applies_an_allergen_forbidden_after_the_cart() -> None:
+    """Checkout and approve use the mandate of now, not the one of the cart."""
+    world = _world_with_offer(mandates=[_milk_rules(1)], extra_check=ProductSafety())
+    cart = world.create(_buy(10))
+    world.mandates.add(_milk_rules(2, "AM"))
+
+    result = world.service.current_policy(world.carts.get(cart.cart_id), NOW).result
+
+    assert cart.state is CartState.AUTO
+    assert result.decision is Decision.DENY
+    assert [reason.reason_code for reason in result.reasons] == [ReasonCode.FORBIDDEN_ALLERGEN]
 
 
 def test_other_buyers_cart_is_not_found() -> None:
@@ -625,3 +670,281 @@ def test_inbox_lists_only_the_buyers_own_carts() -> None:
     )
 
     assert world.service.list_for_inbox(samples.BUYER_ID) == []
+
+
+def test_revise_makes_the_next_revision_and_keeps_the_one_before() -> None:
+    """A person approves one revision by its number, so an earlier one must never change."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+
+    revised = world.revise(first.cart_id, _buy(100))
+
+    assert revised.cart_id == first.cart_id
+    assert revised.revision == 2
+    assert [line.qty for line in revised.lines] == [100]
+    assert revised.request_text == "make it 800"
+    assert world.carts.get(first.cart_id) == revised
+    assert world.revisions.for_cart(first.cart_id) == [
+        CartRevision(first, RevisionAuthor.AGENT, NOW),
+        CartRevision(revised, RevisionAuthor.AGENT, NOW),
+    ]
+
+
+def test_revise_runs_the_policy_from_the_start() -> None:
+    """The new lines can cross the limit, so the decision of revision 1 must not carry over."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+
+    revised = world.revise(first.cart_id, _buy(1000))
+
+    assert first.state is CartState.AUTO
+    assert revised.state is CartState.PENDING_APPROVAL
+    assert revised.decision is Decision.HUMAN
+    assert revised.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
+    assert revised.total_ex_vat == Decimal("1010.00")
+
+
+def test_revise_into_the_limit_lets_the_agent_check_out() -> None:
+    """A smaller change can bring the cart back inside the mandate."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+
+    revised = world.revise(first.cart_id, _buy(100))
+
+    assert revised.state is CartState.AUTO
+    assert revised.reason_codes == ()
+
+
+def test_revise_writes_a_cart_and_a_policy_record_for_the_revision() -> None:
+    """The main user reads the trail, so each revision says who changed what, and why."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+
+    world.revise(first.cart_id, _buy(1000))
+
+    *_, cart_record, policy_record = world.audit.for_cart(first.cart_id)
+    assert world.steps(first.cart_id) == [AuditStep.CART, AuditStep.POLICY] * 2
+    assert cart_record.sentence == (
+        f"Revision 2 by the agent: Milk {MILK_ID} 100 to 1,000. 1,010.00 EUR ex VAT, fixed price."
+    )
+    assert cart_record.input_data["base_revision"] == 1
+    assert cart_record.output_data["revision"] == 2
+    assert policy_record.decision is Decision.HUMAN
+
+
+def test_revise_from_an_old_revision_is_refused_and_changes_nothing() -> None:
+    """Two people changed the same cart. The later one must not erase the first change."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    second = world.revise(first.cart_id, _buy(800))
+
+    with pytest.raises(ConflictError) as error:
+        world.revise(first.cart_id, _buy(600), base=1, key="k-r2")
+
+    assert "revision 2" in error.value.message
+    assert "base_revision 2" in error.value.next_step
+    assert world.carts.get(first.cart_id) == second
+    assert world.numbers(first.cart_id) == [1, 2]
+    assert world.idempotency.get(samples.BUYER_ID, "k-r2") is None
+
+
+@pytest.mark.parametrize(
+    "state",
+    [CartState.ORDERED, CartState.REJECTED, CartState.DENIED, CartState.EXPIRED],
+)
+def test_closed_cart_cannot_be_revised(state: CartState) -> None:
+    """After the order or a final no, a change needs a new cart and a new approval."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    closed = dataclasses.replace(first, state=state)
+    world.carts.save(closed)
+
+    with pytest.raises(ConflictError) as error:
+        world.revise(first.cart_id, _buy(800))
+
+    assert state in error.value.message
+    assert world.carts.get(first.cart_id) == closed
+    assert world.numbers(first.cart_id) == [1]
+
+
+def test_ordered_cart_tells_the_agent_to_make_a_new_cart() -> None:
+    """The agent says "Already ordered" to the buyer and offers a new order."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    world.carts.save(dataclasses.replace(first, state=CartState.ORDERED))
+
+    with pytest.raises(ConflictError) as error:
+        world.revise(first.cart_id, _buy(80))
+
+    assert "already ordered" in error.value.message
+    assert "new cart" in error.value.next_step
+
+
+def test_revise_after_the_deadline_keeps_the_expiry() -> None:
+    """No order can reach Valio Aimo after closing time, so the cart ends, also on a change."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    world.clock.at = CLOSING
+
+    with pytest.raises(ConflictError):
+        world.revise(first.cart_id, _buy(800))
+
+    assert world.carts.get(first.cart_id).state is CartState.EXPIRED
+    assert world.numbers(first.cart_id) == [1]
+
+
+def test_revise_with_a_closed_line_is_refused_and_nothing_is_stored() -> None:
+    """A line past its closing time cannot be ordered, so the agent must get new offers."""
+    world = _world_with_offer(
+        _offer("o_1"),
+        _offer("o_2", _line(_OAT_ID, closing_time=NOW)),
+    )
+    first = world.create(_buy(1000))
+
+    with pytest.raises(ConflictError) as error:
+        world.revise(first.cart_id, _buy(1000), _buy(1, offer_id="o_2", product_id=_OAT_ID))
+
+    assert ReasonCode.CUTOFF_PASSED in error.value.message
+    assert world.carts.get(first.cart_id) == first
+    assert world.numbers(first.cart_id) == [1]
+    assert world.idempotency.get(samples.BUYER_ID, _REVISE_KEY) is None
+
+
+def test_revision_is_not_a_duplicate_of_the_one_before() -> None:
+    """The duplicate check looks for an earlier order, never for the cart's own revisions."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+
+    revised = world.revise(first.cart_id, _buy(100))
+
+    assert revised.state is CartState.AUTO
+    assert ReasonCode.DUPLICATE_ORDER not in revised.reason_codes
+    assert revised.duplicate_of_order_id is None
+
+
+def test_revise_retry_with_the_same_key_returns_the_revision() -> None:
+    """A lost answer must not make revision 3, or the agent's retry would fail on its base."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+
+    revised = world.revise(first.cart_id, _buy(800))
+    again = world.revise(first.cart_id, _buy(800))
+
+    assert again == revised
+    assert world.numbers(first.cart_id) == [1, 2]
+    assert world.steps(first.cart_id) == [AuditStep.CART, AuditStep.POLICY] * 2
+
+
+class _LateKeyRead(InMemoryIdempotencyRepository):
+    """Once armed, the next read misses: that call read the key before the first call committed."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.is_armed = False
+
+    def get(self, buyer_id: str, key: str) -> IdempotencyRecord | None:
+        if self.is_armed:
+            self.is_armed = False
+            return None
+
+        return super().get(buyer_id, key)
+
+
+def test_revise_retry_that_waited_on_the_lock_returns_the_revision() -> None:
+    """A retry that waited behind the first call must not get a 409 on its own base."""
+    keys = _LateKeyRead()
+    world = _world_with_offer(idempotency=keys)
+    first = world.create(_buy(1000))
+    revised = world.revise(first.cart_id, _buy(800))
+    keys.is_armed = True
+
+    again = world.revise(first.cart_id, _buy(800))
+
+    assert again == revised
+    assert world.numbers(first.cart_id) == [1, 2]
+
+
+def test_same_revise_key_for_another_change_is_a_conflict() -> None:
+    """Replaying the first change for a different body would order the wrong amount."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    world.revise(first.cart_id, _buy(800))
+
+    with pytest.raises(ConflictError):
+        world.revise(first.cart_id, _buy(600), base=2)
+
+
+def test_other_buyers_cart_cannot_be_revised_or_withdrawn() -> None:
+    """One answer for both, so an agent cannot probe or change other buyers' carts."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    other = samples.agent_key(buyer_id="hotel-2")
+    draft = CartDraft(lines=(_buy(1),), request_text="mine now", clarifications=())
+
+    with pytest.raises(NotFoundError):
+        world.service.revise_cart(other, first.cart_id, 1, draft, _REVISE_KEY)
+    with pytest.raises(NotFoundError):
+        world.withdraw(first.cart_id, buyer="hotel-2")
+
+    assert world.carts.get(first.cart_id) == first
+
+
+def test_cart_with_no_revision_rows_keeps_its_base_on_revise() -> None:
+    """A cart made by an older gateway has no rows. The change must still show what it was."""
+    world = _world_with_offer()
+    old = dataclasses.replace(world.create(_buy(1000)), cart_id="c_old")
+    world.carts.add(old)
+
+    revised = world.revise("c_old", _buy(800))
+
+    assert world.revisions.for_cart("c_old") == [
+        CartRevision(old, RevisionAuthor.AGENT, NOW),
+        CartRevision(revised, RevisionAuthor.AGENT, NOW),
+    ]
+
+
+def test_withdraw_ends_an_open_cart_with_one_record() -> None:
+    """The buyer said "forget it", so the main user must not approve the cart any more."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+
+    withdrawn = world.withdraw(first.cart_id)
+
+    assert withdrawn.state is CartState.WITHDRAWN
+    assert world.carts.get(first.cart_id) == withdrawn
+    assert world.steps(first.cart_id) == [AuditStep.CART, AuditStep.POLICY, AuditStep.CART]
+    assert world.audit.for_cart(first.cart_id)[-1].sentence == "The agent withdrew the cart."
+
+
+@pytest.mark.parametrize(
+    "state",
+    [
+        CartState.ORDERED,
+        CartState.REJECTED,
+        CartState.DENIED,
+        CartState.EXPIRED,
+        CartState.WITHDRAWN,
+    ],
+)
+def test_closed_cart_cannot_be_withdrawn(state: CartState) -> None:
+    """A final state stays final. The 409 names it, so the agent knows what happened."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    closed = dataclasses.replace(first, state=state)
+    world.carts.save(closed)
+
+    with pytest.raises(ConflictError) as error:
+        world.withdraw(first.cart_id)
+
+    assert state in error.value.message
+    assert world.carts.get(first.cart_id) == closed
+
+
+def test_withdrawn_cart_cannot_be_revised() -> None:
+    """WITHDRAWN is final. A new wish needs a new cart."""
+    world = _world_with_offer()
+    first = world.create(_buy(1000))
+    world.withdraw(first.cart_id)
+
+    with pytest.raises(ConflictError, match=CartState.WITHDRAWN):
+        world.revise(first.cart_id, _buy(800))

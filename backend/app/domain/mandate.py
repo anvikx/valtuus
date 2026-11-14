@@ -6,6 +6,57 @@ from app.domain.enums import Decision, EnvelopeMode
 _DEFAULT_QUANTITY_FACTOR = Decimal("2")
 _DEFAULT_PRICE_INCREASE_PCT = Decimal("10")
 
+# Every GS1 allergen type code the catalog declares (checked 15 Nov 2026, 17,546 products).
+# The policy compares codes exactly, so a code outside this list would match no product.
+VALID_ALLERGENS = (
+    "ABD",
+    "AC",
+    "ADQ",
+    "AE",
+    "AF",
+    "AM",
+    "AN",
+    "AP",
+    "AS",
+    "AU",
+    "AW",
+    "AY",
+    "BC",
+    "BF",
+    "BM",
+    "BP",
+    "CM",
+    "GB",
+    "GK",
+    "GO",
+    "GS",
+    "ML",
+    "NC",
+    "NE",
+    "NK",
+    "NL",
+    "NM",
+    "NP",
+    "NR",
+    "NW",
+    "PN",
+    "PO",
+    "SA",
+    "SC",
+    "SH",
+    "SM",
+    "SO",
+    "SP",
+    "SR",
+    "ST",
+    "SW",
+    "UM",
+    "UN",
+    "UW",
+    "X99",
+)
+ALLERGEN_DESCRIPTION = "Valid allergen codes: " + ", ".join(VALID_ALLERGENS) + "."
+
 
 @dataclass(frozen=True)
 class RankingWeights:

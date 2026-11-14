@@ -18,7 +18,7 @@ class LineLimit:
                 ReasonCode.OVER_LINE_LIMIT,
                 reason_sentence(
                     ReasonCode.OVER_LINE_LIMIT,
-                    total=money_text(line.line_total),
+                    line_total=money_text(line.line_total),
                     limit=money_text(limit),
                 ),
                 line.product_id,

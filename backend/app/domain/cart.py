@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -75,7 +76,7 @@ class CartLine:
 
 @dataclass(frozen=True)
 class Cart:
-    """Lines and prices never change after create_cart. Only the state fields move."""
+    """The lines of one revision never change. A change of lines makes the next revision."""
 
     cart_id: str
     buyer_id: str
@@ -113,3 +114,40 @@ class CartRevision:
     cart: Cart
     author: RevisionAuthor
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class LineChange:
+    """A product whose quantity differs between two revisions. None: not in that revision."""
+
+    product_id: str
+    name: str
+    qty_before: int | None
+    qty_after: int | None
+
+
+def cart_changes(
+    before: Iterable[CartLine],
+    after: Iterable[CartLine],
+) -> tuple[LineChange, ...]:
+    """By product id, so a new offer or price for the same quantity is no change.
+
+    The lines of the newer revision come first, in their order, then the removed lines.
+    """
+    old = {line.product_id: line for line in before}
+    new = {line.product_id: line for line in after}
+    kept_or_added = [
+        LineChange(line.product_id, line.name, _qty(old.get(product_id)), line.qty)
+        for product_id, line in new.items()
+        if _qty(old.get(product_id)) != line.qty
+    ]
+    removed = [
+        LineChange(line.product_id, line.name, line.qty, None)
+        for product_id, line in old.items()
+        if product_id not in new
+    ]
+    return (*kept_or_added, *removed)
+
+
+def _qty(line: CartLine | None) -> int | None:
+    return None if line is None else line.qty

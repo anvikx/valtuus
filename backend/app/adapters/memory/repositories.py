@@ -1,3 +1,4 @@
+import dataclasses
 import threading
 from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -44,6 +45,15 @@ class InMemoryAgentKeyRepository:
 
     def add(self, agent_key: AgentKey) -> None:
         self._by_hash[agent_key.key_hash] = agent_key
+
+    def mark_used(self, key_hash: str, at: datetime, cutoff: datetime) -> None:
+        agent_key = self._by_hash.get(key_hash)
+        if agent_key is None:
+            return
+        if agent_key.last_used_at is not None and agent_key.last_used_at > cutoff:
+            return
+
+        self._by_hash[key_hash] = dataclasses.replace(agent_key, last_used_at=at)
 
 
 class InMemoryUserRepository:
