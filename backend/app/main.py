@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from fastapi import FastAPI
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from app.adapters.catalog_downloader import CatalogDownloader
 from app.adapters.clock import SystemClock
@@ -307,6 +308,11 @@ def create_app(
         swagger_ui_oauth2_redirect_url=None,
         redoc_url=None,
     )
+    # Caddy ends TLS and connects from another container, but uvicorn trusts
+    # X-Forwarded-Proto only from 127.0.0.1. Without this, the /api/mcp slash redirect
+    # points to http and clients such as claude.ai refuse it. Trusting every host is safe
+    # because only Caddy can reach the backend port.
+    app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
     install_error_handlers(app)
     for router in _ROUTERS:
         app.include_router(router, prefix=_API_PREFIX)

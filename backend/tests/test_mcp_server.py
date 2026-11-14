@@ -11,8 +11,7 @@ from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus
 from app.main import create_app
 
-# The URL agents register. The trailing slash avoids a redirect, which behind Caddy
-# would point to http.
+# The URL agents register. The trailing slash avoids a redirect.
 _MCP_URL = "/api/mcp/"
 _PROTOCOL_VERSION = "2025-06-18"
 _HEADERS = {
@@ -66,6 +65,21 @@ def test_call_with_wrong_key_is_refused() -> None:
 
 def test_call_with_other_scheme_is_refused() -> None:
     _assert_unauthenticated(_call_ping(create_app(), f"Basic {_AGENT_KEY}"))
+
+
+def test_slash_redirect_keeps_https_behind_proxy() -> None:
+    """Clients such as claude.ai refuse a redirect from https to http, so the connection fails."""
+    proxied = {
+        **_HEADERS,
+        "Host": "junction.anvik.fi",
+        "X-Forwarded-Proto": "https",
+    }
+
+    with TestClient(create_app(), base_url="http://backend:8000") as client:
+        response = client.post("/api/mcp", json=_PING, headers=proxied, follow_redirects=False)
+
+    assert response.status_code == HTTPStatus.TEMPORARY_REDIRECT
+    assert response.headers["location"] == "https://junction.anvik.fi/api/mcp/"
 
 
 def test_call_with_revoked_key_is_refused(agent_keys: InMemoryAgentKeyRepository) -> None:
