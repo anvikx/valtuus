@@ -1,39 +1,315 @@
-<mxfile host="app.diagrams.net" pages="6">
+<mxfile host="app.diagrams.net" pages="8">
   <diagram name="1 Overview" id="ov">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="740" math="0" shadow="0">
+    <mxGraphModel dx="1200" dy="1001" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="740" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="ov1" value="Any agent can buy from Valio Aimo. The buyer keeps control." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="18" width="1160" height="44" as="geometry"/></mxCell>
-        <mxCell id="ov2" value="Valtuus: open to any agent, controlled by the buyer, auditable by both sides." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="62" width="1160" height="30" as="geometry"/></mxCell>
-        <mxCell id="ov3" value="Buyers and their agents" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="240" height="470" as="geometry"/></mxCell>
-        <mxCell id="ov4" value="&lt;b&gt;Kitchen staff&lt;/b&gt;&lt;br&gt;&quot;1,000 L lactose free milk by Monday&quot;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="60" y="165" width="200" height="90" as="geometry"/></mxCell>
-        <mxCell id="ov5" value="&lt;b&gt;Their AI agent&lt;/b&gt;&lt;br&gt;Claude, ChatGPT or their own. Any agent can connect." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="60" y="300" width="200" height="90" as="geometry"/></mxCell>
-        <mxCell id="ov6" value="&lt;b&gt;Main user&lt;/b&gt;&lt;br&gt;Sets the limits. Approves on the phone." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="60" y="470" width="200" height="90" as="geometry"/></mxCell>
-        <mxCell id="ov7" value="Valio Aimo, with Valtuus in front" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#04342C;" vertex="1" parent="1"><mxGeometry x="320" y="120" width="600" height="470" as="geometry"/></mxCell>
-        <mxCell id="ov8" value="&lt;b&gt;Your API says Monday. The deadline was Thursday.&lt;/b&gt;&lt;br&gt;3 products show a Monday date, but their order deadline passed. We refuse them and say what can arrive." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="340" y="165" width="275" height="120" as="geometry"/></mxCell>
-        <mxCell id="ov9" value="&lt;b&gt;Your webshop: 0 results&lt;/b&gt;&lt;br&gt;&quot;laktoositon maito&quot; gives 0 results. &quot;lactose free milk&quot; gives 67, and the first 7 are not milk. The agent finds the right product." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="630" y="165" width="275" height="120" as="geometry"/></mxCell>
-        <mxCell id="ov10" value="&lt;b&gt;Valio Aimo systems&lt;/b&gt;&lt;br&gt;17,546 products. Price and stock APIs, called only for the candidates. Nothing changes inside Valio Aimo." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="340" y="305" width="565" height="110" as="geometry"/></mxCell>
-        <mxCell id="ov11" value="&lt;b&gt;1 Finds the product&lt;/b&gt;&lt;br&gt;Lactose free milk, from 17,546 products" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="340" y="440" width="130" height="125" as="geometry"/></mxCell>
-        <mxCell id="ov12" value="&lt;b&gt;2 Signed offer&lt;/b&gt;&lt;br&gt;Valio Arki Eila, 1.01 EUR per litre" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="485" y="440" width="130" height="125" as="geometry"/></mxCell>
-        <mxCell id="ov13" value="&lt;b&gt;3 Buyer&#x27;s rules&lt;/b&gt;&lt;br&gt;1,010 EUR is over the 500 EUR limit" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="630" y="440" width="130" height="125" as="geometry"/></mxCell>
-        <mxCell id="ov14" value="&lt;b&gt;4 One tap&lt;/b&gt;&lt;br&gt;Approved on the phone. Order signed and recorded" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="775" y="440" width="130" height="125" as="geometry"/></mxCell>
-        <mxCell id="ov15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ov11" target="ov12"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ov16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ov12" target="ov13"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ov17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ov13" target="ov14"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ov18" value="What Valio Aimo gets" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" vertex="1" parent="1"><mxGeometry x="960" y="120" width="240" height="470" as="geometry"/></mxCell>
-        <mxCell id="ov19" value="&lt;b&gt;Orders it can accept&lt;/b&gt;&lt;br&gt;Known agent, the buyer&#x27;s rules, a signed confirmation" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="980" y="165" width="200" height="110" as="geometry"/></mxCell>
-        <mxCell id="ov20" value="&lt;b&gt;Demand it could not meet&lt;/b&gt;&lt;br&gt;Searches with no match, products refused and why" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="980" y="300" width="200" height="110" as="geometry"/></mxCell>
-        <mxCell id="ov21" value="&lt;b&gt;One shared record&lt;/b&gt;&lt;br&gt;Every step in plain words, for the buyer and for Valio Aimo" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="980" y="435" width="200" height="110" as="geometry"/></mxCell>
-        <mxCell id="ov22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ov4" target="ov5"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ov23" value="any agent connects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="ov5" target="ov11"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="295" y="345"/><mxPoint x="295" y="502"/></Array></mxGeometry></mxCell>
-        <mxCell id="ov24" value="one tap" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ov6" target="ov14"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="160" y="615"/><mxPoint x="840" y="615"/></Array></mxGeometry></mxCell>
-        <mxCell id="ov25" value="signed order" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="ov14" target="ov19"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="940" y="502"/><mxPoint x="940" y="220"/></Array></mxGeometry></mxCell>
-        <mxCell id="ov26" value="&lt;b&gt;Nobody has to trust the agent&#x27;s reasoning.&lt;/b&gt;&lt;br&gt;The limits are code. The data is signed. A person signs off outside the limits." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=14;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="640" width="1160" height="60" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ov1" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" value="Any agent can buy from Valio Aimo. The buyer keeps control." vertex="1">
+          <mxGeometry height="44" width="1160" x="40" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ov2" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" value="Valtuus: open to any agent, controlled by the buyer, auditable by both sides." vertex="1">
+          <mxGeometry height="30" width="1160" x="40" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ov3" parent="1" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" value="Buyers and their agents" vertex="1">
+          <mxGeometry height="470" width="240" x="40" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ov4" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" value="&lt;b&gt;Kitchen staff&lt;/b&gt;&lt;br&gt;&quot;1,000 L lactose free milk by Monday&quot;" vertex="1">
+          <mxGeometry height="90" width="200" x="60" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="ov5" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Their AI agent&lt;/b&gt;&lt;br&gt;External agents, integration" vertex="1">
+          <mxGeometry height="90" width="200" x="60" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ov6" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Main user&lt;/b&gt;&lt;br&gt;Sets the limits. Approves on the phone." vertex="1">
+          <mxGeometry height="90" width="200" x="60" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="ov7" parent="1" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#04342C;" value="Valio Aimo, with Valtuus in front" vertex="1">
+          <mxGeometry height="470" width="600" x="320" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ov8" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Your API says Monday. The deadline was Thursday.&lt;/b&gt;&lt;br&gt;3 products show a Monday date, but their order deadline passed. We refuse them and say what can arrive." vertex="1">
+          <mxGeometry height="120" width="275" x="340" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="ov9" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Your webshop: 0 results&lt;/b&gt;&lt;br&gt;&quot;laktoositon maito&quot; gives 0 results. &quot;lactose free milk&quot; gives 67, and the first 7 are not milk. The agent finds the right product." vertex="1">
+          <mxGeometry height="120" width="275" x="630" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="ov10" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Valio Aimo systems&lt;/b&gt;&lt;br&gt;17,546 products. Price and stock APIs, called only for the candidates. Nothing changes inside Valio Aimo." vertex="1">
+          <mxGeometry height="110" width="565" x="340" y="305" as="geometry" />
+        </mxCell>
+        <mxCell id="ov11" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;1 Finds the product&lt;/b&gt;&lt;br&gt;Lactose free milk, from 17,546 products" vertex="1">
+          <mxGeometry height="125" width="130" x="340" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov12" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;2 Signed offer&lt;/b&gt;&lt;br&gt;Valio Arki Eila, 1.01 EUR per litre" vertex="1">
+          <mxGeometry height="125" width="130" x="485" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov13" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;3 Buyer&#39;s rules&lt;/b&gt;&lt;br&gt;1,010 EUR is over the 500 EUR limit" vertex="1">
+          <mxGeometry height="125" width="130" x="630" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov14" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;4 One tap&lt;/b&gt;&lt;br&gt;Approved on the phone. Order signed and recorded" vertex="1">
+          <mxGeometry height="125" width="130" x="775" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov15" edge="1" parent="1" source="ov11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" target="ov12" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov16" edge="1" parent="1" source="ov12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" target="ov13" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov17" edge="1" parent="1" source="ov13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" target="ov14" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov18" parent="1" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" value="What Valio Aimo gets" vertex="1">
+          <mxGeometry height="470" width="240" x="960" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ov19" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Orders it can accept&lt;/b&gt;&lt;br&gt;Known agent, the buyer&#39;s rules, a signed confirmation" vertex="1">
+          <mxGeometry height="110" width="200" x="980" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="ov20" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;Demand it could not meet&lt;/b&gt;&lt;br&gt;Searches with no match, products refused and why" vertex="1">
+          <mxGeometry height="110" width="200" x="980" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ov21" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" value="&lt;b&gt;One shared record&lt;/b&gt;&lt;br&gt;Every step in plain words, for the buyer and for Valio Aimo" vertex="1">
+          <mxGeometry height="110" width="200" x="980" y="435" as="geometry" />
+        </mxCell>
+        <mxCell id="ov22" edge="1" parent="1" source="ov4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" target="ov5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov23" edge="1" parent="1" source="ov5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=3;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ov11" value="REST API, MCP">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="295" y="345" />
+              <mxPoint x="295" y="502" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ov24" edge="1" parent="1" source="ov6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="ov14" value="one tap">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="160" y="615" />
+              <mxPoint x="840" y="615" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ov25" edge="1" parent="1" source="ov14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="ov19" value="signed order">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="940" y="502" />
+              <mxPoint x="940" y="220" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ov26" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=14;align=center;spacing=10;" value="&lt;b&gt;Nobody has to trust the agent&#39;s reasoning.&lt;/b&gt;&lt;br&gt;The limits are code. The data is signed. A person signs off outside the limits." vertex="1">
+          <mxGeometry height="60" width="1160" x="40" y="640" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="2 Purchase flow" id="flow">
+  <diagram name="2 From request to offer" id="req">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="req1" value="From a vague request to the right offer" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="18" width="1160" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="req2" value="The gateway gives facts. The agent asks only when the answer changes the product. The buyer&#39;s rules decide." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="62" width="1160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="req3" value="&lt;b&gt;1 Buyer&#39;s words&lt;/b&gt;&lt;br&gt;&quot;Lactose free milk, 1,000 L, by Monday&quot;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="120" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="req4" value="&lt;b&gt;2 Agent reads it&lt;/b&gt;&lt;br&gt;Product words, must have attributes, quantity, unit, date" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="240" y="120" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="req5" value="&lt;b&gt;3 Gateway search&lt;/b&gt;&lt;br&gt;17,546 products in memory, 3 languages. Groups the hits by category" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="440" y="120" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="req6" value="Product clear?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="660" y="125" width="150" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="req7" value="&lt;b&gt;4 Signed offers&lt;/b&gt;&lt;br&gt;Price and stock for 40 candidates. Reject rules, ranking, split" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="840" y="120" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="req8" value="&lt;b&gt;5 Agent picks&lt;/b&gt;&lt;br&gt;Cheapest offer of the product asked for. Says why" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="120" width="160" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="req9" value="&lt;b&gt;One question&lt;/b&gt;&lt;br&gt;Options from the category groups the search found" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;fontColor=#412402;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="640" y="290" width="190" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="req10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req3" target="req4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req4" target="req5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req5" target="req6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req13" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req6" target="req7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req7" target="req8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req15" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#854F0B;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="req6" target="req9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="req16" value="search again in that category" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#854F0B;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="req9" target="req5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="535" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="req17" value="No LLM in the gateway. Search uses no Valio API call, so the agent searches as often as it needs. Only the 40 candidates get a price and stock call." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="860" y="290" width="340" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="req18" value="Clear request: no question" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#04342C;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="570" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="req19" value="&lt;b&gt;&quot;1,000 L lactose free milk by Monday&quot;&lt;/b&gt;&lt;br&gt;&amp;#8226; 72 hits. Milks are the largest group, so the product is clear&lt;br&gt;&amp;#8226; 40 candidates priced, rejected ones with a reason&lt;br&gt;&amp;#8226; Pick: Valio Arki Eila 1 l at 1.01 EUR per litre&lt;br&gt;&amp;#8226; Coffee milk and chocolate milk are skipped: not asked for" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#2C2C2A;" vertex="1" parent="1">
+          <mxGeometry x="60" y="455" width="530" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="req20" value="Unclear request: one question" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#FAEEDA;strokeColor=#854F0B;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#412402;" vertex="1" parent="1">
+          <mxGeometry x="630" y="420" width="570" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="req21" value="&lt;b&gt;&quot;Cream for 200 portions by Friday&quot;&lt;/b&gt;&lt;br&gt;&amp;#8226; 593 hits in 72 categories. Ice cream is the largest group&lt;br&gt;&amp;#8226; Agent asks: &quot;Which one: whipping or cooking cream, cream cheese, ice cream?&quot;&lt;br&gt;&amp;#8226; Buyer: whipping. Agent searches &quot;whipping cream&quot; in the cream category&lt;br&gt;&amp;#8226; Then the same offers and rules as above" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#2C2C2A;" vertex="1" parent="1">
+          <mxGeometry x="650" y="455" width="530" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="req22" value="Tricky products in the real Valio Aimo data, and what we do" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=17;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="655" width="1160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="req23" value="&lt;b&gt;&quot;milkdrink&quot; in one word&lt;/b&gt;&lt;br&gt;Arla 469363. Words match inside words, so &quot;milk&quot; finds it" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="695" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req24" value="&lt;b&gt;&quot;Milk free&quot; margarine&lt;/b&gt;&lt;br&gt;Has the word milk. A negation after the word removes it" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="695" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req25" value="&lt;b&gt;&quot;5 x Arla 1 L&quot;&lt;/b&gt;&lt;br&gt;The size comes from the unit data, not the name. 5 L, not 25 L" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="695" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req26" value="&lt;b&gt;Brand &quot;Arla &quot; with a space&lt;/b&gt;&lt;br&gt;Brand compare trims spaces and ignores case" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="925" y="695" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req27" value="&lt;b&gt;Stock 999999&lt;/b&gt;&lt;br&gt;Amount not known. Offered as &quot;not confirmed&quot;. A person decides" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="800" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req28" value="&lt;b&gt;API date Monday, deadline passed&lt;/b&gt;&lt;br&gt;Refused with the reason, and what can arrive instead" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="335" y="800" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req29" value="&lt;b&gt;&quot;laktoositon maito&quot;&lt;/b&gt;&lt;br&gt;Webshop: 0 results. We search the en, fi and sv names" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="800" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req30" value="&lt;b&gt;&quot;oat milk&quot;&lt;/b&gt;&lt;br&gt;The product is named &quot;Oat Drink&quot;. The agent tries other words" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="925" y="800" width="280" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="req31" value="&lt;b&gt;Every case above is one automated test on the real product file.&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=14;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="910" width="1160" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="3 Open standards" id="std">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="std1" value="Open standards: any agent can connect, anyone can check" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="18" width="1160" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="std2" value="One service behind each operation. The MCP tool and the REST route call the same code." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="62" width="1160" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="std3" value="Used in the prototype" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#04342C;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="560" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="std4" value="&lt;b&gt;MCP (Model Context Protocol)&lt;/b&gt;&lt;br&gt;Agent tools at /api/mcp. Any MCP client connects: Claude, ChatGPT, own agents" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="150" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std5" value="&lt;b&gt;OpenAPI 3&lt;/b&gt;&lt;br&gt;REST at /api/v1, the source of truth. Spec at /api/openapi.json" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="220" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std6" value="&lt;b&gt;JWS with EdDSA (RFC 7515, RFC 8037)&lt;/b&gt;&lt;br&gt;Every offer and order confirmation is signed with Ed25519" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="290" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std7" value="&lt;b&gt;JWKS (RFC 7517)&lt;/b&gt;&lt;br&gt;Public key at /.well-known/jwks.json. Anyone can verify a signature" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="360" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std8" value="&lt;b&gt;GS1 GTIN&lt;/b&gt;&lt;br&gt;Products by GTIN. The order line uses the GTIN of the sales unit" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="430" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std9" value="&lt;b&gt;Idempotency-Key header (IETF draft)&lt;/b&gt;&lt;br&gt;A retried checkout never gives a second order" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="500" width="520" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="std10" value="Maps to AP2 (Agent Payments Protocol) ideas" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#26215C;" vertex="1" parent="1">
+          <mxGeometry x="640" y="110" width="560" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="std11" value="AP2 idea" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="150" width="180" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="std12" value="Valtuus today" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="150" width="170" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="std13" value="Step to AP2" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="150" width="170" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="std14" value="Intent mandate: what the agent may do" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="184" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std15" value="The buyer&#39;s mandate: typed limits, versioned" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="184" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std16" value="The buyer signs it, the gateway verifies" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="184" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std17" value="Cart mandate: approve one exact cart" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="254" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std18" value="Approval of a cart that cannot change" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="254" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std19" value="The approval becomes a signature" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="254" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std20" value="Signed merchant statements" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="324" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std21" value="Signed offers and confirmations (JWS)" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="324" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std22" value="Same content as verifiable credentials" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="324" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std23" value="Payment mandate" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="660" y="394" width="180" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std24" value="None. No payment in scope" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="840" y="394" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std25" value="Outside the challenge" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="394" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="std26" value="States and rules stay the same on the way to AP2. We use the ideas, and we do not call the prototype AP2 compliant." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=12;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="660" y="474" width="520" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="std27" value="Next, when Valio Aimo chooses a standard" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="1160" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="std28" value="&lt;b&gt;Discovery file&lt;/b&gt;&lt;br&gt;/.well-known/agent-trade.json (RFC 8615): where the API, MCP and keys are" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="60" y="650" width="270" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="std29" value="&lt;b&gt;UCP or ACP profile&lt;/b&gt;&lt;br&gt;Publish the same operations in the commerce profile Valio Aimo picks" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="345" y="650" width="270" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="std30" value="&lt;b&gt;Verifiable credentials&lt;/b&gt;&lt;br&gt;Product claims (allergens, origin, price) as W3C VCs on GS1 data" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="650" width="270" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="std31" value="&lt;b&gt;MCP Apps&lt;/b&gt;&lt;br&gt;The approval card inside the agent app, not only on our page" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="915" y="650" width="270" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="std32" value="&lt;b&gt;Why not a full standard today&lt;/b&gt;&lt;br&gt;The brief leaves the choice open, AP2 is built around payment, and a partial copy of a spec is worse than an honest own design." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="830" width="1160" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="4 Purchase flow" id="flow">
     <mxGraphModel dx="1228" dy="1025" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="680" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -100,140 +376,350 @@
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="3 What Valio Aimo sees" id="ins">
+  <diagram name="5 What Valio Aimo sees" id="ins">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="760" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="ins1" value="What Valio Aimo learns from agent orders" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1100" height="40" as="geometry"/></mxCell>
-        <mxCell id="ins2" value="Every step writes one record. A buyer sees its own record. Valio Aimo staff see all buyers, read only." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="1100" height="30" as="geometry"/></mxCell>
-        <mxCell id="ins3" value="&lt;b&gt;Buyer agents&lt;/b&gt;&lt;br&gt;Any agent, any buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="170" width="200" height="70" as="geometry"/></mxCell>
-        <mxCell id="ins4" value="&lt;b&gt;Main users&lt;/b&gt;&lt;br&gt;Approve, reject, set limits" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="330" width="200" height="70" as="geometry"/></mxCell>
-        <mxCell id="ins5" value="&lt;b&gt;Valtuus gateway&lt;/b&gt;&lt;br&gt;Search, offers, carts, decisions, orders, approvals, refusals" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="300" y="210" width="220" height="150" as="geometry"/></mxCell>
-        <mxCell id="ins6" value="&lt;b&gt;Shared record&lt;/b&gt;&lt;br&gt;Append only. One plain sentence per step" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="300" y="420" width="220" height="90" as="geometry"/></mxCell>
-        <mxCell id="ins7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins3" target="ins5"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ins8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins4" target="ins5"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ins9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins5" target="ins6"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ins10" value="Valio Aimo console (staff, read only)" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" vertex="1" parent="1"><mxGeometry x="580" y="110" width="580" height="520" as="geometry"/></mxCell>
-        <mxCell id="ins11" value="&lt;b&gt;Orders from agents&lt;/b&gt;&lt;br&gt;&amp;#8226; Which buyer and which agent&lt;br&gt;&amp;#8226; Automatic, or approved by whom&lt;br&gt;&amp;#8226; Total ex VAT and delivery date&lt;br&gt;&amp;#8226; Signature on every confirmation&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: See how much agent ordering is worth&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="600" y="150" width="260" height="215" as="geometry"/></mxCell>
-        <mxCell id="ins12" value="&lt;b&gt;Decisions and exceptions&lt;/b&gt;&lt;br&gt;&amp;#8226; Sent to a person, and why&lt;br&gt;&amp;#8226; Denied, rejected, expired&lt;br&gt;&amp;#8226; Every reason in plain words&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Find rules that stop good orders&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="880" y="150" width="260" height="215" as="geometry"/></mxCell>
-        <mxCell id="ins13" value="&lt;b&gt;Unmet demand&lt;/b&gt;&lt;br&gt;&amp;#8226; Searches with no match&lt;br&gt;&amp;#8226; Products refused: deadline passed&lt;br&gt;&amp;#8226; Partial stock and substitutes&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Range gaps and stock planning&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="600" y="385" width="260" height="215" as="geometry"/></mxCell>
-        <mxCell id="ins14" value="&lt;b&gt;Refused calls&lt;/b&gt;&lt;br&gt;&amp;#8226; Revoked agent keys&lt;br&gt;&amp;#8226; Calls with missing rights&lt;br&gt;&amp;#8226; An agent that tried to approve&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Find a broken or hostile agent early&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1"><mxGeometry x="880" y="385" width="260" height="215" as="geometry"/></mxCell>
-        <mxCell id="ins15" value="read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins6" target="ins13"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="ins16" value="&lt;b&gt;The buyer sees&lt;/b&gt;&lt;br&gt;Its own orders, decisions and record. Nothing of other buyers." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="660" width="540" height="70" as="geometry"/></mxCell>
-        <mxCell id="ins17" value="&lt;b&gt;Valio Aimo staff see&lt;/b&gt;&lt;br&gt;All buyers, read only. Staff cannot approve, edit rules or order." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="620" y="660" width="540" height="70" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ins1" value="What Valio Aimo learns from agent orders" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="ins2" value="Every step writes one record. A buyer sees its own record. Valio Aimo staff see all buyers, read only." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="ins3" value="&lt;b&gt;Buyer agents&lt;/b&gt;&lt;br&gt;Any agent, any buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="170" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ins4" value="&lt;b&gt;Main users&lt;/b&gt;&lt;br&gt;Approve, reject, set limits" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="330" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ins5" value="&lt;b&gt;Valtuus gateway&lt;/b&gt;&lt;br&gt;Search, offers, carts, decisions, orders, approvals, refusals" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="300" y="210" width="220" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ins6" value="&lt;b&gt;Shared record&lt;/b&gt;&lt;br&gt;Append only. One plain sentence per step" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#9FE1CB;strokeColor=#0F6E56;fontColor=#04342C;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="300" y="420" width="220" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ins7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins3" target="ins5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ins8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins4" target="ins5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ins9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins5" target="ins6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ins10" value="Valio Aimo console (staff, read only)" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#888780;verticalAlign=top;align=left;spacingLeft=12;spacingTop=6;fontStyle=1;fontSize=14;fontColor=#2C2C2A;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="580" y="110" width="580" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="ins11" value="&lt;b&gt;Orders from agents&lt;/b&gt;&lt;br&gt;&amp;#8226; Which buyer and which agent&lt;br&gt;&amp;#8226; Automatic, or approved by whom&lt;br&gt;&amp;#8226; Total ex VAT and delivery date&lt;br&gt;&amp;#8226; Signature on every confirmation&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: See how much agent ordering is worth&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="600" y="150" width="260" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="ins12" value="&lt;b&gt;Decisions and exceptions&lt;/b&gt;&lt;br&gt;&amp;#8226; Sent to a person, and why&lt;br&gt;&amp;#8226; Denied, rejected, expired&lt;br&gt;&amp;#8226; Every reason in plain words&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Find rules that stop good orders&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="880" y="150" width="260" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="ins13" value="&lt;b&gt;Unmet demand&lt;/b&gt;&lt;br&gt;&amp;#8226; Searches with no match&lt;br&gt;&amp;#8226; Products refused: deadline passed&lt;br&gt;&amp;#8226; Partial stock and substitutes&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Range gaps and stock planning&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="600" y="385" width="260" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="ins14" value="&lt;b&gt;Refused calls&lt;/b&gt;&lt;br&gt;&amp;#8226; Revoked agent keys&lt;br&gt;&amp;#8226; Calls with missing rights&lt;br&gt;&amp;#8226; An agent that tried to approve&lt;br&gt;&lt;br&gt;&lt;i&gt;Use: Find a broken or hostile agent early&lt;/i&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="880" y="385" width="260" height="215" as="geometry" />
+        </mxCell>
+        <mxCell id="ins15" value="read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="ins6" target="ins13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ins16" value="&lt;b&gt;The buyer sees&lt;/b&gt;&lt;br&gt;Its own orders, decisions and record. Nothing of other buyers." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="660" width="540" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ins17" value="&lt;b&gt;Valio Aimo staff see&lt;/b&gt;&lt;br&gt;All buyers, read only. Staff cannot approve, edit rules or order." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="620" y="660" width="540" height="70" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="4 Trust chain" id="tru">
+  <diagram name="6 Trust chain" id="tru">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="560" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="tru1" value="Six links: nobody has to trust the agent&#x27;s reasoning" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1100" height="40" as="geometry"/></mxCell>
-        <mxCell id="tru2" value="Each link is a fact that the buyer and Valio Aimo can check after the order." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="1100" height="30" as="geometry"/></mxCell>
-        <mxCell id="tru3" value="&lt;b&gt;1 Identity&lt;/b&gt;&lt;br&gt;The agent key is bound to one buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru4" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Which agent, for which buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru5" value="&lt;b&gt;2 Authority&lt;/b&gt;&lt;br&gt;The main user sets the rules as typed values" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="228" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru6" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;The rule version on each order" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="228" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru7" value="&lt;b&gt;3 True data&lt;/b&gt;&lt;br&gt;Each offer is signed: price, stock, deadline" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="416" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru8" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Verify the signature any time" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="416" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru9" value="&lt;b&gt;4 Commitment&lt;/b&gt;&lt;br&gt;Inside the rules the agent orders. Outside, a person" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="604" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru10" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Automatic, or who approved" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="604" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru11" value="&lt;b&gt;5 Proof&lt;/b&gt;&lt;br&gt;The signed confirmation names agent, approver, rule version" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="792" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru12" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Verify the confirmation" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="792" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru13" value="&lt;b&gt;6 Control&lt;/b&gt;&lt;br&gt;Change limits, revoke the agent, read the record" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="980" y="130" width="170" height="120" as="geometry"/></mxCell>
-        <mxCell id="tru14" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Every refusal is recorded" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="980" y="300" width="170" height="100" as="geometry"/></mxCell>
-        <mxCell id="tru15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru3" target="tru5"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="tru16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru5" target="tru7"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="tru17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru7" target="tru9"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="tru18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru9" target="tru11"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="tru19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru11" target="tru13"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="tru20" value="&lt;b&gt;The claim&lt;/b&gt;&lt;br&gt;The buyer sets the limits and signs off. The agent gets data that it can check. Valio Aimo gets orders that it can accept." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=14;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="440" width="1110" height="70" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="tru1" value="Six links: nobody has to trust the agent&#39;s reasoning" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="tru2" value="Each link is a fact that the buyer and Valio Aimo can check after the order." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="tru3" value="&lt;b&gt;1 Identity&lt;/b&gt;&lt;br&gt;The agent key is bound to one buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru4" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Which agent, for which buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru5" value="&lt;b&gt;2 Authority&lt;/b&gt;&lt;br&gt;The main user sets the rules as typed values" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="228" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru6" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;The rule version on each order" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="228" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru7" value="&lt;b&gt;3 True data&lt;/b&gt;&lt;br&gt;Each offer is signed: price, stock, deadline" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="416" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru8" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Verify the signature any time" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="416" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru9" value="&lt;b&gt;4 Commitment&lt;/b&gt;&lt;br&gt;Inside the rules the agent orders. Outside, a person" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="604" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru10" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Automatic, or who approved" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="604" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru11" value="&lt;b&gt;5 Proof&lt;/b&gt;&lt;br&gt;The signed confirmation names agent, approver, rule version" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="792" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru12" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Verify the confirmation" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="792" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru13" value="&lt;b&gt;6 Control&lt;/b&gt;&lt;br&gt;Change limits, revoke the agent, read the record" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="130" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="tru14" value="&lt;b&gt;Valio Aimo can check&lt;/b&gt;&lt;br&gt;Every refusal is recorded" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="980" y="300" width="170" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="tru15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru3" target="tru5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tru16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru5" target="tru7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tru17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru7" target="tru9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tru18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru9" target="tru11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tru19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=1;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="tru11" target="tru13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="tru20" value="&lt;b&gt;The claim&lt;/b&gt;&lt;br&gt;The buyer sets the limits and signs off. The agent gets data that it can check. Valio Aimo gets orders that it can accept." style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=14;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="440" width="1110" height="70" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="5 Exceptions" id="exc">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="760" math="0" shadow="0">
+  <diagram name="7 Exceptions" id="exc">
+    <mxGraphModel dx="1147" dy="957" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="760" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="exc1" value="Exceptions are never silent" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1100" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc2" value="What the gateway does in each case, and who decides. The rules are code, the same every time." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="1100" height="30" as="geometry"/></mxCell>
-        <mxCell id="exc3" value="Situation" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="110" width="330" height="36" as="geometry"/></mxCell>
-        <mxCell id="exc4" value="What the gateway does" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="110" width="560" height="36" as="geometry"/></mxCell>
-        <mxCell id="exc5" value="Who decides" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="930" y="110" width="210" height="36" as="geometry"/></mxCell>
-        <mxCell id="exc6" value="Inside all the buyer&#x27;s rules" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="146" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc7" value="The agent places the order at the signed price" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="146" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc8" value="&lt;b&gt;Agent&lt;/b&gt;" style="fillColor=#EEEDFE;strokeColor=#D3D1C7;fontColor=#26215C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="146" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc9" value="Over the order or daily limit" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="186" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc10" value="The cart waits. The main user approves on the phone" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="186" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc11" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="186" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc12" value="Too little stock" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="226" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc13" value="Split proposal. Never more than the confirmed stock" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="226" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc14" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="226" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc15" value="Stock amount not known" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="266" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc16" value="Offered as &quot;amount not confirmed&quot;, ranked lower" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="266" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc17" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="266" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc18" value="Brand not preferred" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="306" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc19" value="The line is marked, with the reason" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="306" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc20" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="306" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc21" value="Substitute for a named product" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="346" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc22" value="Both names, the reason and the price difference" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="346" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc23" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="346" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc24" value="Same order again in 60 minutes" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="386" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc25" value="Marked as a possible duplicate, the earlier order named" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="386" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc26" value="&lt;b&gt;Person&lt;/b&gt;" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="386" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc27" value="Order deadline passed" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="426" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc28" value="Refused, with what can arrive and when" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="426" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc29" value="&lt;b&gt;Refused&lt;/b&gt;" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="426" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc30" value="Same cart after a person rejected it" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="466" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc31" value="Refused, with the person&#x27;s reason" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="466" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc32" value="&lt;b&gt;Refused&lt;/b&gt;" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="466" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc33" value="Forbidden allergen" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="506" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc34" value="Excluded from search, refused in a cart" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="506" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc35" value="&lt;b&gt;Refused&lt;/b&gt;" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="506" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc36" value="Price or stock changed" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="546" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc37" value="Fresh check. If different, the cart expires" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="546" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc38" value="&lt;b&gt;New offer&lt;/b&gt;" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="546" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc39" value="Valio API not available" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="586" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc40" value="An error. Never an offer from old data" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="586" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc41" value="&lt;b&gt;Retry later&lt;/b&gt;" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="586" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc42" value="Vague request: &quot;buy me milk&quot;" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="40" y="626" width="330" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc43" value="No cart. Ready options for the buyer" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" vertex="1" parent="1"><mxGeometry x="370" y="626" width="560" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc44" value="&lt;b&gt;Buyer answers&lt;/b&gt;" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" vertex="1" parent="1"><mxGeometry x="930" y="626" width="210" height="40" as="geometry"/></mxCell>
-        <mxCell id="exc45" value="Every row is one automated test in the gateway." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="682" width="1100" height="30" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="exc1" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" value="Exceptions are never silent" vertex="1">
+          <mxGeometry height="40" width="1100" x="40" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="exc2" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" value="What the gateway does in each case, and who decides. The rules are code, the same every time." vertex="1">
+          <mxGeometry height="30" width="1100" x="40" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="exc3" parent="1" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Situation" vertex="1">
+          <mxGeometry height="36" width="330" x="40" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="exc4" parent="1" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="What the gateway does" vertex="1">
+          <mxGeometry height="36" width="560" x="370" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="exc5" parent="1" style="fillColor=#444441;strokeColor=#444441;fontColor=#FFFFFF;fontStyle=1;fontSize=13;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Who decides" vertex="1">
+          <mxGeometry height="36" width="210" x="930" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="exc6" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Inside all the buyer&#39;s rules" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="exc7" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="The agent places the order at the signed price" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="exc8" parent="1" style="fillColor=#EEEDFE;strokeColor=#D3D1C7;fontColor=#26215C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Agent&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="exc9" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Over the order or daily limit" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="186" as="geometry" />
+        </mxCell>
+        <mxCell id="exc10" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="The cart waits. The main user approves on the phone" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="186" as="geometry" />
+        </mxCell>
+        <mxCell id="exc11" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="186" as="geometry" />
+        </mxCell>
+        <mxCell id="exc12" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Too little stock" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="226" as="geometry" />
+        </mxCell>
+        <mxCell id="exc13" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Split proposal. Never more than the confirmed stock" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="226" as="geometry" />
+        </mxCell>
+        <mxCell id="exc14" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="226" as="geometry" />
+        </mxCell>
+        <mxCell id="exc15" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Stock amount not known" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="266" as="geometry" />
+        </mxCell>
+        <mxCell id="exc16" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Offered as &quot;amount not confirmed&quot;, ranked lower" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="266" as="geometry" />
+        </mxCell>
+        <mxCell id="exc17" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="266" as="geometry" />
+        </mxCell>
+        <mxCell id="exc18" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Brand not preferred" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="306" as="geometry" />
+        </mxCell>
+        <mxCell id="exc19" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="The line is marked, with the reason" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="306" as="geometry" />
+        </mxCell>
+        <mxCell id="exc20" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="306" as="geometry" />
+        </mxCell>
+        <mxCell id="exc21" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Substitute for a named product" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="346" as="geometry" />
+        </mxCell>
+        <mxCell id="exc22" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Both names, the reason and the price difference" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="346" as="geometry" />
+        </mxCell>
+        <mxCell id="exc23" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="346" as="geometry" />
+        </mxCell>
+        <mxCell id="exc24" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Same order again in 60 minutes" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="386" as="geometry" />
+        </mxCell>
+        <mxCell id="exc25" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Marked as a possible duplicate, the earlier order named" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="386" as="geometry" />
+        </mxCell>
+        <mxCell id="exc26" parent="1" style="fillColor=#E1F5EE;strokeColor=#D3D1C7;fontColor=#04342C;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Person&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="386" as="geometry" />
+        </mxCell>
+        <mxCell id="exc27" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Order deadline passed" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="426" as="geometry" />
+        </mxCell>
+        <mxCell id="exc28" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Refused, with what can arrive and when" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="426" as="geometry" />
+        </mxCell>
+        <mxCell id="exc29" parent="1" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Refused&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="426" as="geometry" />
+        </mxCell>
+        <mxCell id="exc30" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Same cart after a person rejected it" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="466" as="geometry" />
+        </mxCell>
+        <mxCell id="exc31" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Refused, with the person&#39;s reason" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="466" as="geometry" />
+        </mxCell>
+        <mxCell id="exc32" parent="1" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Refused&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="466" as="geometry" />
+        </mxCell>
+        <mxCell id="exc33" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Forbidden allergen" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="506" as="geometry" />
+        </mxCell>
+        <mxCell id="exc34" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Excluded from search, refused in a cart" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="506" as="geometry" />
+        </mxCell>
+        <mxCell id="exc35" parent="1" style="fillColor=#FCEBEB;strokeColor=#D3D1C7;fontColor=#501313;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Refused&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="506" as="geometry" />
+        </mxCell>
+        <mxCell id="exc36" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Price or stock changed" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="exc37" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Fresh check. If different, the cart expires" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="exc38" parent="1" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;New offer&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="546" as="geometry" />
+        </mxCell>
+        <mxCell id="exc39" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Valio API not available" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="586" as="geometry" />
+        </mxCell>
+        <mxCell id="exc40" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="An error. Never an offer from old data" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="586" as="geometry" />
+        </mxCell>
+        <mxCell id="exc41" parent="1" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Retry later&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="586" as="geometry" />
+        </mxCell>
+        <mxCell id="exc42" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="Vague request: &quot;buy me milk&quot;" vertex="1">
+          <mxGeometry height="40" width="330" x="40" y="626" as="geometry" />
+        </mxCell>
+        <mxCell id="exc43" parent="1" style="fillColor=#FFFFFF;strokeColor=#D3D1C7;fontColor=#2C2C2A;fontSize=12;html=1;whiteSpace=wrap;align=left;spacingLeft=10;" value="No cart. Ready options for the buyer" vertex="1">
+          <mxGeometry height="40" width="560" x="370" y="626" as="geometry" />
+        </mxCell>
+        <mxCell id="exc44" parent="1" style="fillColor=#FAEEDA;strokeColor=#D3D1C7;fontColor=#412402;fontSize=12;html=1;whiteSpace=wrap;align=center;" value="&lt;b&gt;Buyer answers&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="210" x="930" y="626" as="geometry" />
+        </mxCell>
+        <mxCell id="exc45" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#5F5E5A;" value="Every row is one automated test in the gateway." vertex="1">
+          <mxGeometry height="30" width="1100" x="40" y="682" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
-  <diagram name="6 Path to production" id="pth">
+  <diagram name="8 Path to production" id="pth">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="620" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="pth1" value="From prototype to production" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1100" height="40" as="geometry"/></mxCell>
-        <mxCell id="pth2" value="The states and rules stay the same. Only what is behind each port changes." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="1100" height="30" as="geometry"/></mxCell>
-        <mxCell id="pth3" value="&lt;b&gt;Today: prototype&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=15;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="110" width="340" height="50" as="geometry"/></mxCell>
-        <mxCell id="pth4" value="&lt;b&gt;Mock APIs and product files&lt;/b&gt;&lt;br&gt;Price and stock only for candidates" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="180" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth5" value="&lt;b&gt;Order in a prototype ledger&lt;/b&gt;&lt;br&gt;No order API in the mock" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="258" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth6" value="&lt;b&gt;Seeded logins, one approver&lt;/b&gt;&lt;br&gt;The main user" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="336" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth7" value="&lt;b&gt;Rules stored at the gateway&lt;/b&gt;&lt;br&gt;Versioned, not signed by the buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="414" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth8" value="&lt;b&gt;Signed with our own key&lt;/b&gt;&lt;br&gt;Shown as &quot;mock issuer&quot;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="40" y="492" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth9" value="&lt;b&gt;Next: on Valio Aimo systems&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=15;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="110" width="340" height="50" as="geometry"/></mxCell>
-        <mxCell id="pth10" value="&lt;b&gt;Real order API&lt;/b&gt;&lt;br&gt;Stock reservation, cancel, change" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="180" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth11" value="&lt;b&gt;Real identity&lt;/b&gt;&lt;br&gt;SSO and approval roles" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="258" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth12" value="&lt;b&gt;Notices&lt;/b&gt;&lt;br&gt;Push or email for an approval, callback for agents" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="336" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth13" value="&lt;b&gt;Rules per buyer type&lt;/b&gt;&lt;br&gt;Category limits, order days, school allergens" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="414" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth14" value="&lt;b&gt;Console reports&lt;/b&gt;&lt;br&gt;Unmet demand, share of agent orders" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="420" y="492" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth15" value="&lt;b&gt;Later: open standards&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=15;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="110" width="340" height="50" as="geometry"/></mxCell>
-        <mxCell id="pth16" value="&lt;b&gt;Mandate signed by the buyer&lt;/b&gt;&lt;br&gt;The buyer&#x27;s platform owns it, Valio Aimo verifies" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="180" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth17" value="&lt;b&gt;Map to AP2&lt;/b&gt;&lt;br&gt;Intent and cart mandates, no change of states" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="258" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth18" value="&lt;b&gt;Approval cards in agent apps&lt;/b&gt;&lt;br&gt;MCP Apps" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="336" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth19" value="&lt;b&gt;Product claims as credentials&lt;/b&gt;&lt;br&gt;GS1 and W3C" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="414" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth20" value="&lt;b&gt;Hash chain on the record&lt;/b&gt;&lt;br&gt;Tampering becomes visible" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1"><mxGeometry x="800" y="492" width="340" height="64" as="geometry"/></mxCell>
-        <mxCell id="pth21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pth3" target="pth9"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="pth22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pth9" target="pth15"><mxGeometry relative="1" as="geometry"/></mxCell>
-        <mxCell id="pth23" value="We never call the prototype AP2 or UCP compliant." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#5F5E5A;" vertex="1" parent="1"><mxGeometry x="40" y="575" width="1100" height="30" as="geometry"/></mxCell>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="pth1" value="From prototype to production" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=24;fontColor=#2C2C2A;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1100" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pth2" value="The states and rules stay the same. Only what is behind each port changes." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="1100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="pth3" value="&lt;b&gt;Today: prototype&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=15;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pth4" value="&lt;b&gt;Mock APIs and product files&lt;/b&gt;&lt;br&gt;Price and stock only for candidates" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="180" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth5" value="&lt;b&gt;Order in a prototype ledger&lt;/b&gt;&lt;br&gt;No order API in the mock" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="258" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth6" value="&lt;b&gt;Seeded logins, one approver&lt;/b&gt;&lt;br&gt;The main user" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="336" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth7" value="&lt;b&gt;Rules stored at the gateway&lt;/b&gt;&lt;br&gt;Versioned, not signed by the buyer" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="414" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth8" value="&lt;b&gt;Signed with our own key&lt;/b&gt;&lt;br&gt;Shown as &quot;mock issuer&quot;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="492" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth9" value="&lt;b&gt;Next: on Valio Aimo systems&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;fontSize=15;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="110" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pth10" value="&lt;b&gt;Real order API&lt;/b&gt;&lt;br&gt;Stock reservation, cancel, change" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="180" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth11" value="&lt;b&gt;Real identity&lt;/b&gt;&lt;br&gt;SSO and approval roles" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="258" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth12" value="&lt;b&gt;Notices&lt;/b&gt;&lt;br&gt;Push or email for an approval, callback for agents" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="336" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth13" value="&lt;b&gt;Rules per buyer type&lt;/b&gt;&lt;br&gt;Category limits, order days, school allergens" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="414" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth14" value="&lt;b&gt;Console reports&lt;/b&gt;&lt;br&gt;Unmet demand, share of agent orders" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="420" y="492" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth15" value="&lt;b&gt;Later: open standards&lt;/b&gt;" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=15;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="110" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="pth16" value="&lt;b&gt;Mandate signed by the buyer&lt;/b&gt;&lt;br&gt;The buyer&#39;s platform owns it, Valio Aimo verifies" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="180" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth17" value="&lt;b&gt;Map to AP2&lt;/b&gt;&lt;br&gt;Intent and cart mandates, no change of states" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="258" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth18" value="&lt;b&gt;Approval cards in agent apps&lt;/b&gt;&lt;br&gt;MCP Apps" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="336" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth19" value="&lt;b&gt;Product claims as credentials&lt;/b&gt;&lt;br&gt;GS1 and W3C" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="414" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth20" value="&lt;b&gt;Hash chain on the record&lt;/b&gt;&lt;br&gt;Tampering becomes visible" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#534AB7;fontColor=#2C2C2A;fontSize=12;align=center;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="800" y="492" width="340" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="pth21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#0F6E56;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pth3" target="pth9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pth22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#534AB7;strokeWidth=2;fontSize=11;fontColor=#5F5E5A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="pth9" target="pth15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pth23" value="We never call the prototype AP2 or UCP compliant." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#5F5E5A;" vertex="1" parent="1">
+          <mxGeometry x="40" y="575" width="1100" height="30" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
