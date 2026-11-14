@@ -43,8 +43,10 @@ from app.domain.order import Order
 from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.daily_limit import DailyLimit
+from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.previously_rejected import PreviouslyRejected
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
@@ -152,7 +154,15 @@ class _World:
             self.idempotency,
             MandateService(self.mandates, self.clock, audit, unit_of_work),
             PolicyEngine(
-                [AutoOrderSwitch(), OrderLimit(), DailyLimit(), self.deny, self.rendezvous]
+                [
+                    AutoOrderSwitch(),
+                    OrderLimit(),
+                    DailyLimit(),
+                    DuplicateOrder(),
+                    PreviouslyRejected(),
+                    self.deny,
+                    self.rendezvous,
+                ]
             ),
             self.clock,
             audit,
@@ -171,13 +181,13 @@ class _World:
             unit_of_work,
         )
 
-    def cart(self, qty: int):
+    def cart(self, qty: int, key: str | None = None):
         draft = CartDraft(
             lines=(CartLineInput(offer_id="o_1", product_id=MILK_ID, qty=qty),),
             request_text="milk for Monday",
             clarifications=(),
         )
-        return self.cart_service.create_cart(samples.agent_key(), draft, f"cart-{qty}")
+        return self.cart_service.create_cart(samples.agent_key(), draft, key or f"cart-{qty}")
 
     def checkout(self, cart_id: str, key: str = "k-1", buyer: str = samples.BUYER_ID):
         return self.service.checkout(samples.agent_key(buyer_id=buyer), cart_id, key)
@@ -294,6 +304,41 @@ def test_auto_cart_over_a_lowered_limit_waits_and_the_change_is_kept() -> None:
     )
     assert world.steps(cart.cart_id)[-1] is AuditStep.POLICY
     assert world.orders.by_cart(cart.cart_id) is None
+
+
+def test_checkout_after_the_same_order_names_the_earlier_order() -> None:
+    """Two equal carts were AUTO when made. The second must wait and show which order it repeats."""
+    world = _World()
+    first = world.cart(100)
+    second = world.cart(100, key="cart-2")
+    earlier = world.checkout(first.cart_id)
+
+    result = world.checkout(second.cart_id, key="k-2")
+
+    assert result.state is CartState.PENDING_APPROVAL
+    assert result.reason_codes == (ReasonCode.DUPLICATE_ORDER,)
+    assert result.duplicate_of_order_id == earlier.order_id
+
+
+def test_checkout_after_a_reject_of_the_same_cart_is_denied_with_the_reason() -> None:
+    """A twin made before the person said no must not slip through at checkout."""
+    world = _World()
+    first = world.cart(100)
+    second = world.cart(100, key="cart-2")
+    rejected = dataclasses.replace(
+        first,
+        state=CartState.REJECTED,
+        decided_at=NOW,
+        reject_reason="We have milk",
+    )
+    with world.unit_of_work.transaction():
+        world.carts.save(rejected)
+
+    result = world.checkout(second.cart_id)
+
+    assert result.state is CartState.DENIED
+    assert result.reason_codes == (ReasonCode.PREVIOUSLY_REJECTED,)
+    assert result.previous_reject_reason == "We have milk"
 
 
 def test_auto_cart_waits_after_automatic_orders_are_turned_off() -> None:

@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -25,7 +25,9 @@ from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.daily_limit import auto_day_total
+from app.domain.policy.duplicate_order import duplicate_order
 from app.domain.policy.engine import PolicyEngine, PolicyResult, strictest
+from app.domain.policy.previously_rejected import rejected_cart
 from app.domain.reason_text import day_text, deadline_text, reason_sentence
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateService
@@ -40,6 +42,16 @@ from app.services.ports.unit_of_work import UnitOfWork
 
 _OPERATION = "create_cart"
 _GATEWAY_ACTOR = "gateway"
+
+
+@dataclass(frozen=True)
+class CurrentPolicy:
+    """A policy rerun, with the earlier order and reject its reasons point to."""
+
+    mandate: Mandate
+    result: PolicyResult
+    duplicate_of_order_id: str | None
+    previous_reject_reason: str | None
 
 
 class CartService:
@@ -135,14 +147,18 @@ class CartService:
 
             return self._expire(cart)
 
-    def current_policy(self, cart: Cart, now: datetime) -> tuple[Mandate, PolicyResult]:
+    def current_policy(self, cart: Cart, now: datetime) -> CurrentPolicy:
         """The policy on the cart's lines by the current mandate, as checkout and approve run it."""
         mandate = self._mandate(cart.buyer_id)
         lines = tuple(_priced_again(line) for line in cart.lines)
         context = self._context(cart.buyer_id, mandate, lines, now)
-        # TODO: when the DUPLICATE_ORDER check lands, keep it from counting this cart as its
-        # own duplicate after checkout places the order.
-        return mandate, self._policy.decide(lines, context)
+        # Only an open cart is rerun, and it has no order yet, so it is never its own duplicate.
+        return CurrentPolicy(
+            mandate=mandate,
+            result=self._policy.decide(lines, context),
+            duplicate_of_order_id=_duplicate_of(lines, context),
+            previous_reject_reason=_previous_reject_reason(lines, context),
+        )
 
     def _replay(self, used: IdempotencyRecord, fingerprint: str) -> Cart:
         if used.request_hash != fingerprint:
@@ -191,10 +207,10 @@ class CartService:
             mandate_version=mandate.version,
             valid_until=min(offer.valid_until for offer in offers.values()),
             approve_before=min(line.closing_time for line in lines),
-            duplicate_of_order_id=None,
+            duplicate_of_order_id=_duplicate_of(lines, context),
             delivery_day_total_ex_vat=_delivery_day_total(lines, context.day_orders),
             order_id=None,
-            previous_reject_reason=None,
+            previous_reject_reason=_previous_reject_reason(lines, context),
             decided_by=None,
             decided_at=None,
             reject_reason=None,
@@ -249,7 +265,7 @@ class CartService:
 
     def _with_current_decision(self, cart: Cart, now: datetime) -> Cart:
         """What checkout would decide now. Shown, not stored: the cart keeps its first decision."""
-        _mandate, result = self.current_policy(cart, now)
+        result = self.current_policy(cart, now).result
         return replace(
             cart,
             current_decision=result.decision,
@@ -428,6 +444,21 @@ def _delivery_day_total(lines: Sequence[PricedLine], day_orders: Sequence[Order]
     Enough for tier 1; give one total per date when the page shows a split delivery.
     """
     return max(auto_day_total(day, lines, day_orders) for day in _days(lines))
+
+
+def _duplicate_of(lines: Iterable[PricedLine], context: PolicyContext) -> str | None:
+    """The order the DUPLICATE_ORDER reason names, so the page can link it."""
+    for line in lines:
+        order = duplicate_order(line, context.day_orders, context.now)
+        if order is not None:
+            return order.order_id
+
+    return None
+
+
+def _previous_reject_reason(lines: Iterable[PricedLine], context: PolicyContext) -> str | None:
+    rejected = rejected_cart(lines, context.recent_rejects)
+    return None if rejected is None else rejected.reject_reason
 
 
 def _days(lines: Iterable[PricedLine]) -> set[date]:

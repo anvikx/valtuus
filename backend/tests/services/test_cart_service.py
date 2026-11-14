@@ -22,8 +22,10 @@ from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyContext
+from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
+from app.domain.policy.previously_rejected import PreviouslyRejected
 from app.domain.policy.stock_check import StockCheck
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
@@ -90,7 +92,13 @@ class _World:
         for mandate in (_mandate(1, _LIMIT),) if mandates is None else mandates:
             self.mandates.add(mandate)
 
-        checks = [OrderLimit(), StockCheck(), *([extra_check] if extra_check else [])]
+        checks = [
+            OrderLimit(),
+            StockCheck(),
+            DuplicateOrder(),
+            PreviouslyRejected(),
+            *([extra_check] if extra_check else []),
+        ]
         self.service = CartService(
             self.offers,
             self.carts,
@@ -233,10 +241,44 @@ def test_rerun_keeps_the_stock_facts_of_the_offer() -> None:
     world = _world_with_offer(_offer("o_1", _line(available_qty=50, sales_units_needed=100)))
     cart = world.create(_buy(50))
 
-    _, result = world.service.current_policy(world.carts.get(cart.cart_id), NOW)
+    result = world.service.current_policy(world.carts.get(cart.cart_id), NOW).result
 
     assert result.decision is Decision.HUMAN
     assert [reason.reason_code for reason in result.reasons] == [ReasonCode.PARTIAL_AVAILABILITY]
+
+
+def test_same_order_again_names_the_earlier_order() -> None:
+    """The main user must see which order this cart may repeat before they approve it."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    earlier = _auto_order("o_9", first.cart_id, MONDAY)
+    milk = dataclasses.replace(earlier.lines[0], product_id=MILK_ID, qty=100)
+    world.orders.add(dataclasses.replace(earlier, lines=(milk,), placed_at=NOW))
+
+    cart = world.create(_buy(100), key="k-2")
+
+    assert cart.state is CartState.PENDING_APPROVAL
+    assert cart.reason_codes == (ReasonCode.DUPLICATE_ORDER,)
+    assert cart.duplicate_of_order_id == "o_9"
+
+
+def test_rejected_cart_sent_again_is_denied_with_the_reason() -> None:
+    """A person's no holds. The agent gets the reason, so it can change the cart."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    rejected = dataclasses.replace(
+        first,
+        state=CartState.REJECTED,
+        decided_at=NOW,
+        reject_reason="We have milk.",
+    )
+    world.carts.save(rejected)
+
+    cart = world.create(_buy(100), key="k-2")
+
+    assert cart.state is CartState.DENIED
+    assert cart.reason_codes == (ReasonCode.PREVIOUSLY_REJECTED,)
+    assert cart.previous_reject_reason == "We have milk."
 
 
 def test_cart_is_stored_with_its_key_and_cart_and_policy_records() -> None:
