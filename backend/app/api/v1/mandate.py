@@ -2,12 +2,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import HumanSessionDep, ServicesDep, require_scope
+from app.api.deps import HumanSessionDep, ServicesDep, require_buyer
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import mandate_response
 from app.api.schemas.mandate import MandateResponse, MandateUpdateRequest
-from app.domain.agent_key import AgentKey
 from app.domain.enums import AgentScope
 
 router = APIRouter(prefix="/v1/mandate", tags=["mandate"], responses=ERROR_RESPONSES)
@@ -17,7 +16,7 @@ The buyer's rules and the gateway time. Read it before a search.
 
 **Request:** `GET /api/v1/mandate`
 
-**Scope:** `cart`.
+**Auth:** agent key with scope `cart`, or the main user session.
 """
 _UPDATE = """
 Store a new version of the buyer's rules. Send only the fields to change.
@@ -30,10 +29,10 @@ Store a new version of the buyer's rules. Send only the fields to change.
 
 @router.get("", description=describe(_GET, MandateResponse))
 def get_mandate(
-    agent: Annotated[AgentKey, Depends(require_scope(AgentScope.CART))],
+    buyer_id: Annotated[str, Depends(require_buyer(AgentScope.CART))],
     services: ServicesDep,
 ) -> MandateResponse:
-    mandate = services.mandates.get(agent.buyer_id)
+    mandate = services.mandates.get(buyer_id)
     return mandate_response(services.mandates, mandate)
 
 

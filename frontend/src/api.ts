@@ -644,9 +644,6 @@ export async function changeCart(
   return toCart(wire as WireCart)
 }
 
-// Backend gap: GET /api/v1/mandate takes an agent key (require_scope), not the main user
-// session, so on the real backend this answers 401 or 403 for the browser. It needs a session
-// route, for example GET /api/v1/mandate/current. Fixture mode answers it.
 export async function getMandate(): Promise<Mandate> {
   return toMandate((await call(HTTP_METHOD.get, '/mandate')) as WireMandateResponse)
 }

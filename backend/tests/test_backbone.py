@@ -63,13 +63,13 @@ _AGENT_ONLY_CALLS = [
     ("POST", "/api/v1/offers", {}, {"product_ids": ["p_1"]}),
     ("POST", "/api/v1/carts", _IDEMPOTENCY, _CART),
     ("POST", "/api/v1/carts/c_1/checkout", _IDEMPOTENCY, None),
-    ("GET", "/api/v1/mandate", {}, None),
     ("GET", _AUDIT_PATH, {}, None),
 ]
-# The agent polls these and the main user opens them on the approve and order pages.
+# The agent polls these. The main user opens them on the approve, order and permissions pages.
 _SHARED_READS = [
     ("GET", "/api/v1/carts/c_1", {}, None),
     ("GET", "/api/v1/orders/o_1", {}, None),
+    ("GET", "/api/v1/mandate", {}, None),
 ]
 _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
 _OFFERS_PATH = "/api/v1/offers"
@@ -382,8 +382,8 @@ def test_shared_read_without_key_goes_to_the_session(method, path, headers, body
     allowed = client.request(method, path, headers=headers, json=body)
 
     assert refused.status_code == HTTPStatus.UNAUTHORIZED
-    # Not 401: the session check passed and the service ran (404 for c_1, 501 for a stub).
-    assert allowed.status_code in (HTTPStatus.NOT_FOUND, HTTPStatus.NOT_IMPLEMENTED)
+    # The service answers (404 for the made up cart, 200 for the rules): the session let it through.
+    assert allowed.status_code not in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
 
 
 def test_cart_for_an_unknown_offer_is_not_found() -> None:

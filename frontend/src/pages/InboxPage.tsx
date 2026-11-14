@@ -47,9 +47,8 @@ const EMPTY_SENTENCE =
 async function loadInbox(): Promise<InboxData> {
   // The session comes first, so a signed out user never gets a cart request.
   const session = await getSession()
-  // The limits line only helps, so any mandate error just hides it. Even a 401 is not a sign
-  // out here: the real backend answers 401 to the main user on this route (see getMandate), and
-  // a redirect would loop back to the login page after every sign in.
+  // The limits line only helps, so any mandate error just hides it. The cart list already
+  // sends a signed out user to the login page.
   const [carts, mandate] = await Promise.all([listCarts(), getMandate().catch(() => null)])
   return {
     session,
