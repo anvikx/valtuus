@@ -45,6 +45,7 @@ _CONTRACT = {
     ("GET", "/api/v1/mandate"),
     ("PUT", "/api/v1/mandate"),
     ("GET", "/api/v1/agents"),
+    ("POST", "/api/v1/agents/{agent_id}/revoke"),
     ("GET", "/api/v1/audit/{cart_id}"),
     ("POST", "/api/v1/auth/login"),
     ("POST", "/api/v1/auth/logout"),
@@ -82,6 +83,7 @@ _AGENT_CALLS = _AGENT_ONLY_CALLS + _SHARED_READS
 _OFFERS_PATH = "/api/v1/offers"
 _CARTS_PATH = "/api/v1/carts"
 _MANDATE_PATH = "/api/v1/mandate"
+_REVOKE_PATH = "/api/v1/agents/claude-code/revoke"
 _LIVE_PATHS = {
     _OFFERS_PATH,
     _CARTS_PATH,
@@ -100,6 +102,7 @@ _HUMAN_ACTIONS = [
     ("POST", "/api/v1/carts/c_1/approve", None),
     ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
     ("PUT", "/api/v1/mandate", {"max_auto_order_value": "300.00"}),
+    ("POST", _REVOKE_PATH, None),
 ]
 _MAIN_USER_READS = [
     ("GET", "/api/v1/agents", None),
@@ -380,7 +383,7 @@ def test_unknown_key_on_human_action_is_unauthenticated(method, path, body) -> N
 def test_revoked_key_on_human_action_is_unauthenticated(
     method, path, body, agent_keys: InMemoryAgentKeyRepository
 ) -> None:
-    """A revoked agent no longer acts for the buyer, so its tries do not fill the buyer's log."""
+    """A revoked agent no longer acts for the buyer: 401, and only the revoked key on record."""
     audit = _Records()
     app = create_app(agent_keys=agent_keys, audit=audit)
     seeded = agent_keys.by_hash(hash_agent_key(_AGENT_KEY))
@@ -389,7 +392,7 @@ def test_revoked_key_on_human_action_is_unauthenticated(
     response = _client(app).request(method, path, headers=_AUTH, json=body)
 
     assert response.status_code == HTTPStatus.UNAUTHORIZED
-    assert audit.records == []
+    assert [record.reason_codes for record in audit.records] == [(ReasonCode.KEY_REVOKED,)]
 
 
 @pytest.mark.parametrize(("method", "path", "body"), _HUMAN_ACTIONS)
@@ -614,3 +617,32 @@ def test_agent_call_shows_on_the_agent_list(agent_keys: InMemoryAgentKeyReposito
     seeded = agent_keys.by_hash(hash_agent_key(_AGENT_KEY))
     assert seeded is not None
     assert seeded.last_used_at is not None
+
+
+def test_revoke_stops_the_agent_on_its_next_call() -> None:
+    """Stop agent must cut the agent off at once, and the record must show both sides."""
+    audit = _Records()
+    client = _client(create_app(audit=audit))
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    revoked = client.post(_REVOKE_PATH)
+    client.cookies.clear()
+    refused = client.get(_MANDATE_PATH, headers=_AUTH)
+
+    assert revoked.status_code == HTTPStatus.OK
+    assert [agent["status"] for agent in revoked.json()] == ["REVOKED"]
+    assert refused.status_code == HTTPStatus.UNAUTHORIZED
+    assert [(record.step, record.reason_codes) for record in audit.records] == [
+        (AuditStep.AGENT_REVOKED, ()),
+        (AuditStep.REFUSED, (ReasonCode.KEY_REVOKED,)),
+    ]
+
+
+def test_revoke_of_unknown_agent_is_not_found() -> None:
+    """A typo in the agent id must not look like a stopped agent."""
+    client = _client()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.post("/api/v1/agents/no-such-agent/revoke")
+
+    assert response.status_code == HTTPStatus.NOT_FOUND

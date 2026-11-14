@@ -198,6 +198,22 @@ def test_mark_used_writes_only_when_the_last_use_is_old(
     assert stored.last_used_at == expected
 
 
+def test_agent_key_revoke_reports_only_the_first_change(store: _Store) -> None:
+    """Two revokes must write one record, so only the one that changed the key may say so."""
+    key = samples.agent_key()
+    with store.unit_of_work.transaction():
+        store.agent_keys.add(key)
+        first = store.agent_keys.revoke(key.key_hash)
+        second = store.agent_keys.revoke(key.key_hash)
+        unknown = store.agent_keys.revoke("no-such-hash")
+
+    assert (first, second, unknown) == (True, False, False)
+    assert store.agent_keys.by_hash(key.key_hash) == dataclasses.replace(
+        key,
+        status=AgentKeyStatus.REVOKED,
+    )
+
+
 def test_user_round_trip(store: _Store) -> None:
     """Approval checks the role, so it must come back as the enum it went in as."""
     user = User(user_id="u_1", buyer_id=None, role=UserRole.STAFF)

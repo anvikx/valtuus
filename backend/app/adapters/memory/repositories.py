@@ -7,6 +7,7 @@ from datetime import date, datetime
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
 from app.domain.cart import Cart, CartRevision
+from app.domain.enums import AgentKeyStatus
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -54,6 +55,14 @@ class InMemoryAgentKeyRepository:
             return
 
         self._by_hash[key_hash] = dataclasses.replace(agent_key, last_used_at=at)
+
+    def revoke(self, key_hash: str) -> bool:
+        agent_key = self._by_hash.get(key_hash)
+        if agent_key is None or agent_key.status is not AgentKeyStatus.ACTIVE:
+            return False
+
+        self._by_hash[key_hash] = dataclasses.replace(agent_key, status=AgentKeyStatus.REVOKED)
+        return True
 
 
 class InMemoryUserRepository:

@@ -68,6 +68,7 @@ class AuditService:
         sentence: str,
         reason: ReasonCode,
         input_data: Mapping[str, object],
+        buyer_id: str | None = None,
     ) -> AuditRecord:
         """A refused call changes no state, so its record needs a transaction of its own."""
         with self._unit_of_work.transaction():
@@ -75,6 +76,7 @@ class AuditService:
                 AuditStep.REFUSED,
                 actor,
                 sentence,
+                buyer_id=buyer_id,
                 input_data=input_data,
                 reason_codes=(reason,),
             )

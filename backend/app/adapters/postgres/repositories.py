@@ -39,7 +39,7 @@ from app.adapters.postgres.tables import (
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
 from app.domain.cart import Cart, CartRevision
-from app.domain.enums import RevisionAuthor
+from app.domain.enums import AgentKeyStatus, RevisionAuthor
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -169,6 +169,19 @@ class PostgresAgentKeyRepository:
             .values(body=agent_keys.c.body.op("||")(used))
         )
         self._database.writer().execute(statement)
+
+    def revoke(self, key_hash: str) -> bool:
+        # Merge one field, as mark_used does, so a last_used_at written since the read is kept.
+        revoked = func.jsonb_build_object("status", literal(AgentKeyStatus.REVOKED.value, Text))
+        statement = (
+            update(agent_keys)
+            .where(
+                agent_keys.c.key_hash == key_hash,
+                agent_keys.c.body["status"].astext == AgentKeyStatus.ACTIVE.value,
+            )
+            .values(body=agent_keys.c.body.op("||")(revoked))
+        )
+        return _changed(self._database.writer(), statement)
 
 
 class PostgresUserRepository:
