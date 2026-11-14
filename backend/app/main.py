@@ -9,8 +9,10 @@ from app.adapters.memory.repositories import (
     InMemoryUserRepository,
 )
 from app.api import health
+from app.api.deps import AgentKeyGuard
 from app.api.mcp_server import build_mcp_app, create_mcp_server
 from app.config import Settings
+from app.services.agent_key_service import AgentKeyService
 from app.services.seed import seed_demo
 
 # Caddy routes /api/* to the backend, so every route must live under this prefix.
@@ -48,7 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health.router,
         prefix=_API_PREFIX,
     )
-    app.mount(_MCP_PATH, mcp_app)
+    app.mount(_MCP_PATH, AgentKeyGuard(mcp_app, AgentKeyService(agent_keys)))
     app.state.mandates = mandates
     app.state.agent_keys = agent_keys
     app.state.users = users
