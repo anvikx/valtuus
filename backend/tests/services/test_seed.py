@@ -6,13 +6,15 @@ import pytest
 from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryMandateRepository,
+    InMemoryUnitOfWork,
     InMemoryUserRepository,
 )
 from app.domain.agent_key import hash_agent_key
-from app.domain.enums import AgentScope, UserRole
+from app.domain.enums import AgentKeyStatus, AgentScope, UserRole
 from app.services.seed import DEMO_BUYER_ID, DEMO_MAIN_USER_ID, seed_demo
 
 _KEY = "test-agent-key-0123456789"
+_NEW_KEY = "test-agent-key-rotated-9876"
 
 
 def _seeded() -> tuple[
@@ -25,8 +27,22 @@ def _seeded() -> tuple[
         InMemoryAgentKeyRepository(),
         InMemoryUserRepository(),
     )
-    seed_demo(*repos, agent_key=_KEY)
+    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=_KEY)
     return repos
+
+
+def _reseed(
+    repos: tuple[InMemoryMandateRepository, InMemoryAgentKeyRepository, InMemoryUserRepository],
+    agent_key: str = _KEY,
+) -> None:
+    """The same seed a restart runs on a store that kept its data."""
+    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=agent_key)
+
+
+def _status(agent_keys: InMemoryAgentKeyRepository, key: str) -> AgentKeyStatus:
+    agent = agent_keys.by_hash(hash_agent_key(key))
+    assert agent is not None
+    return agent.status
 
 
 def test_seed_starts_hotel_1_at_the_500_limit() -> None:
@@ -59,6 +75,7 @@ def test_seed_refuses_an_empty_agent_key() -> None:
             InMemoryMandateRepository(),
             InMemoryAgentKeyRepository(),
             InMemoryUserRepository(),
+            InMemoryUnitOfWork(),
             agent_key="",
         )
 
@@ -86,3 +103,42 @@ def test_mandate_repository_refuses_a_version_gap_or_overwrite() -> None:
     latest = mandates.latest(DEMO_BUYER_ID)
     assert latest is not None
     assert latest.version == 2
+
+
+def test_reseed_keeps_a_newer_mandate() -> None:
+    """A restart must not reset the limits the main user raised."""
+    repos = _seeded()
+    mandates, _, _ = repos
+    current = mandates.latest(DEMO_BUYER_ID)
+    assert current is not None
+    mandates.add(dataclasses.replace(current, version=2))
+
+    _reseed(repos)
+
+    latest = mandates.latest(DEMO_BUYER_ID)
+    assert latest is not None
+    assert latest.version == 2
+
+
+def test_reseed_keeps_a_revoked_key_revoked() -> None:
+    """A restart must not give a revoked agent its access back."""
+    repos = _seeded()
+    _, agent_keys, _ = repos
+    agent = agent_keys.by_hash(hash_agent_key(_KEY))
+    assert agent is not None
+    agent_keys.add(dataclasses.replace(agent, status=AgentKeyStatus.REVOKED))
+
+    _reseed(repos)
+
+    assert _status(agent_keys, _KEY) is AgentKeyStatus.REVOKED
+
+
+def test_new_agent_key_revokes_the_old_one() -> None:
+    """A key rotated in .env replaces the old key, so a leaked old key stops working."""
+    repos = _seeded()
+    _, agent_keys, _ = repos
+
+    _reseed(repos, agent_key=_NEW_KEY)
+
+    assert _status(agent_keys, _KEY) is AgentKeyStatus.REVOKED
+    assert _status(agent_keys, _NEW_KEY) is AgentKeyStatus.ACTIVE

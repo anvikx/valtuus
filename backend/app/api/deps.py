@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security.utils import get_authorization_scheme_param
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -139,9 +140,11 @@ class AgentKeyGuard:
             await self._app(scope, receive, send)
             return
 
-        # ponytail: sync lookup on the event loop is fine for the in-memory store.
-        # Move it to a thread when the Postgres repository lands.
-        agent_key = self._agent_key_service.authenticate(_bearer_token(scope))
+        # The lookup can hit the database, so it must not block the event loop.
+        agent_key = await run_in_threadpool(
+            self._agent_key_service.authenticate,
+            _bearer_token(scope),
+        )
         if agent_key is None:
             await error_response(_UNAUTHENTICATED)(scope, receive, send)
             return

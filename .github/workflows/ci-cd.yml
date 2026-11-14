@@ -20,6 +20,21 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # Same image as docker-compose.yml. A throwaway database, so the password is no secret.
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: valtuus
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: valtuus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U valtuus -d valtuus_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -29,6 +44,9 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest
+        env:
+          # Without it the Postgres tests skip, so CI must always set it.
+          TEST_DATABASE_URL: postgresql+psycopg://valtuus:test@localhost:5432/valtuus_test
 
   frontend:
     runs-on: ubuntu-latest

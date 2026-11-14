@@ -38,6 +38,9 @@ class InMemoryAgentKeyRepository:
     def by_hash(self, key_hash: str) -> AgentKey | None:
         return self._by_hash.get(key_hash)
 
+    def for_buyer(self, buyer_id: str) -> Sequence[AgentKey]:
+        return [key for key in self._by_hash.values() if key.buyer_id == buyer_id]
+
     def add(self, agent_key: AgentKey) -> None:
         self._by_hash[agent_key.key_hash] = agent_key
 
@@ -144,7 +147,7 @@ class InMemoryIdempotencyRepository:
 class InMemoryUnitOfWork:
     def __init__(self) -> None:
         # ponytail: one global lock serializes every write, and nothing rolls back.
-        # Use database transactions when the Postgres repositories land.
+        # Tests and local dev only; the Postgres store has real transactions.
         self._lock = threading.RLock()
 
     @contextmanager
