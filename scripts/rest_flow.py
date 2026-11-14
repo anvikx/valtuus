@@ -35,7 +35,7 @@ SECURE_PROTOCOLS = ("https", "wss")
 STATE_AUTO = "AUTO"
 STATE_PENDING = "PENDING_APPROVAL"
 STATE_ORDERED = "ORDERED"
-SEARCH_OK = "OK"
+SEARCH_READY = "READY"
 
 PRODUCT_QUERY = "milk"
 LACTOSE_FREE = "FREE_FROM_LACTOSE"
@@ -156,8 +156,8 @@ def _search(gateway: Gateway, run: Run, deliver_by: date) -> tuple[str, list[str
         },
     )
     search = gateway.agent("GET", f"/catalog/search?{query}")
-    if search["status"] != SEARCH_OK:
-        raise FlowError(f"Search status is {search['status']}, not OK.")
+    if search["hint"]["code"] != SEARCH_READY:
+        raise FlowError(f"Search hint is {search['hint']['code']}, not READY.")
 
     product_ids = [candidate["product_id"] for candidate in search["candidates"]]
     print(f"  search {search['request_id']}: {len(product_ids)} candidates")

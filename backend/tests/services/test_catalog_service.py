@@ -5,55 +5,16 @@ from decimal import Decimal
 
 import pytest
 
-from app.adapters.clock import FixedClock
-from app.adapters.memory.repositories import (
-    InMemoryCartRepository,
-    InMemoryMandateRepository,
-    InMemoryOfferRepository,
-    InMemoryUnitOfWork,
-)
 from app.adapters.postgres.catalog import PostgresCatalog
 from app.adapters.product_store import ProductStore
 from app.api.results import search_response
-from app.domain.catalog import Allergens, ContentPerSalesUnit, SearchQuery
+from app.domain.catalog import Allergens, ContentPerSalesUnit
 from app.domain.catalog_search import VALID_ATTRIBUTES, NameMatcher, validate_query
 from app.domain.enums import AllergenStatus, AllergenType, Decision, Unit
 from app.domain.errors import InvalidRequestError
-from app.services.audit_service import AuditService
-from app.services.catalog_service import CatalogService
-from tests.adapters.samples import agent_key, mandate
-from tests.fakes.offer_data import MONDAY, NOW, FakeCatalog, product
-
-
-class Records:
-    def __init__(self):
-        self.records = []
-
-    def append(self, record):
-        self.records.append(record)
-
-
-def query(words="milk", **values):
-    return replace(SearchQuery(words, (), Decimal("10"), Unit.L, MONDAY, ()), **values)
-
-
-def item(pid="1", name="Milk", **values):
-    return replace(product(pid, lot_size=Decimal(1)), names={"en": name}, name=name, **values)
-
-
-def service(catalog, **rules):
-    mandates = InMemoryMandateRepository()
-    mandates.add(replace(mandate(), required_attributes=(), **rules))
-    records = Records()
-    uow = InMemoryUnitOfWork()
-    audit = AuditService(
-        records,
-        InMemoryCartRepository(),
-        InMemoryOfferRepository(),
-        FixedClock(NOW),
-        uow,
-    )
-    return CatalogService(catalog, mandates, audit, uow, 500), records
+from tests.adapters.samples import agent_key
+from tests.fakes.catalog import item, query, service
+from tests.fakes.offer_data import FakeCatalog
 
 
 @pytest.mark.parametrize(
@@ -146,7 +107,7 @@ def test_numeric_category_tie_break_and_no_match():
 
     assert catalog.search(agent_key(), query()).hint_category == "2"
     assert catalog.search(agent_key(), query("xyzzy")).candidates == ()
-    assert records.records[-1].sentence == "No product matched."
+    assert records.records[-1].output_data["hint"]["code"] == "NO_MATCH"
 
 
 @pytest.mark.parametrize(
@@ -196,7 +157,7 @@ def test_attributes_and_allergens_before_category_and_unit():
 
 
 @pytest.mark.parametrize("category", [None, "1"])
-def test_excluded_products_follow_the_returned_category(category):
+def test_exclusions_are_reported_before_the_category_filter(category):
     unknown = Allergens(AllergenStatus.UNKNOWN, ())
     products = [
         item("ok", category="1"),
@@ -207,7 +168,7 @@ def test_excluded_products_follow_the_returned_category(category):
 
     result = catalog.search(agent_key(), query(category=category))
 
-    assert {p.product_id for p in result.excluded} == {"same"}
+    assert {p.product_id for p in result.excluded} == {"same", "other"}
 
 
 def test_no_match_names_every_excluded_product():
@@ -230,11 +191,11 @@ def test_complete_category_and_safety_guard():
     result = catalog.search(agent_key(), query())
 
     assert len(result.candidates) == 500
-    assert result.truncated
+    assert result.hint.code == "GUARD_CUT"
     catalog, _ = service(FakeCatalog(*(item(str(n)) for n in range(121))))
     result = catalog.search(agent_key(), query())
     assert len(result.candidates) == 121
-    assert not result.truncated
+    assert result.hint.code == "READY"
 
 
 def test_postgres_uses_exact_name_rules_after_prefilter(database):
@@ -301,7 +262,21 @@ def test_real_file_search_counts(database):
             ),
         )
         assert (result.hint_category, len(result.candidates)) == (expected_category, count), words
-        assert not result.truncated
+        assert [summary.category for summary in result.categories if summary.in_list] == [
+            expected_category,
+        ]
+        if unit is None:
+            assert result.hint.code == "MISSING_FIELDS"
+            assert result.missing_fields == ("unit",)
+        else:
+            assert result.hint.code == "READY"
+    cream = catalog.search(agent_key(), query("cream"))
+    whipping = next(summary for summary in cream.categories if summary.category == "10401")
+    assert whipping.hits == 43
+    assert whipping.in_list is False
+    assert len(whipping.examples) == 2
+    assert any("whip" in name.casefold() for name in whipping.examples)
+    assert cream.total_hits > len(cream.candidates)
     plain = catalog.search(agent_key(), query("jaatelo", unit=None))
     accented = catalog.search(agent_key(), query("jäätelö", unit=None))
     assert plain.candidates == accented.candidates
@@ -326,7 +301,7 @@ def test_one_litre_sales_units_and_unknown_quantity():
     assert result.candidates[0].quantity_delivered == Decimal(3)
     missing = catalog.search(agent_key(), query(quantity=None))
     assert missing.candidates[0].sales_units_needed is None
-    assert "quantity" in missing.missing
+    assert "quantity" in missing.missing_fields
 
 
 def test_pieces_fill_packs_by_their_piece_count():

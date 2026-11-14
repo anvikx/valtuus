@@ -44,10 +44,12 @@ class SearchMatch(StrEnum):
     INSIDE_WORD = "INSIDE_WORD"
 
 
-class SearchStatus(StrEnum):
-    OK = "OK"
-    NEEDS_CLARIFICATION = "NEEDS_CLARIFICATION"
+class SearchHintCode(StrEnum):
+    EXCLUDED_ONLY = "EXCLUDED_ONLY"
     NO_MATCH = "NO_MATCH"
+    MISSING_FIELDS = "MISSING_FIELDS"
+    GUARD_CUT = "GUARD_CUT"
+    READY = "READY"
 
 
 class OfferTier(StrEnum):

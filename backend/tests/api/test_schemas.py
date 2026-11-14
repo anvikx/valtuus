@@ -23,11 +23,16 @@ _ALLERGENS = {"status": "KNOWN", "contains": ["AM"], "free_from": []}
 
 _SEARCH = {
     "hint_category": "10400",
-    "status": "OK",
-    "truncated": False,
-    "interpreted_request": _INTERPRETED,
-    "missing": [],
-    "options": [],
+    "understood": {**_INTERPRETED, "category": None},
+    "missing_fields": [],
+    "total_hits": 1,
+    "categories": [
+        {"category": "10400", "hits": 1, "examples": ["Valio Arki Eila 1 l"], "in_list": True}
+    ],
+    "hint": {
+        "code": "READY",
+        "sentence": "The list has every product of this type. Call get_offers with all candidates.",
+    },
     "candidates": [
         {
             "product_id": "464306",
