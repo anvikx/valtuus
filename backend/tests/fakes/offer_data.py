@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
 from app.domain.constants import GATEWAY_TIMEZONE
-from app.domain.enums import AllergenStatus, StockModel, Unit
+from app.domain.enums import AllergenStatus, AllergenType, StockModel, Unit
 from app.domain.errors import GatewayError
 from app.domain.offer import Availability, AvailabilitySnapshot, OfferQuery, Price
 
@@ -38,7 +38,11 @@ def product(
         sales_unit=sales_unit,
         content_per_sales_unit=content,
         attributes=(),
-        allergens=Allergens(AllergenStatus.KNOWN, ("AM",), ()),
+        allergens=Allergens(
+            status=AllergenStatus.KNOWN,
+            free_from=(),
+            declarations={AllergenType.CONTAINS: ("AM",)},
+        ),
         country_of_origin="FI",
         labels=(),
         substitute_ids=(),
