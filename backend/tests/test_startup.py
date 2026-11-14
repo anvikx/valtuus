@@ -46,6 +46,13 @@ def test_app_refuses_to_start_without_main_user_password() -> None:
         create_app(settings)
 
 
+@pytest.mark.parametrize("guard", [0, -1])
+def test_settings_refuse_a_guard_that_returns_no_candidates(guard: int) -> None:
+    """A guard below 1 empties every search while in_list still names a category."""
+    with pytest.raises(ValueError, match="greater than 0"):
+        Settings(candidate_guard=guard)
+
+
 def test_refused_start_closes_the_database(
     database: Database,
     monkeypatch: pytest.MonkeyPatch,
@@ -131,8 +138,7 @@ def test_restart_keeps_the_main_user_logged_in(database: Database) -> None:
         cookies = client.cookies
 
     with TestClient(create_app(settings), base_url=_BASE_URL, cookies=cookies) as client:
-        # 501: the session check passed and the stub service ran.
-        assert client.get("/api/v1/agents").status_code == HTTPStatus.NOT_IMPLEMENTED
+        assert client.get("/api/v1/agents").status_code == HTTPStatus.OK
 
 
 def test_password_change_logs_the_main_user_out(database: Database) -> None:

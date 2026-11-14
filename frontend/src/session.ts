@@ -3,7 +3,8 @@ import { ApiError } from './api.ts'
 
 const LOGIN_PATH = '/login'
 const NEXT_PARAM = 'next'
-const HOME_PATH = '/'
+// The main user's home is the inbox, so a sign in with no link lands there.
+const HOME_PATH = '/inbox'
 
 export function isSignedOut(error: unknown): boolean {
   return error instanceof ApiError && error.kind === 'unauthenticated'

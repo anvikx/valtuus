@@ -6,10 +6,9 @@ from typing import Any
 from app.domain.enums import (
     AllergenStatus,
     AllergenType,
-    Decision,
     ReasonCode,
+    SearchHintCode,
     SearchMatch,
-    SearchStatus,
     Unit,
 )
 
@@ -104,30 +103,27 @@ class ExcludedProduct:
 
 
 @dataclass(frozen=True)
-class OptionEstimate:
-    unit_price: Decimal
-    total_ex_vat: Decimal
-    expected_decision: Decision
-    expected_reason_codes: tuple[ReasonCode, ...]
-    expected_reason_sentences: tuple[str, ...]
-    max_auto_qty: int
+class CategorySummary:
+    category: str
+    hits: int
+    examples: tuple[str, ...]
+    in_list: bool
 
 
 @dataclass(frozen=True)
-class SearchOption:
-    label: str
-    request: SearchQuery
-    estimate: OptionEstimate | None
+class SearchHint:
+    code: SearchHintCode
+    sentence: str
 
 
 @dataclass(frozen=True)
 class SearchResult:
-    status: SearchStatus
-    truncated: bool
-    interpreted_request: SearchQuery
-    missing: tuple[str, ...]
-    options: tuple[SearchOption, ...]
+    understood: SearchQuery
     candidates: tuple[SearchCandidate, ...]
+    total_hits: int
+    categories: tuple[CategorySummary, ...]
+    hint: SearchHint
+    hint_category: str | None
     excluded: tuple[ExcludedProduct, ...]
+    missing_fields: tuple[str, ...]
     request_id: str
-    hint_category: str | None = None

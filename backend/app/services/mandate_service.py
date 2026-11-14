@@ -22,6 +22,7 @@ _NEVER = (
     "The agent can never: order a product with a forbidden allergen, order after the order "
     "deadline, change a price, approve its own cart, send a rejected cart again."
 )
+_NO_AUTO_ORDERS = "The agent may not order by itself. A person approves every order."
 _UNKNOWN_ALLERGENS = {
     Decision.HUMAN: "A product with no allergen data needs a person's approval.",
     Decision.DENY: "A product with no allergen data is never ordered.",
@@ -38,6 +39,7 @@ class MandateChanges:
     preferred_brands: tuple[str, ...] | None = None
     forbidden_allergens: tuple[str, ...] | None = None
     allergen_unknown_policy: Decision | None = None
+    can_auto_order: bool | None = None
 
 
 class MandateService:
@@ -133,6 +135,9 @@ def _changed_fields(current: Mandate, changes: MandateChanges) -> dict[str, obje
 
 
 def _limits_sentence(mandate: Mandate) -> str:
+    if not mandate.can_auto_order:
+        return _NO_AUTO_ORDERS
+
     order = _money_text(mandate.max_auto_order_value)
     day = _money_text(mandate.max_auto_value_per_delivery_date)
     return (

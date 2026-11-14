@@ -1,14 +1,15 @@
 import type { ReactElement } from 'react'
 
-import type { AuditEntry, AuditTrail, FlowPhase } from '../api.ts'
+import type { AuditEntry, AuditTrail, CartStatus, FlowPhase } from '../api.ts'
 import { formatClock, formatDate, formatElapsed } from '../format.ts'
+import { Icon } from './Icon.tsx'
 
 interface PhaseGroup {
   readonly phase: FlowPhase
   readonly label: string
 }
 
-const PHASE_GROUPS: readonly PhaseGroup[] = [
+export const PHASE_GROUPS: readonly PhaseGroup[] = [
   { phase: 'request', label: '1 Request' },
   { phase: 'lookup', label: '2 Lookup' },
   { phase: 'order', label: '3 Order' },
@@ -18,13 +19,16 @@ const PHASE_GROUPS: readonly PhaseGroup[] = [
 const REQUEST_ENTRY_ID = 'request'
 
 interface AuditTimelineProps {
+  readonly cartId: string
   readonly audit: AuditTrail | null
   readonly requestText: string
+  readonly status: CartStatus
+  readonly initialState?: 'open' | 'collapsed'
 }
 
 // No audit step maps to REQUEST yet. Until one does, the Request group shows
 // the buyer's words at the time of the first record.
-function withRequestEntry(audit: AuditTrail, requestText: string): readonly AuditEntry[] {
+export function withRequestEntry(audit: AuditTrail, requestText: string): readonly AuditEntry[] {
   const hasRequestRecord = audit.entries.some((entry) => entry.phase === 'request')
   if (hasRequestRecord || audit.startedAt === null) {
     return audit.entries
@@ -35,13 +39,16 @@ function withRequestEntry(audit: AuditTrail, requestText: string): readonly Audi
     phase: 'request',
     sentence: `The buyer asked: "${requestText}"`,
     at: audit.startedAt,
+    actor: null,
+    input: null,
+    output: null,
   }
   return [requestEntry, ...audit.entries]
 }
 
 // A record on a later day than the first one also shows its date, so an expiry the next day
 // does not read as the same morning.
-function entryTime(at: string, startedAt: string | null): string {
+export function entryTime(at: string, startedAt: string | null): string {
   const isSameDay = startedAt === null || formatDate(at) === formatDate(startedAt)
   return isSameDay ? formatClock(at) : `${formatDate(at)} ${formatClock(at)}`
 }
@@ -71,19 +78,37 @@ function EntryList({
   )
 }
 
+// The elapsed time runs to the order record when there is one, else to the last record.
+export function elapsedText(seconds: number | null, status: CartStatus): string | null {
+  if (seconds === null) {
+    return null
+  }
+
+  const elapsed = formatElapsed(seconds)
+  return status === 'ordered' ? `${elapsed} from request to order` : `${elapsed} elapsed`
+}
+
 // What happened to the cart, in 4 groups, one plain sentence per audit record.
-export function AuditTimeline({ audit, requestText }: AuditTimelineProps): ReactElement {
+export function AuditTimeline({
+  cartId,
+  audit,
+  requestText,
+  status,
+  initialState = 'open',
+}: AuditTimelineProps): ReactElement {
   if (audit === null) {
     return <p className="muted">The timeline could not be loaded.</p>
   }
 
   const entries = withRequestEntry(audit, requestText)
+  const elapsed = elapsedText(audit.elapsedSeconds, status)
 
   return (
-    <section className="card stack" aria-labelledby="timeline-title">
-      <h2 className="heading" id="timeline-title">
-        What happened
-      </h2>
+    <details className="record" open={initialState === 'open'}>
+      <summary className="record-summary">
+        <span>Record {elapsed === null ? null : <span className="muted">{elapsed}</span>}</span>
+        <Icon className="record-chevron" name="chevron" />
+      </summary>
       <ol className="stack timeline">
         {PHASE_GROUPS.map(({ phase, label }) => (
           <li className="stack-tight" key={phase}>
@@ -95,9 +120,9 @@ export function AuditTimeline({ audit, requestText }: AuditTimelineProps): React
           </li>
         ))}
       </ol>
-      {audit.elapsedSeconds === null ? null : (
-        <p className="timeline-elapsed">Elapsed time: {formatElapsed(audit.elapsedSeconds)}</p>
-      )}
-    </section>
+      <a className="record-link" href={`/carts/${encodeURIComponent(cartId)}/record`}>
+        Open full record
+      </a>
+    </details>
   )
 }

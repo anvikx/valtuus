@@ -26,6 +26,7 @@ from app.api.schemas.mandate import MandateResponse
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
+from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
@@ -65,7 +66,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             "Search en/fi/sv names, including inside words, with accents folded. "
             f"Use {QUERY_RULE}. Negated names do not match. "
             "Returns the complete hint category, subject to the safety guard. "
-            "No price or stock; call get_offers with all candidates. "
+            f"{HINT_CODE_DESCRIPTION} "
+            "Inspect categories and examples to choose a type; use category to reach another. "
+            "READY means complete for hint_category, not certainty about the intended type. "
+            "No price or stock; call get_offers with all candidates and the returned request_id. "
             "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION
         )
     )
@@ -94,7 +98,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         idempotency_key: IdempotencyKeyValue,
         ctx: Context,
     ) -> CartResponse:
-        """Make a cart from offer lines. The gateway decides AUTO, HUMAN or DENY."""
+        """Make a cart from offer lines. The gateway decides AUTO, HUMAN or DENY.
+
+        PENDING_APPROVAL: follow next_step. Give the buyer approve_url in this reply.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
             cart = services.carts.create_cart(agent, request.to_domain(), idempotency_key)
@@ -102,7 +109,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
 
     @server.tool()
     def get_cart(cart_id: str, ctx: Context) -> CartResponse:
-        """The cart and its current state. Poll it while the main user decides."""
+        """The cart and its current state. Poll it while the main user decides.
+
+        PENDING_APPROVAL: repeat approve_url in each status line to the buyer.
+        """
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
             return cart_response(services.carts.get_cart(agent.buyer_id, cart_id), public_url)

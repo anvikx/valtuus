@@ -7,6 +7,7 @@ import pytest
 from app.domain.cart import PricedLine
 from app.domain.enums import Decision, ReasonCode
 from app.domain.money import line_total
+from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.check import CheckResult, PolicyContext
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
@@ -95,6 +96,34 @@ def test_auto_results_are_not_reasons():
     engine = PolicyEngine((_Fixed(_result(Decision.AUTO, ReasonCode.OVER_AUTO_LIMIT)),))
 
     result = engine.decide(_lines(1), _CONTEXT)
+
+    assert result.decision is Decision.AUTO
+    assert result.reasons == ()
+
+
+def test_small_cart_waits_for_a_human_when_automatic_orders_are_off():
+    """Off is the default, so a new buyer's agent can never spend money alone."""
+    context = dataclasses.replace(
+        _CONTEXT,
+        mandate=dataclasses.replace(_CONTEXT.mandate, can_auto_order=False),
+    )
+
+    result = PolicyEngine((AutoOrderSwitch(), OrderLimit())).decide(_lines(20), context)
+
+    assert result.decision is Decision.HUMAN
+    assert result.reasons == (
+        CheckResult(
+            decision=Decision.HUMAN,
+            reason_code=ReasonCode.AUTO_ORDERS_OFF,
+            sentence="Automatic orders are off.",
+            line_id=None,
+        ),
+    )
+
+
+def test_switch_on_leaves_the_decision_to_the_limits():
+    """With the switch on, a 20.20 EUR cart under the 500 EUR limit is still AUTO."""
+    result = PolicyEngine((AutoOrderSwitch(), OrderLimit())).decide(_lines(20), _CONTEXT)
 
     assert result.decision is Decision.AUTO
     assert result.reasons == ()

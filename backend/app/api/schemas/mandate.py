@@ -38,6 +38,10 @@ class Mandate(BaseModel):
     )
     preferred_brands: list[str] = Field(description="Brands the buyer prefers.")
     ranking_weights: RankingWeights = Field(description="How offers are ranked.")
+    can_auto_order: bool = Field(
+        description="true: a cart within the limits is ordered with no approval. "
+        "false: a person approves every cart.",
+    )
     summary: list[str] = Field(description="The rules in plain sentences. Show them to the buyer.")
 
 
@@ -79,6 +83,10 @@ class MandateUpdateRequest(RequestModel):
         default=None,
         description="New decision for UNKNOWN allergens.",
     )
+    can_auto_order: bool | None = Field(
+        default=None,
+        description="true: let the agent order carts within the limits with no approval.",
+    )
 
     def to_domain(self) -> MandateChanges:
         def as_tuple(values: list[str] | None) -> tuple[str, ...] | None:
@@ -90,6 +98,7 @@ class MandateUpdateRequest(RequestModel):
             preferred_brands=as_tuple(self.preferred_brands),
             forbidden_allergens=as_tuple(self.forbidden_allergens),
             allergen_unknown_policy=self.allergen_unknown_policy,
+            can_auto_order=self.can_auto_order,
         )
 
 

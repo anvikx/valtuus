@@ -45,6 +45,7 @@ from app.api.errors import install_error_handlers
 from app.api.mcp_server import build_mcp_app, create_mcp_server
 from app.api.v1 import agents, audit, carts, catalog, mandate, offers, orders, session
 from app.config import Settings
+from app.domain.policy.auto_order_switch import AutoOrderSwitch
 from app.domain.policy.daily_limit import DailyLimit
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
@@ -190,7 +191,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
         store.orders,
         store.idempotency,
         mandate_service,
-        PolicyEngine([OrderLimit(), DailyLimit()]),
+        PolicyEngine([AutoOrderSwitch(), OrderLimit(), DailyLimit()]),
         clock,
         audit_service,
         store.unit_of_work,
@@ -251,7 +252,7 @@ def _build_services(settings: Settings, store: _Store, catalog_store: ProductCat
 
 
 class _McpPathAlias:
-    """Serves /api/mcp as /api/mcp/, because claude.ai does not follow the slash redirect."""
+    """Serves the MCP path without its slash, because claude.ai does not follow the redirect."""
 
     def __init__(self, app: ASGIApp) -> None:
         self._app = app
@@ -327,9 +328,9 @@ def create_app(
         redoc_url=None,
     )
     # Caddy ends TLS and connects from another container, but uvicorn trusts
-    # X-Forwarded-Proto only from 127.0.0.1. Without this, the /api/mcp slash redirect
-    # points to http and clients such as claude.ai refuse it. Trusting every host is safe
-    # because only Caddy can reach the backend port.
+    # X-Forwarded-Proto only from 127.0.0.1. Without this, a slash redirect (for example
+    # /api/health/) points to http and clients such as claude.ai refuse it. Trusting every
+    # host is safe because only Caddy can reach the backend port.
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
     app.add_middleware(_McpPathAlias)
     install_error_handlers(app)

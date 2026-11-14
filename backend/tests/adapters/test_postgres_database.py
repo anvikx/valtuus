@@ -17,7 +17,7 @@ from app.adapters.postgres.repositories import (
     PostgresMandateRepository,
     PostgresOrderRepository,
 )
-from app.adapters.postgres.tables import audit_records, metadata, orders
+from app.adapters.postgres.tables import audit_records, mandates, metadata, orders
 from tests.adapters import samples
 
 _RACERS = 2
@@ -116,6 +116,23 @@ def test_bodies_hold_no_float_for_money(database: Database) -> None:
     assert body["total_ex_vat"] == "1010.00"
     assert body["lines"][0]["unit_price"] == "0.10"
     assert Decimal(body["lines"][0]["unit_price"]) == samples.SMALL_MONEY
+
+
+def test_mandate_stored_before_the_switch_loads_with_automatic_orders_off(
+    database: Database,
+) -> None:
+    """Rows written before the switch existed have no such key. They must fail closed."""
+    repository = PostgresMandateRepository(database)
+    with database.transaction():
+        repository.add(samples.mandate())
+        database.writer().execute(
+            update(mandates).values(body=mandates.c.body.op("-")("can_auto_order")),
+        )
+
+    latest = repository.latest(samples.BUYER_ID)
+
+    assert latest is not None
+    assert latest.can_auto_order is False
 
 
 def test_racing_orders_for_one_cart_give_one_order(database: Database) -> None:

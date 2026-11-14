@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,4 +30,4 @@ class Settings(BaseSettings):
     # Rollback images must not resolve migration revisions introduced by a newer image.
     skip_database_migrations: bool = False
     # Most product ids one get_offers call takes. Only a guard: a search sends all candidates.
-    candidate_guard: int = 500
+    candidate_guard: PositiveInt = 500

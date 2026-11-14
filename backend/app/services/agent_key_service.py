@@ -21,4 +21,5 @@ class AgentKeyService:
         return agent_key
 
     def list_for_buyer(self, buyer_id: str) -> Sequence[AgentKey]:
-        raise NotImplementedError("AgentKeyService.list_for_buyer")
+        """Revoked keys too, so the main user sees which agents are cut off."""
+        return self._agent_keys.for_buyer(buyer_id)

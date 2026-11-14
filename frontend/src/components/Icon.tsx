@@ -8,6 +8,10 @@ const ICON_PATHS = {
   done: `${CIRCLE}M8 12.5l2.5 2.5L16 9.5`,
   denied: `${CIRCLE}M9 9l6 6M15 9l-6 6`,
   clock: `${CIRCLE}M12 7v5l3 2`,
+  chevron: 'M6 9l6 6 6-6',
+  cross: 'M6 6l12 12M18 6L6 18',
+  minus: 'M6 12h12',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
 } as const
 
 export type IconName = keyof typeof ICON_PATHS
