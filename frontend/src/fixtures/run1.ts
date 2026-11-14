@@ -7,6 +7,8 @@ const AGENT = 'claude-code (agent)'
 const GATEWAY = 'gateway'
 const DECIDED_AT = '2026-11-14T10:04:12+02:00'
 const EXPIRED_AT = '2026-11-15T17:00:02+02:00'
+const DENIED_SENTENCE =
+  'Valio Arki Eila 1 l contains milk protein, which this buyer does not allow.'
 
 export const PENDING_CART: WireCart = {
   cart_id: 'c_demo',
@@ -129,6 +131,25 @@ export function expiredCart(cartId: string): WireCart {
     state: 'EXPIRED',
     reason_codes: ['CUTOFF_PASSED'],
     reason_sentences: ['The order deadline was Sun 15 Nov 17:00.'],
+  }
+}
+
+// Approve runs the policy again. A rule now forbids the order, so the cart closes as DENIED.
+export function deniedCart(cartId: string): WireCart {
+  return {
+    ...cartWithId(PENDING_CART, cartId),
+    state: 'DENIED',
+    current_decision: 'DENY',
+    reason_codes: ['FORBIDDEN_ALLERGEN'],
+    current_reason_codes: ['FORBIDDEN_ALLERGEN'],
+    reason_sentences: [DENIED_SENTENCE],
+  }
+}
+
+export function withdrawnCart(cartId: string): WireCart {
+  return {
+    ...cartWithId(PENDING_CART, cartId),
+    state: 'WITHDRAWN',
   }
 }
 
@@ -262,5 +283,23 @@ export function expiredRecords(cartId: string): WireAuditRecord[] {
         'Nobody decided before the order deadline. The order deadline was Sun 15 Nov 17:00.',
       created_at: EXPIRED_AT,
     }),
+  ]
+}
+
+export function deniedRecords(cartId: string): WireAuditRecord[] {
+  return [
+    ...waitingRecords(cartId),
+    {
+      ...record(cartId, 'policy_deny', {
+        step: 'POLICY',
+        phase: 'APPROVAL',
+        actor: GATEWAY,
+        sentence: `The policy denied the order. ${DENIED_SENTENCE}`,
+        created_at: DECIDED_AT,
+      }),
+      decision: 'DENY',
+      reason_codes: ['FORBIDDEN_ALLERGEN'],
+      mandate_version: 2,
+    },
   ]
 }

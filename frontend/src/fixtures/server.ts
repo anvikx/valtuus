@@ -8,6 +8,8 @@
 //   c_answers        waiting, with the buyer's answers and other automatic orders that day
 //   c_rejected       REJECTED
 //   c_expired        EXPIRED
+//   c_denied         DENIED: a rule forbids the order
+//   c_withdrawn      WITHDRAWN: the buyer cancelled it
 //   c_conflict       waiting; approve and reject answer 409, and the cart is then EXPIRED
 //   c_approve_fails  waiting; approve answers 503
 //   c_unavailable    every read answers 503
@@ -18,6 +20,8 @@ import {
   agentOrderedCart,
   agentOrderedRecords,
   cartWithId,
+  deniedCart,
+  deniedRecords,
   expiredCart,
   expiredRecords,
   orderedCart,
@@ -25,6 +29,7 @@ import {
   rejectedCart,
   rejectedRecords,
   waitingRecords,
+  withdrawnCart,
 } from './run1.ts'
 
 const STATUS = {
@@ -54,7 +59,8 @@ const AUTH_PATH = /^\/v1\/auth\/(login|logout|me)$/
 const CART_PATH = /^\/v1\/carts\/([^/]+)(?:\/(approve|reject))?$/
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 
-type Outcome = 'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired'
+type Outcome =
+  'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired' | 'denied' | 'withdrawn'
 
 interface CartRecord {
   readonly outcome: Outcome
@@ -76,6 +82,8 @@ const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   [ANSWERS_ID]: 'waiting',
   c_rejected: 'rejected',
   c_expired: 'expired',
+  c_denied: 'denied',
+  c_withdrawn: 'withdrawn',
   [CONFLICT_ID]: 'waiting',
   [APPROVE_FAILS_ID]: 'waiting',
 }
@@ -144,44 +152,36 @@ function wireCart(cartId: string, cart: CartRecord): WireCart {
   }
 }
 
+// Maps, not if chains, so a new Outcome does not compile until it has a cart and records.
+const CART_FOR: Readonly<Record<Outcome, (cartId: string, rejectReason: string) => WireCart>> = {
+  waiting: (cartId) => cartWithId(PENDING_CART, cartId),
+  ordered: orderedCart,
+  agentOrdered: agentOrderedCart,
+  rejected: rejectedCart,
+  expired: expiredCart,
+  denied: deniedCart,
+  withdrawn: withdrawnCart,
+}
+
+// The backend has no record for a withdrawal yet, so a withdrawn cart shows the waiting ones.
+const RECORDS_FOR: Readonly<
+  Record<Outcome, (cartId: string, rejectReason: string) => WireAuditRecord[]>
+> = {
+  waiting: waitingRecords,
+  ordered: orderedRecords,
+  agentOrdered: agentOrderedRecords,
+  rejected: rejectedRecords,
+  expired: expiredRecords,
+  denied: deniedRecords,
+  withdrawn: waitingRecords,
+}
+
 function baseCart(cartId: string, { outcome, rejectReason }: CartRecord): WireCart {
-  if (outcome === 'ordered') {
-    return orderedCart(cartId)
-  }
-
-  if (outcome === 'agentOrdered') {
-    return agentOrderedCart(cartId)
-  }
-
-  if (outcome === 'rejected') {
-    return rejectedCart(cartId, rejectReason)
-  }
-
-  if (outcome === 'expired') {
-    return expiredCart(cartId)
-  }
-
-  return cartWithId(PENDING_CART, cartId)
+  return CART_FOR[outcome](cartId, rejectReason)
 }
 
 function wireRecords(cartId: string, { outcome, rejectReason }: CartRecord): WireAuditRecord[] {
-  if (outcome === 'ordered') {
-    return orderedRecords(cartId)
-  }
-
-  if (outcome === 'agentOrdered') {
-    return agentOrderedRecords(cartId)
-  }
-
-  if (outcome === 'rejected') {
-    return rejectedRecords(cartId, rejectReason)
-  }
-
-  if (outcome === 'expired') {
-    return expiredRecords(cartId)
-  }
-
-  return waitingRecords(cartId)
+  return RECORDS_FOR[outcome](cartId, rejectReason)
 }
 
 function isSignedIn(): boolean {

@@ -29,6 +29,9 @@ const WIRE_STATE_TO_STATUS: Readonly<Record<string, CartStatus>> = {
   ORDERED: 'ordered',
   REJECTED: 'rejected',
   EXPIRED: 'expired',
+  DENIED: 'denied',
+  // Not on the backend yet. The handoff lists it for a cart that the buyer cancels.
+  WITHDRAWN: 'withdrawn',
 }
 
 const WIRE_PHASE_TO_PHASE: Readonly<Record<string, FlowPhase>> = {
@@ -180,8 +183,9 @@ interface HealthResponse {
 
 export type BackendHealth = 'ok' | 'down'
 
-// 'closed' covers the states this page does not decide on (AUTO, DENIED).
-export type CartStatus = 'waiting' | 'ordered' | 'rejected' | 'expired' | 'closed'
+// 'closed' covers a state this page does not decide on (AUTO).
+export type CartStatus =
+  'waiting' | 'ordered' | 'rejected' | 'expired' | 'denied' | 'withdrawn' | 'closed'
 
 export type FlowPhase = 'request' | 'lookup' | 'order' | 'approval'
 

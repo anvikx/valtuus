@@ -220,7 +220,8 @@ blockquote {
   color: var(--done);
 }
 
-.result-rejected .result-icon {
+.result-rejected .result-icon,
+.result-denied .result-icon {
   color: var(--deny);
 }
 

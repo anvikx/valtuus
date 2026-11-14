@@ -10,15 +10,19 @@ const RESULT_ICON: Readonly<Record<ClosedStatus, IconName>> = {
   ordered: 'done',
   rejected: 'denied',
   expired: 'clock',
+  denied: 'denied',
+  withdrawn: 'denied',
   closed: 'attention',
 }
 
 const PROTOTYPE_ORDER_NOTE =
   "Prototype order: committed in this prototype's order ledger, not sent to Valio Aimo's production systems."
 
-// A cart in AUTO or DENIED state is not specified for this page.
+// A cart in AUTO state is not specified for this page.
 const CLOSED_SENTENCE = 'This order needs no decision from you.'
 const EXPIRED_FALLBACK = 'Nobody decided before the order deadline.'
+const DENIED_FALLBACK = 'The rules do not allow this order. Nothing was ordered.'
+const WITHDRAWN_SENTENCE = 'The buyer cancelled this order. Nothing was ordered.'
 
 interface ResultCardProps {
   readonly cart: Cart
@@ -30,6 +34,10 @@ function decidedText({ decidedBy, decidedAt }: Cart): string {
   const by = decidedBy === null ? '' : ` by ${decidedBy}`
   const at = decidedAt === null ? '' : ` at ${formatDateTime(decidedAt)}`
   return `${by}${at}`
+}
+
+function reasonsText({ reasons }: Cart, fallback: string): string {
+  return reasons.length === 0 ? fallback : reasons.join(' ')
 }
 
 function resultSentence(cart: Cart, status: ClosedStatus): string {
@@ -49,7 +57,15 @@ function resultSentence(cart: Cart, status: ClosedStatus): string {
   }
 
   if (status === 'expired') {
-    return cart.reasons.length === 0 ? EXPIRED_FALLBACK : cart.reasons.join(' ')
+    return reasonsText(cart, EXPIRED_FALLBACK)
+  }
+
+  if (status === 'denied') {
+    return reasonsText(cart, DENIED_FALLBACK)
+  }
+
+  if (status === 'withdrawn') {
+    return WITHDRAWN_SENTENCE
   }
 
   return CLOSED_SENTENCE
