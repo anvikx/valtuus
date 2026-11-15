@@ -140,6 +140,64 @@ def test_equal_prices_rank_by_product_id() -> None:
     assert [line.product_id for line in lines] == ["a", "b"]
 
 
+@pytest.mark.parametrize(("amount", "other_amount"), [(2000, 2000), (384, 200)])
+@pytest.mark.parametrize("brand", ["Arla", "ARLA"])
+def test_brand_wins_within_stock_group(amount, other_amount, brand):
+    """Within the same stock group, preference wins over price."""
+    preferred = replace(
+        _candidate("arla", "1.50", amount=amount),
+        product=replace(product("arla"), brand=brand),
+    )
+
+    lines = rank_offer_lines(
+        [_candidate("valio", "1.01", amount=other_amount), preferred],
+        replace(query(), preferred_brands=("Arla",)),
+    )
+
+    assert [line.product_id for line in lines] == ["arla", "valio"]
+
+
+@pytest.mark.parametrize(
+    "availability",
+    [
+        {"amount": 384},
+        {"amount": 999_999},
+        {"model": StockModel.TERMINAL},
+        {"model": None},
+    ],
+    ids=["partial", "unknown-count", "terminal", "unknown-model"],
+)
+def test_full_stock_beats_brand(availability):
+    """Following rank 1 at its needed quantity must not exceed the available full stock."""
+    preferred = replace(
+        _candidate("arla", "0.90", **availability),
+        product=replace(product("arla"), brand="Arla"),
+    )
+
+    lines = rank_offer_lines(
+        [preferred, _candidate("valio", "1.01", amount=2000)],
+        replace(query(), preferred_brands=("Arla",)),
+    )
+
+    assert [line.product_id for line in lines] == ["valio", "arla"]
+    assert lines[0].tier is OfferTier.BEST
+    assert lines[0].available_qty >= lines[0].sales_units_needed
+
+
+def test_on_time_beats_late_preference():
+    preferred = replace(
+        _candidate("arla", available_date=MONDAY + timedelta(days=1)),
+        product=replace(product("arla"), brand="Arla"),
+    )
+
+    lines = rank_offer_lines(
+        [preferred, _candidate("valio")],
+        replace(query(), preferred_brands=("Arla",)),
+    )
+
+    assert [line.product_id for line in lines] == ["valio", "arla"]
+
+
 def test_a_box_ranks_on_its_price_per_litre() -> None:
     """A 6 x 1 l box at 6.00 costs 1.00 per litre, so it beats a 1 l pack at 1.01."""
     box = replace(

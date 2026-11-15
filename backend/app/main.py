@@ -296,6 +296,7 @@ def _build_services(
             audit_service,
             store.unit_of_work,
             settings.candidate_guard,
+            store.mandates,
         ),
         carts=cart_service,
         decisions=DecisionWaiter(cart_service),

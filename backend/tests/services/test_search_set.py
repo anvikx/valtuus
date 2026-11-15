@@ -8,6 +8,7 @@ import pytest
 from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
     InMemoryCartRepository,
+    InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemorySearchSetRepository,
     InMemoryUnitOfWork,
@@ -21,7 +22,7 @@ from app.domain.constants import (
 from app.domain.errors import InvalidRequestError, NotFoundError
 from app.services.audit_service import AuditService
 from app.services.offer_service import OfferService
-from tests.adapters.samples import agent_key
+from tests.adapters.samples import agent_key, mandate
 from tests.fakes.catalog import item, query, service
 from tests.fakes.offer_data import (
     NOW,
@@ -51,6 +52,8 @@ _PRICES = [price(pid, "2.00") for pid in _IDS[:-1]] + [price(_CHEAPEST, "1.00")]
 def _offers(catalog, search_sets, clock, prices=_PRICES, sink=None) -> OfferService:
     uow = InMemoryUnitOfWork()
     offers = InMemoryOfferRepository()
+    mandates = InMemoryMandateRepository()
+    mandates.add(mandate())
     return OfferService(
         catalog,
         FakePriceSource(prices, [stock(pid) for pid in _IDS]),
@@ -61,6 +64,7 @@ def _offers(catalog, search_sets, clock, prices=_PRICES, sink=None) -> OfferServ
         AuditService(sink or _Sink(), InMemoryCartRepository(), offers, clock, uow),
         uow,
         500,
+        mandates,
     )
 
 

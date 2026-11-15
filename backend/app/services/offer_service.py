@@ -15,6 +15,7 @@ from app.domain.constants import (
 )
 from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import InvalidRequestError, NotFoundError
+from app.domain.mandate import Mandate
 from app.domain.offer import (
     AvailabilitySnapshot,
     Candidate,
@@ -32,7 +33,7 @@ from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
 from app.services.ports.price_source import PriceSource
-from app.services.ports.repositories import OfferRepository, SearchSetRepository
+from app.services.ports.repositories import MandateRepository, OfferRepository, SearchSetRepository
 from app.services.ports.signer import Signer
 from app.services.ports.unit_of_work import UnitOfWork
 
@@ -53,6 +54,7 @@ class OfferService:
         audit: AuditService,
         unit_of_work: UnitOfWork,
         candidate_guard: int,
+        mandates: MandateRepository,
     ) -> None:
         self._catalog = catalog
         self._prices = prices
@@ -63,6 +65,7 @@ class OfferService:
         self._audit = audit
         self._unit_of_work = unit_of_work
         self._candidate_guard = candidate_guard
+        self._mandates = mandates
 
     def get_offers(self, agent: AgentKey, query: OfferQuery) -> Offer:
         """Raises UpstreamUnavailableError (and its rate limited kind) before anything is stored."""
@@ -73,6 +76,8 @@ class OfferService:
                 "Send fewer product ids.",
             )
 
+        mandate = self._mandate(agent.buyer_id)
+        query = replace(query, preferred_brands=mandate.preferred_brands or query.preferred_brands)
         issued_at = self._clock.now()
         products, missing = self._products(product_ids)
         # No Valio call inside the transaction: a slow answer would hold the database lock.
@@ -103,7 +108,7 @@ class OfferService:
         )
         with self._unit_of_work.transaction():
             self._offers.add(offer)
-            self._record(agent, query, offer, rejected)
+            self._record(agent, query, offer, rejected, mandate.version)
         return offer
 
     def _search_set_ids(self, agent: AgentKey, query: OfferQuery) -> tuple[str, ...]:
@@ -134,6 +139,13 @@ class OfferService:
             raise NotFoundError(f"Offer {offer_id} was not found.", "Check the offer id.")
 
         return offer
+
+    def _mandate(self, buyer_id: str) -> Mandate:
+        with self._unit_of_work.transaction():
+            mandate = self._mandates.latest(buyer_id)
+        if mandate is None:
+            raise NotFoundError("The buyer has no mandate.", "Ask the buyer to set a mandate.")
+        return mandate
 
     def _products(
         self,
@@ -190,6 +202,7 @@ class OfferService:
         query: OfferQuery,
         offer: Offer,
         rejected: Sequence[RejectedProduct],
+        mandate_version: int,
     ) -> None:
         # rejected is the full list: the offer shows only the first ones.
         self._audit.record(
@@ -203,6 +216,7 @@ class OfferService:
                 "quantity": None if query.quantity is None else str(query.quantity),
                 "unit": query.unit,
                 "deliver_by": None if query.deliver_by is None else query.deliver_by.isoformat(),
+                "preferred_brands": list(query.preferred_brands),
             },
             output_data={
                 "offer_id": offer.offer_id,
@@ -210,6 +224,7 @@ class OfferService:
                 "lines_not_shown": offer.lines_not_shown,
                 "rejected": {item.product_id: item.reason_code for item in rejected},
             },
+            mandate_version=mandate_version,
         )
 
 

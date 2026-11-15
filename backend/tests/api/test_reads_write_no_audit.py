@@ -4,7 +4,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.memory.repositories import InMemorySearchSetRepository
+from app.adapters.memory.repositories import InMemoryMandateRepository, InMemorySearchSetRepository
 from app.adapters.signer import NullSigner
 from app.domain.audit import AuditRecord
 from app.main import create_app
@@ -28,6 +28,8 @@ _CANDIDATE_GUARD = 500
 def world(monkeypatch):
     world = _World()
     world.approve()
+    mandates = InMemoryMandateRepository()
+    mandates.add(samples.mandate())
     # create_app(audit=...) puts the mandate, key and session services on the same records.
     base = create_app(audit=world.audit).state.services
     services = dataclasses.replace(
@@ -47,6 +49,7 @@ def world(monkeypatch):
             world.audit_service,
             world.unit_of_work,
             _CANDIDATE_GUARD,
+            mandates,
         ),
     )
     # MCP captures services at app construction, so the world goes in before the build.

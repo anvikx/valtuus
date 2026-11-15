@@ -24,6 +24,9 @@ Live price and stock from Valio Aimo for chosen products, ranked by the mandate.
 
 Send all candidates from the search. The stock snapshot is valid for {OFFER_TTL_MINUTES}
 minutes (`valid_until`). The price holds until `price_valid_to`.
+Rank full on-time stock first, partial or unconfirmed stock next, and late products last.
+Within each group, prioritize preferred brands, then price per requested unit.
+A brand outside the mandate preference requires human approval.
 
 **Scope:** `offer`.
 """

@@ -159,8 +159,16 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         Send request_id from search_products with no product_ids to price every hit of that
         search, or send product_ids to price chosen products. An old request_id expires: search
         again.
+        Rank full on-time stock first, partial or unconfirmed next, and late products last.
+        Within each group, preferred brands come before price per requested unit. A brand
+        outside the mandate preference requires human approval.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
+        NOT_FOUND: if the buyer has no mandate, ask the buyer to set a mandate; if the search
+        is missing or expired, search again and send its request_id.
+        VALIDATION_ERROR: send product_ids or a search request_id; send fewer ids if over the
+        limit. For invalid fields, follow next_step and correct the request.
+        UNAUTHENTICATED/FORBIDDEN: follow next_step to obtain a valid key with offer scope.
         UPSTREAM_UNAVAILABLE: follow next_step and wait the stated seconds before retrying.
         """
         with _error_body():
