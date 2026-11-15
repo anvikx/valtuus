@@ -118,7 +118,7 @@ def test_a_download_429_pauses_every_endpoint_without_retry(tmp_path, monkeypatc
     monkeypatch.setattr("app.adapters.valio_client.urlopen", open_fake)
     requests = ValioRequests(clock)
     downloader = _downloader(tmp_path, requests)
-    client = ValioClient("https://example.test/api/", SecretStr("secret"), requests)
+    client = ValioClient("https://example.test/api/", SecretStr("secret"), requests, clock)
 
     result = downloader_download(downloader)
     first_calls = list(calls)
@@ -173,7 +173,7 @@ def test_a_429_without_a_previous_catalog_fails_without_retry(tmp_path, monkeypa
         URLError(TimeoutError()),
     ],
 )
-def test_download_failures_are_retried_only_once(tmp_path, monkeypatch, clock, failure):
+def test_download_failures_are_tried_3_times(tmp_path, monkeypatch, clock, failure):
     calls = []
 
     def failing(request, timeout):
@@ -186,8 +186,8 @@ def test_download_failures_are_retried_only_once(tmp_path, monkeypatch, clock, f
     with pytest.raises(type(failure)):
         downloader_download(downloader)
 
-    assert len(calls) == 2
-    assert clock.slept == [0.5]
+    assert len(calls) == 3
+    assert clock.slept == [0.5, 1.0]
     assert list(tmp_path.iterdir()) == []
 
 
@@ -215,6 +215,6 @@ def test_a_timeout_during_download_keeps_the_previous_file_and_removes_partial_d
     result = downloader_download(_downloader(tmp_path, ValioRequests(clock)))
 
     assert result.products.read_bytes() == b"old"
-    assert calls.count("https://example.test/api/products/download") == 2
-    assert clock.slept == [0.5]
+    assert calls.count("https://example.test/api/products/download") == 3
+    assert clock.slept == [0.5, 1.0]
     assert list(tmp_path.iterdir()) == [destination]

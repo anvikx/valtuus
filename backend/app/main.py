@@ -205,7 +205,7 @@ def _build_services(
     requests: ValioRequests,
 ) -> Services:
     signer = _signer(settings)
-    valio = ValioClient(settings.valio_base_url, settings.valio_api_key, requests)
+    valio = ValioClient(settings.valio_base_url, settings.valio_api_key, requests, clock)
 
     audit_service = AuditService(
         store.audit,

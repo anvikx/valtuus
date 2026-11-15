@@ -2,19 +2,22 @@
 
 import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from datetime import date, datetime
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from http.client import HTTPException
+from threading import Lock
 from typing import Any
 from urllib.request import Request, urlopen
 
 from pydantic import SecretStr
 
 from app.adapters.valio_requests import ValioRequests
-from app.domain.constants import GATEWAY_TIMEZONE
+from app.domain.constants import GATEWAY_TIMEZONE, VALIO_CACHE_SECONDS
 from app.domain.enums import StockModel, Unit
 from app.domain.errors import UpstreamUnavailableError
 from app.domain.offer import Availability, AvailabilitySnapshot, ComparisonPrice, Price
+from app.services.ports.clock import Clock
 
 _TIMEOUT_SECONDS = 10
 # The API ignores the customer field and gives every buyer the same price.
@@ -25,25 +28,97 @@ _PARSE_ERRORS = (KeyError, IndexError, TypeError, ValueError, ArithmeticError, A
 type _Json = dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _Stock:
+    source_time: datetime
+    item: Availability | None
+
+
+class _AnswerCache[T]:
+    """One answer per (product, date). None in a value is a cached "no price" or "no stock"."""
+
+    def __init__(self, clock: Clock) -> None:
+        self._clock = clock
+        self._entries: dict[tuple[str, date], tuple[datetime, T]] = {}
+        # Routes run in a thread pool, so two calls can fill the cache at once.
+        self._lock = Lock()
+
+    def get_or_fetch(
+        self,
+        product_ids: Sequence[str],
+        day: date,
+        fetch: Callable[[list[str], date], Mapping[str, T]],
+    ) -> dict[str, T]:
+        found = self._fresh(product_ids, day)
+        missing = [pid for pid in dict.fromkeys(product_ids) if pid not in found]
+        if not missing:
+            return found
+
+        # Read before the fetch: slow retries must not extend the life of the answer.
+        asked_at = self._clock.now()
+        # The fetch runs without the lock: a slow upstream must not block cache hits.
+        fetched = fetch(missing, day)
+        self._store(fetched, day, asked_at)
+        return found | dict(fetched)
+
+    def _fresh(self, product_ids: Sequence[str], day: date) -> dict[str, T]:
+        oldest = self._clock.now() - timedelta(seconds=VALIO_CACHE_SECONDS)
+        with self._lock:
+            entries = ((pid, self._entries.get((pid, day))) for pid in product_ids)
+            return {pid: entry[1] for pid, entry in entries if entry and entry[0] > oldest}
+
+    def _store(self, values: Mapping[str, T], day: date, asked_at: datetime) -> None:
+        oldest = self._clock.now() - timedelta(seconds=VALIO_CACHE_SECONDS)
+        with self._lock:
+            # Drop expired entries so the cache holds at most one minute of answers.
+            self._entries = {
+                key: entry for key, entry in self._entries.items() if entry[0] > oldest
+            }
+            self._entries.update(((pid, day), (asked_at, value)) for pid, value in values.items())
+
+
 class ValioClient:
     """The Valio Aimo price and availability APIs. Raises UpstreamUnavailableError."""
 
-    def __init__(self, base_url: str, api_key: SecretStr, requests: ValioRequests) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        api_key: SecretStr,
+        requests: ValioRequests,
+        clock: Clock,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._requests = requests
+        self._clock = clock
+        self._price_cache = _AnswerCache[Price | None](clock)
+        self._stock_cache = _AnswerCache[_Stock](clock)
 
     def prices(self, product_ids: Sequence[str], requested_date: date) -> Mapping[str, Price]:
-        answer = self._post("price", product_ids, requested_date)
-        return _parsed(_prices, answer)
+        prices = self._price_cache.get_or_fetch(product_ids, requested_date, self._fetch_prices)
+        return {pid: price for pid, price in prices.items() if price is not None}
 
     def availability(
         self,
         product_ids: Sequence[str],
         requested_date: date,
     ) -> AvailabilitySnapshot:
-        answer = self._post("availability", product_ids, requested_date)
-        return _parsed(_snapshot, answer)
+        stock = self._stock_cache.get_or_fetch(product_ids, requested_date, self._fetch_stock)
+        return AvailabilitySnapshot(
+            # Answers of different calls: the oldest one is how old this stock can be.
+            source_time=min(
+                (entry.source_time for entry in stock.values()), default=self._clock.now()
+            ),
+            items={pid: entry.item for pid, entry in stock.items() if entry.item is not None},
+        )
+
+    def _fetch_prices(self, product_ids: list[str], day: date) -> dict[str, Price | None]:
+        prices = _parsed(_prices, self._post("price", product_ids, day))
+        return {pid: prices.get(pid) for pid in product_ids}
+
+    def _fetch_stock(self, product_ids: list[str], day: date) -> dict[str, _Stock]:
+        snapshot = _parsed(_snapshot, self._post("availability", product_ids, day))
+        return {pid: _Stock(snapshot.source_time, snapshot.items.get(pid)) for pid in product_ids}
 
     def _post(self, route: str, product_ids: Sequence[str], requested_date: date) -> _Json:
         body = {

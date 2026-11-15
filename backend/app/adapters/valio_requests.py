@@ -13,7 +13,8 @@ from app.domain.errors import UpstreamRateLimitedError
 from app.services.ports.clock import Clock
 
 _LOG = logging.getLogger(__name__)
-_RETRY_WAIT_SECONDS = 0.5
+_MAX_ATTEMPTS = 3
+_FIRST_RETRY_WAIT_SECONDS = 0.5
 
 
 class ValioRequests:
@@ -22,20 +23,19 @@ class ValioRequests:
         self._paused_until: datetime | None = None
 
     def send[T](self, operation: Callable[[], T]) -> T:
-        """One retry on 5xx/timeouts. A 429 pauses all endpoints without a retry."""
-        self._check_pause()
-        try:
-            return self._attempt(operation)
-        except HTTPError as exc:
-            if exc.code < HTTPStatus.INTERNAL_SERVER_ERROR:
-                raise
-        except URLError as exc:
-            if not isinstance(exc.reason, TimeoutError):
-                raise
-        except TimeoutError:
-            pass
+        """Retries a 5xx or a timeout with a doubling wait. A 429 pauses all endpoints."""
+        wait = _FIRST_RETRY_WAIT_SECONDS
+        for _ in range(_MAX_ATTEMPTS - 1):
+            self._check_pause()
+            try:
+                return self._attempt(operation)
+            except (URLError, TimeoutError) as exc:
+                if not _is_transient(exc):
+                    raise
 
-        sleep(_RETRY_WAIT_SECONDS)
+            sleep(wait)
+            wait *= 2
+
         self._check_pause()
         return self._attempt(operation)
 
@@ -57,3 +57,12 @@ class ValioRequests:
             self._paused_until = self._clock.now() + timedelta(seconds=VALIO_COOLDOWN_SECONDS)
             _LOG.warning("Valio answered 429. Pausing all calls.")
             raise UpstreamRateLimitedError(VALIO_COOLDOWN_SECONDS) from exc
+
+
+def _is_transient(exc: URLError | TimeoutError) -> bool:
+    # HTTPError is a URLError, so it goes first. A refused connection is not transient.
+    if isinstance(exc, HTTPError):
+        return exc.code >= HTTPStatus.INTERNAL_SERVER_ERROR
+    if isinstance(exc, URLError):
+        return isinstance(exc.reason, TimeoutError)
+    return True
