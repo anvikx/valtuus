@@ -309,13 +309,16 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
           reasons: update.previousReasons,
         }
       : latest
+  // A closed cart opens the record, so the reader sees why it stopped. An ordered cart keeps the
+  // record shut: the result above already says what happened.
+  const isTimelineOpen = cart.status !== 'waiting' && cart.status !== 'ordered'
   const timeline = (
     <AuditTimeline
       cartId={cartId}
       audit={audit}
       requestText={cart.requestText}
       status={cart.status}
-      initialState={cart.status === 'waiting' ? 'collapsed' : 'open'}
+      initialState={isTimelineOpen ? 'open' : 'collapsed'}
     />
   )
   if (cart.status === 'ordered') {
