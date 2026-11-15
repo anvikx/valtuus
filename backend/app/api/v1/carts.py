@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Query
 
 from app.api.deps import (
     HumanSessionDep,
@@ -27,6 +27,7 @@ from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
 from app.domain.constants import DUPLICATE_WINDOW_MINUTES, REJECT_MEMORY_MINUTES
 from app.domain.enums import AgentScope
+from app.services.decision_waiter import HOLD_SECONDS
 
 router = APIRouter(prefix="/v1/carts", tags=["carts"], responses=ERROR_RESPONSES)
 
@@ -91,9 +92,19 @@ user come first, the earliest deadline on top. Then the other carts, the latest 
 _GET = """
 The cart and its current state, revision number, revision count and line changes
 from the immediately preceding revision (N-1). An unchanged read adds no history or audit record.
-Poll it every 10 seconds while the main user decides.
+To wait for the main user's decision, use `GET /api/v1/carts/c_1/wait`.
 
 **Request:** `GET /api/v1/carts/c_1`
+
+**Auth:** an agent key with scope `cart`, or the main user session.
+"""
+_WAIT = f"""
+Hold the read while the main user decides on a pending cart, so the agent needs no timer.
+It returns the cart as soon as the state or the revision changes, or `current_decision`
+becomes AUTO. Else it returns the pending cart after about {HOLD_SECONDS:.0f} seconds: call
+it again.
+
+**Request:** `GET /api/v1/carts/c_1/wait?revision=1` with the revision of your last read.
 
 **Auth:** an agent key with scope `cart`, or the main user session.
 """
@@ -163,6 +174,18 @@ def get_cart(
     public_url: PublicUrlDep,
 ) -> CartDetailsResponse:
     return cart_details_response(services.carts.get_cart_details(buyer_id, cart_id), public_url)
+
+
+@router.get("/{cart_id}/wait", description=describe(_WAIT, CartDetailsResponse))
+async def wait_for_decision(
+    cart_id: str,
+    revision: Annotated[int, Query(ge=1)],
+    buyer_id: Annotated[str, Depends(require_buyer(AgentScope.CART))],
+    services: ServicesDep,
+    public_url: PublicUrlDep,
+) -> CartDetailsResponse:
+    details = await services.decisions.wait(buyer_id, cart_id, revision)
+    return cart_details_response(details, public_url)
 
 
 @router.post("/{cart_id}/revisions", description=describe(_REVISE, CartResponse, RevisionRequest))

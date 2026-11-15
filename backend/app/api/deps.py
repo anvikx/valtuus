@@ -20,6 +20,7 @@ from app.services.approval_service import ApprovalService
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.catalog_service import CatalogService
+from app.services.decision_waiter import DecisionWaiter
 from app.services.mandate_service import MandateService
 from app.services.offer_service import OfferService
 from app.services.order_service import OrderService
@@ -55,6 +56,7 @@ class Services:
     catalog: CatalogService
     offers: OfferService
     carts: CartService
+    decisions: DecisionWaiter
     orders: OrderService
     approvals: ApprovalService
     mandates: MandateService

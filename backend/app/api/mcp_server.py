@@ -36,6 +36,7 @@ from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
+from app.services.decision_waiter import HOLD_SECONDS
 
 # DNS rebinding protection guards servers on localhost. This one is public behind
 # Caddy, and the agent key check is its guard.
@@ -94,6 +95,27 @@ def _add_cart_change_tools(server: MCPServer, services: Services, public_url: st
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
             return cart_response(services.carts.withdraw_cart(agent, cart_id), public_url)
+
+
+def _add_wait_tool(server: MCPServer, services: Services, public_url: str) -> None:
+    @server.tool(
+        description=(
+            "Wait while the main user decides on a PENDING_APPROVAL cart. You need no timer. "
+            "Send the revision of your last read. It returns as soon as the state or the "
+            "revision changes, or current_decision becomes AUTO, else after about "
+            f"{HOLD_SECONDS:.0f} seconds with the cart still pending: then call it again. "
+            "Each status line repeats approve_url."
+        )
+    )
+    async def wait_for_decision(
+        cart_id: str,
+        revision: CartRevisionValue,
+        ctx: Context,
+    ) -> CartDetailsResponse:
+        with _error_body():
+            agent = _agent(ctx, AgentScope.CART)
+            details = await services.decisions.wait(agent.buyer_id, cart_id, revision)
+            return cart_details_response(details, public_url)
 
 
 def create_mcp_server(services: Services, public_url: str) -> MCPServer:
@@ -158,7 +180,7 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
     @server.tool()
     def get_cart(cart_id: str, ctx: Context) -> CartDetailsResponse:
         """The current cart, revision, revision_count and changes since revision N-1.
-        Poll it while the main user decides.
+        To wait for the main user's decision, call wait_for_decision.
 
         PENDING_APPROVAL: repeat approve_url in each status line to the buyer.
         """
@@ -168,6 +190,7 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
                 services.carts.get_cart_details(agent.buyer_id, cart_id), public_url
             )
 
+    _add_wait_tool(server, services, public_url)
     _add_cart_change_tools(server, services, public_url)
 
     @server.tool()

@@ -25,6 +25,7 @@ _IDEMPOTENCY = {"Idempotency-Key": "k-1"}
 _AUDIT_PATH = "/api/v1/audit/c_1"
 _REVISIONS_PATH = "/api/v1/carts/c_1/revisions"
 _WITHDRAW_PATH = "/api/v1/carts/c_1/withdraw"
+_WAIT_PATH = "/api/v1/carts/c_1/wait?revision=1"
 _CART = {
     "lines": [{"offer_id": "o_1", "product_id": "p_1", "qty": 1}],
     "request_text": "milk for Monday",
@@ -38,6 +39,7 @@ _CONTRACT = {
     ("POST", "/api/v1/carts"),
     ("GET", "/api/v1/carts"),
     ("GET", "/api/v1/carts/{cart_id}"),
+    ("GET", "/api/v1/carts/{cart_id}/wait"),
     ("POST", "/api/v1/carts/{cart_id}/checkout"),
     ("POST", "/api/v1/carts/{cart_id}/approve"),
     ("POST", "/api/v1/carts/{cart_id}/reject"),
@@ -60,6 +62,7 @@ _AGENT_TOOLS = {
     "get_offers",
     "create_cart",
     "get_cart",
+    "wait_for_decision",
     "revise_cart",
     "withdraw_cart",
     "checkout",
@@ -80,6 +83,7 @@ _AGENT_ONLY_CALLS = [
 # The agent polls these. The main user opens them on the approve, order and permissions pages.
 _SHARED_READS = [
     ("GET", "/api/v1/carts/c_1", {}, None),
+    ("GET", _WAIT_PATH, {}, None),
     ("GET", "/api/v1/orders/o_1", {}, None),
     ("GET", "/api/v1/mandate", {}, None),
 ]
