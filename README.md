@@ -1,26 +1,84 @@
 # Valtuus
 
-Valtuus lets AI agents order food for professional kitchens safely: the agent proposes, the
-buyer's mandate decides, every step is signed and logged.
+Valtuus lets an outside purchasing agent buy from Valio Aimo without touching the webshop or the
+backend. It runs on the Valio Aimo side, in front of those systems, and the agent sees only what
+its key allows. Valio Aimo owns the interface, so no outside platform gets to define it.
+
+The agent proposes an order and code decides what happens to it. Anything over the limit waits
+for a person. Every step is logged.
 
 Built for the Valio Aimo "Trusted Trade Agents" challenge at Junction 2026.
 Live: https://junction.anvik.fi
 
-> **Status: early prototype.** The gateway gives offers and makes carts with a policy decision.
-> Search, checkout and approval are not complete. See [Status](#status).
+## Core
 
-## Why
+**1. Product, price and availability lookup**
 
-A purchasing agent can search, compare and order faster than a person. That speed is the risk:
-the rules for what an agent may buy cannot live inside the agent.
+* The agent searches 17,546 products by name and by GS1 attributes such as claims and allergens.
+* For the products it picks, it gets offers from the mock price and availability APIs, each with
+  price, available quantity, delivery date and order deadline.
+* The gateway applies the trading rules: sales units, lot sizes, order deadlines and stock that
+  nobody has confirmed.
 
-Valtuus puts the rules in a gateway on the wholesaler's side. Nobody has to trust the agent's
-reasoning:
+**2. From offer to order**
 
-* The buyer sets the limits in a mandate and signs off what is outside them.
-* The agent gets data that it can check: signed offers with prices, stock and deadlines.
-* The wholesaler gets orders that it can accept: each order names the mandate version that
-  allowed it.
+* Each offer has a fixed price and an expiry time.
+* The agent builds a cart from offer lines. Checkout places the order at the price stored in the
+  offer, so the buyer pays what the agent was quoted.
+* An Idempotency-Key header stops duplicate orders.
+
+**3. Permission and human approval**
+
+* The kitchen manager sets the mandate: automatic orders on or off, a limit per order, and a
+  daily limit per delivery date.
+* Each cart gets AUTO, HUMAN or DENY, with a reason code such as OVER_AUTO_LIMIT, CUTOFF_PASSED or
+  STOCK_UNCONFIRMED.
+* HUMAN sends the manager an approval link. They approve or reject it on their phone.
+* If the buyer changes the order, the cart gets a new revision, and an approval for the old
+  revision stops working.
+* The rules are tested code. The agent can't change them or talk its way around them.
+
+## Insight problems
+
+**Guardrails model.** Orders over the spend threshold or the daily limit go to a person, and so
+do orders with unknown stock. Small orders inside the limit go through on their own.
+
+**Audit trail.** Every step and every refusal gets a plain language record of who did it, when
+and why. The buyer and Valio Aimo read the same record.
+
+**Trust protocol.** Every price, stock level and date in an offer comes from Valio Aimo, and the
+order uses that offer. Valio Aimo signs each offer and each order confirmation with JWS and
+Ed25519 and publishes the keys in a public JWKS. An agent can check a claim itself, so nobody has
+to check it by hand.
+
+## Demo (example request from the brief)
+
+1. "1,000 litres of lactose free milk for Tuesday." The agent gets ranked offers and a reason for
+   each product it rejects. The total is over the limit, so the manager approves and the order is
+   confirmed.
+2. "20 litres." That fits inside the limit, so the agent orders on its own.
+3. "Valio Eila for Monday." The order deadline has passed. The agent refuses and says what can
+   still arrive.
+4. "800 litres." Over the limit again. The manager raises the limit, and checkout goes through
+   under mandate version 2.
+
+## Open standards
+
+* AI agents connect over MCP at `/api/mcp`. Other systems use REST at `/api/v1`, described in
+  OpenAPI 3.1. Both go through the same rules.
+* JSON-RPC 2.0, ISO 8601 times and EUR amounts as exact decimals.
+* Our mandate, approval and order model is close to AP2 and UCP, but we don't claim compliance.
+
+## Stack
+
+Python, FastAPI, PostgreSQL 17, React 19, TypeScript, Caddy, Docker Compose and GitHub Actions,
+with 760 automated tests. The buyer agent is Claude Code running our `valio-purchasing` skill.
+
+## Next
+
+* Delivery reliability and sustainability labels on each offer.
+* Substitution ranking within the Valio Aimo range.
+* Customer sign in with OpenID Connect.
 
 ## How it works
 
@@ -98,9 +156,13 @@ Make the 4 calls in this order. REST paths are relative to the base URL.
 | 4    | `checkout`        | `POST /carts/{cart_id}/checkout` | Order confirmation. AUTO only.     |
 
 * **Before step 1:** read the buyer's rules with `get_mandate` (`GET /mandate`).
-* **HUMAN:** give the main user the cart's `approve_url`. Poll `get_cart`
-  (`GET /carts/{cart_id}`) until the state is `ORDERED`, `REJECTED` or `EXPIRED`.
+* **HUMAN:** give the main user the cart's `approve_url`. Call `wait_for_decision`
+  (`GET /carts/{cart_id}/wait`) with the revision of your last read. It returns when the cart
+  changes, or after a hold with the cart still pending: then call it again.
 * **DENY:** stop. `reason_sentences` tell the buyer why.
+* **Changes:** `revise_cart` (`POST /carts/{cart_id}/revisions`) replaces the lines of an AUTO or
+  PENDING_APPROVAL cart and runs the policy again. `withdraw_cart`
+  (`POST /carts/{cart_id}/withdraw`) ends a cart that the buyer no longer wants.
 * **Retries:** `create_cart` and `checkout` need an idempotency key (the `Idempotency-Key`
   header on REST, the `idempotency_key` argument on MCP). Send the same key again on a retry.
 * **Errors:** every error has the body `{error, message, next_step}`. Follow `next_step`. A cart line with no `qty` also gets `reason_code: NEEDS_CLARIFICATION` and `missing`: ask the buyer, do not guess.
@@ -114,9 +176,10 @@ Make the 4 calls in this order. REST paths are relative to the base URL.
 | UHT attribute derived from product names                 | Built   |
 | Offers, carts, policy engine                             | Built   |
 | REST API, MCP tools, open OpenAPI file, main user login  | Built   |
-| Product search                                           | Started |
-| Checkout, orders, approve and reject                     | Started |
-| Approval page, "Agent permissions" page, audit timeline  | Planned |
+| Product search                                           | Built   |
+| Checkout, orders, approve and reject                     | Built   |
+| Cart revisions, withdraw, wait for decision              | Built   |
+| Approval page, "Agent permissions" page, audit timeline  | Built   |
 | Signed offers and order confirmations                    | Built   |
 
 What is not real in the prototype, and the known trust limits, are listed openly in
