@@ -7,6 +7,7 @@ import {
   type CartUpdate,
   type LineStock,
   type OfferFactsByLine,
+  type PriceDifference,
 } from '../api.ts'
 import { formatCount, formatDate } from '../format.ts'
 import type { StopTone } from './FlowSteps.tsx'
@@ -98,14 +99,16 @@ function Quantity({ line, before }: { line: CartLine; before?: CartLine }): Reac
   )
 }
 
-// The substitute against the requested product, per sales unit: "+0.04 EUR each".
-function differenceWords(difference: string, currency: string): string {
-  if (Number(difference) === 0) {
+const PER_WORDS: Readonly<Record<string, string>> = { L: 'per L', KG: 'per kg', PCS: 'each' }
+
+// The substitute against the requested product, per comparison unit: "+0.04 EUR per L".
+function differenceWords({ amount, per }: PriceDifference, currency: string): string {
+  if (Number(amount) === 0) {
     return 'same price'
   }
 
-  const sign = difference.startsWith('-') ? '' : '+'
-  return `${sign}${money(difference, currency)} each`
+  const sign = amount.startsWith('-') ? '' : '+'
+  return `${sign}${money(amount, currency)} ${PER_WORDS[per] ?? `per ${per}`}`
 }
 
 // The requested name struck through. The struck text says "not delivered" for a screen reader,
@@ -139,6 +142,7 @@ export function OrderLines({ cart, update, facts }: OrderLinesProps): ReactEleme
           const before = update?.previousLines.find((old) => old.productId === line.productId)
           const unitPrice = money(line.unitPrice, cart.currency)
           const substitution = line.substituteFor
+          const difference = substitution?.priceDifference ?? null
 
           return (
             <li className="order-line" key={line.productId}>
@@ -154,9 +158,7 @@ export function OrderLines({ cart, update, facts }: OrderLinesProps): ReactEleme
               </div>
               <p className="muted">
                 <Quantity line={line} before={before} /> × {unitPrice} ex VAT
-                {substitution === null
-                  ? null
-                  : ` · ${differenceWords(substitution.priceDifference, cart.currency)}`}
+                {difference === null ? null : ` · ${differenceWords(difference, cart.currency)}`}
               </p>
               <p className="muted">{stockWords(line.stock)}</p>
               {/* The reason says "this product" for the requested one, so it names it first. */}

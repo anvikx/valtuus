@@ -11,9 +11,9 @@ async function cartFrom(wire: object): Promise<Cart> {
   return getCart('c_test')
 }
 
-function substituteCart(priceDifference: string): Promise<Cart> {
+function substituteCart(priceDifference: string | null, per: string | null = 'L'): Promise<Cart> {
   const [line] = SUBSTITUTE_EXTRAS.lines ?? []
-  const substituteFor = { ...line.substitute_for, price_difference_per_unit: priceDifference }
+  const substituteFor = { ...line.substitute_for, price_difference_per_unit: priceDifference, per }
 
   return cartFrom({
     ...PENDING_CART,
@@ -48,14 +48,31 @@ describe('OrderLines', () => {
   })
 
   // The approver decides on money. A higher price must show as more, a lower one as less.
+  // The difference is per litre, kilo or piece, not per sales unit: a 5 l box against a 1 l
+  // bottle is 0.04 EUR more per litre, not "each".
   it.each([
-    ['0.04', '+0.04 EUR each'],
-    ['-0.02', '-0.02 EUR each'],
-    ['0.00', 'same price'],
-  ])('shows a price difference of %s as %s', async (difference, words) => {
-    const html = linesText(await substituteCart(difference))
+    ['0.04', 'L', '+0.04 EUR per L'],
+    ['-0.02', 'L', '-0.02 EUR per L'],
+    ['0.10', 'KG', '+0.10 EUR per kg'],
+    ['0.10', 'PCS', '+0.10 EUR each'],
+    ['0.00', 'L', 'same price'],
+  ])('shows a price difference of %s per %s as %s', async (difference, per, words) => {
+    const html = linesText(await substituteCart(difference, per))
 
     expect(html).toContain(words)
+  })
+
+  // null difference: the requested product had no price or size. null unit: a cart stored before
+  // the unit existed. A number with no known meaning would mislead the approver.
+  it.each([
+    [null, 'L'],
+    ['0.04', null],
+  ])('shows no price difference of %s per %s', async (difference, per) => {
+    const html = linesText(await substituteCart(difference, per))
+
+    expect(html).toContain('In place of')
+    expect(html).not.toMatch(/EUR (per|each)/)
+    expect(html).not.toContain('same price')
   })
 
   it('marks no substitution on a requested product', async () => {

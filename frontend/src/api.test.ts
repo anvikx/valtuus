@@ -227,7 +227,7 @@ describe('getCart', () => {
     expect(cart.lines[0].substituteFor).toEqual({
       requestedName: 'Valio Arki Eila 1 l',
       reason: 'Valio Aimo cannot deliver this product.',
-      priceDifference: '0.04',
+      priceDifference: { amount: '0.04', per: 'L' },
     })
   })
 

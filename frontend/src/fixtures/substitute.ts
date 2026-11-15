@@ -24,6 +24,7 @@ const EQUIVALENT: WireCartLine = {
     reason_code: 'NOT_AVAILABLE',
     reason_sentence: 'Valio Aimo cannot deliver this product.',
     price_difference_per_unit: '0.04',
+    per: 'L',
   },
 }
 

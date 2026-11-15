@@ -105,7 +105,8 @@ export interface WireSubstituteFor {
   readonly basis: string
   readonly reason_code: string
   readonly reason_sentence: string
-  readonly price_difference_per_unit: string
+  readonly price_difference_per_unit: string | null
+  readonly per: string | null
 }
 
 export interface WireCartLine {
@@ -307,8 +308,14 @@ export interface Substitution {
   readonly requestedName: string
   // Why the requested product is not in the cart. It says "this product" for the requested one.
   readonly reason: string
-  // Substitute price minus requested price per sales unit, ex VAT. Negative when cheaper.
-  readonly priceDifference: string
+  // Substitute price minus requested price, ex VAT. Negative when cheaper. null: not known.
+  readonly priceDifference: PriceDifference | null
+}
+
+export interface PriceDifference {
+  readonly amount: string
+  // The comparison unit of the offer: L, KG or PCS. Not the sales unit.
+  readonly per: string
 }
 
 export interface CartLine {
@@ -570,8 +577,20 @@ function toSubstitution(wire: WireSubstituteFor | null): Substitution | null {
   return {
     requestedName: wire.name,
     reason: wire.reason_sentence,
-    priceDifference: wire.price_difference_per_unit,
+    priceDifference: toPriceDifference(wire),
   }
+}
+
+// Either part missing makes the number meaningless, so the line shows no difference.
+function toPriceDifference({
+  price_difference_per_unit: amount,
+  per,
+}: WireSubstituteFor): PriceDifference | null {
+  if (amount === null || per === null) {
+    return null
+  }
+
+  return { amount, per }
 }
 
 function toCartLine(wire: WireCartLine): CartLine {
