@@ -62,7 +62,9 @@ blockquote {
 }
 
 .app-name {
+  color: var(--ink);
   font: var(--type-title);
+  text-decoration: none;
 }
 
 /* Phone: the nav wraps to its own row, and its underline sits on the header border. */
@@ -897,7 +899,10 @@ textarea.input {
     vertical-align: middle;
   }
 
+  /* The row is the anchor for the request link's cover, so a click anywhere in it opens the
+     cart. One link per row keeps the keyboard and screen reader order as it was. */
   .inbox-table tbody tr {
+    position: relative;
     border-top: var(--border-width) solid var(--line);
   }
 
@@ -914,6 +919,12 @@ textarea.input {
   .inbox-table td.inbox-amount,
   .inbox-request {
     font: var(--type-body);
+  }
+
+  .inbox-cell-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
   }
 
   .inbox-cell-link {
@@ -1078,7 +1089,8 @@ textarea.input {
   font-weight: 600;
 }
 
-.record-link {
+.record-link,
+.result-back {
   display: inline-flex;
   align-items: center;
   min-height: var(--tap-target);

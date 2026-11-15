@@ -89,7 +89,10 @@ export function Shell({ path, children }: ShellProps): ReactElement {
   return (
     <div className="app-shell">
       <header className={HEADER_CLASS[navMode]}>
-        <span className="app-name">Valtuus</span>
+        {/* The way home from every page, also from the pages that hide the nav. */}
+        <a className="app-name" href={APPROVALS_PATH}>
+          Valtuus
+        </a>
         {hasNav ? <MainNav path={navPathOf(path)} /> : null}
         {hasNav ? <UserLabel /> : null}
         <span className="tag">Prototype</span>
