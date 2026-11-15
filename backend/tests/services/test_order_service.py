@@ -52,6 +52,7 @@ from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
 from app.domain.policy.previously_rejected import PreviouslyRejected
 from app.domain.policy.product_safety import ProductSafety
+from app.domain.policy.stock_check import StockCheck
 from app.services.audit_service import AuditService
 from app.services.cart_service import CartService
 from app.services.mandate_service import MandateService
@@ -793,3 +794,24 @@ def test_postgres_checkout_rechecks_revision_after_refresh(database, monkeypatch
     assert world.carts.get(cart.cart_id).revision == 2
     assert world.orders.by_cart(cart.cart_id) is None
     assert world.idempotency.get(samples.BUYER_ID, "k-1") is None
+
+
+def test_checkout_keeps_unconfirmed_stock_pending_without_an_order():
+    world = _World(checks=(StockCheck(),))
+    offer = _offer()
+    warned = dataclasses.replace(
+        offer.lines[0],
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        reason_codes=(ReasonCode.STOCK_UNCONFIRMED,),
+        reason_sentences=("Valio Aimo does not confirm the stock of this product.",),
+    )
+    world.offers.add(dataclasses.replace(offer, lines=(warned,)))
+    cart = world.cart(20)
+
+    result = world.checkout(cart.cart_id)
+
+    assert result.state is CartState.PENDING_APPROVAL
+    assert result.reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)
+    assert world.orders.by_cart(cart.cart_id) is None
+    assert world.carts.get(cart.cart_id).state is CartState.PENDING_APPROVAL

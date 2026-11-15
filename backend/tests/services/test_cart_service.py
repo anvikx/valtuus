@@ -1108,3 +1108,23 @@ def test_missing_previous_revision_does_not_use_an_older_revision():
     assert details.revision_count == 3
     assert details.changes == ()
     assert world.numbers(first.cart_id) == [1, 3]
+
+
+def test_stock_marker_warning_requires_human_at_creation_and_policy_rerun():
+    """The warning must survive offer-to-cart conversion, or the agent could still check out."""
+    line = _line(
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        reason_codes=(ReasonCode.STOCK_UNCONFIRMED,),
+        reason_sentences=("Valio Aimo does not confirm the stock of this product.",),
+    )
+    world = _world_with_offer(_offer("o_1", line))
+
+    cart = world.create(_buy(20))
+    read = world.service.get_cart(samples.BUYER_ID, cart.cart_id)
+
+    assert cart.state is CartState.PENDING_APPROVAL
+    assert cart.reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)
+    assert cart.lines[0].decision is Decision.HUMAN
+    assert read.current_decision is Decision.HUMAN
+    assert read.current_reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)

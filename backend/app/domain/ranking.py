@@ -99,8 +99,12 @@ def _reasons(
     query: OfferQuery,
 ) -> tuple[tuple[ReasonCode, ...], tuple[str, ...]]:
     reasons: list[tuple[ReasonCode, str]] = []
-    # A null logistic model is unknown stock, as for Terminal.
-    if availability.stock_model is not StockModel.STOCK:
+    # Preserve the unconfirmed marker before it is collapsed to the same null count
+    # as the larger "in stock" markers.
+    if (
+        availability.stock_model is not StockModel.STOCK
+        or availability.amount == UNKNOWN_STOCK_MARKER
+    ):
         code = ReasonCode.STOCK_UNCONFIRMED
         reasons.append((code, reason_sentence(code)))
     elif available_qty is not None and available_qty < needed:
