@@ -45,8 +45,9 @@ def cart_response(cart: Cart, public_url: str) -> CartResponse:
         # Agents often leave the link out of their reply, so the result says it in words.
         next_step = (
             f"Give the buyer this link now: {approve_url}. The main user approves or rejects there "
-            f"before {cart.approve_before.isoformat()}. You cannot approve. Repeat the link in "
-            "each status line while you poll get_cart."
+            f"before {cart.approve_before.isoformat()}. You cannot approve. Then call "
+            f"wait_for_decision with revision {cart.revision}, and repeat the link in each "
+            "status line while you wait."
         )
 
     return CartResponse.model_validate(
