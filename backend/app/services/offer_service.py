@@ -8,7 +8,7 @@ from app.domain.audit import new_request_id
 from app.domain.catalog import Product
 from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES
 from app.domain.enums import AuditStep, ReasonCode
-from app.domain.errors import InvalidRequestError
+from app.domain.errors import InvalidRequestError, NotFoundError
 from app.domain.offer import (
     AvailabilitySnapshot,
     Candidate,
@@ -91,6 +91,15 @@ class OfferService:
         with self._unit_of_work.transaction():
             self._offers.add(offer)
             self._record(agent, query, offer)
+        return offer
+
+    def get_offer(self, buyer_id: str, offer_id: str) -> Offer:
+        """The stored offer with its signature, so the approval page can check what it shows."""
+        offer = self._offers.get(offer_id)
+        # One answer for both cases, so nobody can probe other buyers' offer ids.
+        if offer is None or offer.buyer_id != buyer_id:
+            raise NotFoundError(f"Offer {offer_id} was not found.", "Check the offer id.")
+
         return offer
 
     def _products(

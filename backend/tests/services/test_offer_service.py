@@ -21,6 +21,7 @@ from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import AuditStep, ReasonCode, Unit
 from app.domain.errors import (
     InvalidRequestError,
+    NotFoundError,
     UpstreamRateLimitedError,
     UpstreamUnavailableError,
 )
@@ -122,6 +123,28 @@ def test_run_1_is_stored_as_returned_with_one_audit_record() -> None:
     (record,) = world.audit.records
     assert record.step is AuditStep.OFFER
     assert record.output_data["offer_id"] == offer.offer_id
+
+
+def test_a_stored_offer_is_read_back_with_its_signature() -> None:
+    """The approval page checks the signature, so the read must not drop it."""
+    world = _run_1()
+    offer = world.get_offers()
+
+    read = world.service.get_offer(samples.BUYER_ID, offer.offer_id)
+
+    assert read == offer
+    assert read.signature == _SIGNATURE
+
+
+@pytest.mark.parametrize("ask", [("other-buyer", None), (samples.BUYER_ID, "o_missing")])
+def test_another_buyers_offer_reads_as_not_found(ask: tuple[str, str | None]) -> None:
+    """One answer for a foreign and a missing id, so offer ids cannot be probed."""
+    world = _run_1()
+    offer = world.get_offers()
+    buyer_id, offer_id = ask
+
+    with pytest.raises(NotFoundError):
+        world.service.get_offer(buyer_id, offer_id or offer.offer_id)
 
 
 def test_the_request_id_of_the_search_goes_on_the_offer_and_its_record() -> None:

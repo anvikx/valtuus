@@ -34,6 +34,7 @@ _CART = {
 _CONTRACT = {
     ("GET", "/api/v1/catalog/search"),
     ("POST", "/api/v1/offers"),
+    ("GET", "/api/v1/offers/{offer_id}"),
     ("POST", "/api/v1/carts"),
     ("GET", "/api/v1/carts"),
     ("GET", "/api/v1/carts/{cart_id}"),
@@ -111,6 +112,7 @@ _MAIN_USER_READS = [
     ("GET", "/api/v1/agents", None),
     ("GET", _CARTS_PATH, None),
     ("GET", "/api/v1/auth/me", None),
+    ("GET", "/api/v1/offers/o_1", None),
 ]
 
 
@@ -291,6 +293,18 @@ def test_offers_answer_with_a_stored_offer() -> None:
     assert body["offer_id"].startswith("o_")
     assert body["lines"] == []
     assert body["rejected"][0]["reason_code"] == "PRODUCT_NOT_FOUND"
+
+
+def test_main_user_reads_the_signed_offer_the_agent_got() -> None:
+    """The approval page checks the cart's prices against the signature the agent received."""
+    client = _client()
+    offer = client.post(_OFFERS_PATH, headers=_AUTH, json={"product_ids": ["p_1"]}).json()
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+
+    response = client.get(f"{_OFFERS_PATH}/{offer['offer_id']}")
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json() == offer
 
 
 def test_a_made_up_request_id_is_a_validation_error() -> None:

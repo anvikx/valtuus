@@ -90,6 +90,7 @@ const REVOKE_PATH = /^\/v1\/agents\/([^/]+)\/revoke$/
 const REVOKE_FAILS_PARAM = 'revoke'
 const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 const ORDER_PATH = /^\/v1\/orders\/([^/]+)$/
+const OFFER_PATH = /^\/v1\/offers\/([^/]+)$/
 
 type Outcome =
   'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired' | 'denied' | 'withdrawn'
@@ -526,6 +527,12 @@ function route(request: WireRequest): WireResponse {
       ...ORDER_CONFIRMATION,
       order_id: decodeURIComponent(orderMatch[1]),
     })
+  }
+
+  // Fixture offers are unsigned too.
+  const offerMatch = OFFER_PATH.exec(request.path)
+  if (offerMatch !== null) {
+    return reply(STATUS.ok, { offer_id: decodeURIComponent(offerMatch[1]), signature: null })
   }
 
   return reply(STATUS.notFound)
