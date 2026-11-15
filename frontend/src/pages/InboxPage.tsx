@@ -142,6 +142,14 @@ function UpdatedTag({ cart }: CartProps): ReactElement | null {
   return cart.update === null ? null : <span className="inbox-updated">Updated</span>
 }
 
+function CardTotal({ cart }: CartProps): ReactElement {
+  return (
+    <span className="inbox-total">
+      {money(cart.total, cart.currency)} <span className="muted">ex VAT</span>
+    </span>
+  )
+}
+
 // Phone: one stacked row per cart. Desktop shows the tables below instead.
 function WaitingItem({ cart }: CartProps): ReactElement {
   return (
@@ -150,7 +158,7 @@ function WaitingItem({ cart }: CartProps): ReactElement {
         <span className="inbox-main">
           <span className="inbox-line">
             <span className="inbox-request">{cart.requestText}</span>
-            <span className="inbox-total">{money(cart.total, cart.currency)}</span>
+            <CardTotal cart={cart} />
           </span>
           <span className="inbox-small muted">{waitingFacts(cart)}</span>
           <span className="inbox-small inbox-status">
@@ -174,7 +182,7 @@ function DecidedItem({ cart }: CartProps): ReactElement {
         <span className="inbox-main">
           <span className="inbox-line">
             <span className="inbox-request">{cart.requestText}</span>
-            <span className="inbox-total">{money(cart.total, cart.currency)}</span>
+            <CardTotal cart={cart} />
           </span>
           <span className="inbox-small">
             <span className={`inbox-outcome inbox-outcome-${tone}`}>{word}.</span>{' '}

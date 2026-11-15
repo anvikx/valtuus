@@ -751,6 +751,10 @@ textarea.input {
   font-variant-numeric: tabular-nums;
 }
 
+.inbox-total .muted {
+  font-weight: 400;
+}
+
 .inbox-small {
   font: var(--type-small);
 }
