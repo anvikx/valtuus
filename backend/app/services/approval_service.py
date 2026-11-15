@@ -62,8 +62,9 @@ class ApprovalService:
             self._carts.get_locked(cart_id)
             # get_cart owns the buyer check and expiry on read.
             cart = self._cart_service.get_cart(_buyer_id(user), cart_id)
-            require_revision(cart, revision)
             if cart.state is CartState.PENDING_APPROVAL:
+                # Only here: a pending cart wrote nothing on read, so this raise loses no expiry.
+                require_revision(cart, revision)
                 return self._store_reject(user, cart_id, reason)
 
         raise ConflictError(

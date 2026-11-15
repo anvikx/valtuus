@@ -528,6 +528,20 @@ def test_postgres_stale_revision_does_not_decide_cart(database, action):
     assert world.steps() == []
 
 
+def test_postgres_stale_reject_after_the_deadline_keeps_the_expiry(database: Database) -> None:
+    """The revision check must not roll back the expiry, or a dead cart shows as pending."""
+    world = _World(database=database)
+    with world.unit_of_work.transaction():
+        world.carts.save(dataclasses.replace(world.cart, revision=2))
+    world.clock.at = world.cart.approve_before
+
+    with pytest.raises(ConflictError, match="cannot be rejected"):
+        world.reject(revision=1)
+
+    assert world.carts.get(world.cart.cart_id).state is CartState.EXPIRED
+    assert world.steps() == [AuditStep.CART]
+
+
 def test_approval_does_not_return_order_for_a_concurrent_new_revision(monkeypatch):
     """A newer revision can be ordered before the old approval obtains the cart lock."""
     world = _World()
