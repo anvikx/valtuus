@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -121,6 +121,16 @@ class SearchChoice:
 class SearchHint:
     code: SearchHintCode
     sentence: str
+
+
+@dataclass(frozen=True)
+class SearchSet:
+    """Every candidate of one search. The preview shows fewer, but offers price them all."""
+
+    request_id: str
+    buyer_id: str
+    product_ids: tuple[str, ...]
+    created_at: datetime
 
 
 @dataclass(frozen=True)

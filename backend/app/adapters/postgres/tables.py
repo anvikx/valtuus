@@ -65,6 +65,15 @@ offers = Table(
     Column("body", JSONB, nullable=False),
 )
 
+search_sets = Table(
+    "search_sets",
+    metadata,
+    Column("request_id", Text, primary_key=True),
+    Column("buyer_id", Text, nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("body", JSONB, nullable=False),
+)
+
 carts = Table(
     "carts",
     metadata,

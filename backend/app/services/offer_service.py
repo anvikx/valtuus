@@ -6,7 +6,7 @@ from uuid import uuid4
 from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
 from app.domain.catalog import Product
-from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES
+from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES, SEARCH_SET_TTL_MINUTES
 from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import InvalidRequestError, NotFoundError
 from app.domain.offer import (
@@ -26,7 +26,7 @@ from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
 from app.services.ports.price_source import PriceSource
-from app.services.ports.repositories import OfferRepository
+from app.services.ports.repositories import OfferRepository, SearchSetRepository
 from app.services.ports.signer import Signer
 from app.services.ports.unit_of_work import UnitOfWork
 
@@ -42,6 +42,7 @@ class OfferService:
         prices: PriceSource,
         offers: OfferRepository,
         signer: Signer,
+        search_sets: SearchSetRepository,
         clock: Clock,
         audit: AuditService,
         unit_of_work: UnitOfWork,
@@ -51,6 +52,7 @@ class OfferService:
         self._prices = prices
         self._offers = offers
         self._signer = signer
+        self._search_sets = search_sets
         self._clock = clock
         self._audit = audit
         self._unit_of_work = unit_of_work
@@ -58,7 +60,7 @@ class OfferService:
 
     def get_offers(self, agent: AgentKey, query: OfferQuery) -> Offer:
         """Raises UpstreamUnavailableError (and its rate limited kind) before anything is stored."""
-        product_ids = tuple(dict.fromkeys(query.product_ids))
+        product_ids = tuple(dict.fromkeys(query.product_ids or self._search_set_ids(agent, query)))
         if len(product_ids) > self._candidate_guard:
             raise InvalidRequestError(
                 f"{len(product_ids)} product ids is over the limit of {self._candidate_guard}.",
@@ -92,6 +94,26 @@ class OfferService:
             self._offers.add(offer)
             self._record(agent, query, offer)
         return offer
+
+    def _search_set_ids(self, agent: AgentKey, query: OfferQuery) -> tuple[str, ...]:
+        if query.request_id is None:
+            raise InvalidRequestError(
+                "Send product_ids or the request_id of a search.",
+                "Send product_ids, or the request_id of a search with no product_ids.",
+            )
+
+        found = self._search_sets.get(query.request_id)
+        expired = found is not None and self._clock.now() - found.created_at > timedelta(
+            minutes=SEARCH_SET_TTL_MINUTES
+        )
+        # One answer for all cases, so nobody can probe other buyers' search ids.
+        if found is None or found.buyer_id != agent.buyer_id or expired:
+            raise NotFoundError(
+                f"Search {query.request_id} was not found or has expired.",
+                "Search again, then send its request_id with no product_ids.",
+            )
+
+        return found.product_ids
 
     def get_offer(self, buyer_id: str, offer_id: str) -> Offer:
         """The stored offer with its signature, so the approval page can check what it shows."""

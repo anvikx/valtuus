@@ -33,12 +33,14 @@ from app.adapters.postgres.tables import (
     mandates,
     offers,
     orders,
+    search_sets,
     sessions,
     users,
 )
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
 from app.domain.cart import Cart, CartRevision
+from app.domain.catalog import SearchSet
 from app.domain.enums import AgentKeyStatus, RevisionAuthor
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
@@ -52,6 +54,7 @@ _MANDATE = TypeAdapter(Mandate)
 _AGENT_KEY = TypeAdapter(AgentKey)
 _USER = TypeAdapter(User)
 _OFFER = OFFER_CODEC
+_SEARCH_SET = TypeAdapter(SearchSet)
 _CART = TypeAdapter(Cart)
 _ORDER = TypeAdapter(Order)
 _AUDIT = TypeAdapter(AuditRecord)
@@ -244,6 +247,27 @@ class PostgresOfferRepository:
             "body": _OFFER.dump_python(offer, mode="json"),
         }
         _upsert(self._database.writer(), offers, row)
+
+
+class PostgresSearchSetRepository:
+    def __init__(self, database: Database) -> None:
+        self._database = database
+
+    def get(self, request_id: str) -> SearchSet | None:
+        return _one(
+            self._database,
+            _SEARCH_SET,
+            select(search_sets.c.body).where(search_sets.c.request_id == request_id),
+        )
+
+    def add(self, search_set: SearchSet) -> None:
+        row = {
+            "request_id": search_set.request_id,
+            "buyer_id": search_set.buyer_id,
+            "created_at": search_set.created_at,
+            "body": _SEARCH_SET.dump_python(search_set, mode="json"),
+        }
+        _upsert(self._database.writer(), search_sets, row)
 
 
 def _cart_row(cart: Cart) -> dict[str, object]:

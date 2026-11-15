@@ -8,6 +8,7 @@ from app.adapters.memory.repositories import (
     InMemoryCartRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
+    InMemorySearchSetRepository,
     InMemoryUnitOfWork,
 )
 from app.domain.catalog import SearchQuery
@@ -34,16 +35,12 @@ def item(pid="1", name="Milk", **values):
     return replace(product(pid, lot_size=Decimal(1)), names={"en": name}, name=name, **values)
 
 
-def service(catalog, *, candidate_guard=500, **rules):
+def service(catalog, *, candidate_guard=500, search_sets=None, **rules):
     mandates = InMemoryMandateRepository()
     mandates.add(replace(mandate(), **{"required_attributes": (), **rules}))
     records = Records()
     uow = InMemoryUnitOfWork()
-    audit = AuditService(
-        records,
-        InMemoryCartRepository(),
-        InMemoryOfferRepository(),
-        FixedClock(NOW),
-        uow,
-    )
-    return CatalogService(catalog, mandates, audit, uow, candidate_guard), records
+    clock = FixedClock(NOW)
+    audit = AuditService(records, InMemoryCartRepository(), InMemoryOfferRepository(), clock, uow)
+    sets = search_sets or InMemorySearchSetRepository()
+    return CatalogService(catalog, mandates, sets, audit, uow, clock, candidate_guard), records

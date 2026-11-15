@@ -9,7 +9,11 @@ from app.api.results import search_response
 from app.api.schemas.catalog import SearchRequest, SearchResponse
 from app.domain.agent_key import AgentKey
 from app.domain.catalog_response import HINT_CODE_DESCRIPTION
-from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
+from app.domain.constants import (
+    MAX_SEARCH_CANDIDATES,
+    SEARCH_CATEGORY_COUNT,
+    SEARCH_CATEGORY_EXAMPLES,
+)
 from app.domain.enums import AgentScope
 
 router = APIRouter(prefix="/v1/catalog", tags=["catalog"], responses=ERROR_RESPONSES)
@@ -24,19 +28,21 @@ GET /api/v1/catalog/search?query=milk&required_attributes=FREE_FROM_LACTOSE
     &quantity=1000&unit=L&deliver_by=2026-11-16
 ```
 
-Return every match of the requested category, or the category with the most hits.
-Only the configurable safety guard can cut the category.
+Return a preview of the requested category, or of the category with the most hits: at most
+{MAX_SEARCH_CANDIDATES} `candidates`, best match first. The gateway stores every hit of that
+category for `request_id`, and `get_offers` with that `request_id` and no `product_ids` prices all
+of them. Only the configurable safety guard can cut the stored set.
 `total_hits` and the top {SEARCH_CATEGORY_COUNT} `categories` count hits before that guard.
 Each category includes its hit count and up to {SEARCH_CATEGORY_EXAMPLES} distinct example names.
 `in_list` is true only for the category supplying the returned candidates. It does not
-indicate completeness; the hint reports safety-guard cuts.
+indicate completeness; the hint reports safety-guard cuts of the stored set.
 
 `understood` holds the normalized request. {HINT_CODE_DESCRIPTION}
 A hint that says the list is complete applies to its category; it does not identify the
 buyer's intended type. Use `category` to select another.
 Ask for `missing_fields` and `choices` in one question before offers. Search again with the
 chosen codes in `required_attributes` and the other codes in `declined_attributes`.
-Send `request_id` with get_offers.
+Send `request_id` with get_offers. Leave `product_ids` empty to price the whole category.
 
 **Scope:** `catalog:read`.
 """

@@ -38,7 +38,10 @@ _SEARCH = {
     ],
     "hint": {
         "code": "READY",
-        "sentence": "The list has every product of this type. Call get_offers with all candidates.",
+        "sentence": (
+            "The search holds every product of this type. "
+            "Call get_offers with the request_id and no product_ids."
+        ),
     },
     "candidates": [
         {

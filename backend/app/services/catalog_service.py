@@ -2,7 +2,7 @@ from dataclasses import asdict, replace
 
 from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
-from app.domain.catalog import ExcludedProduct, Product, SearchQuery, SearchResult
+from app.domain.catalog import ExcludedProduct, Product, SearchQuery, SearchResult, SearchSet
 from app.domain.catalog_candidate import candidate
 from app.domain.catalog_response import search_choices, search_hint, summarize_categories
 from app.domain.catalog_search import (
@@ -18,7 +18,8 @@ from app.domain.mandate import Mandate
 from app.domain.policy.product_safety import allergen_break
 from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
-from app.services.ports.repositories import MandateRepository
+from app.services.ports.clock import Clock
+from app.services.ports.repositories import MandateRepository, SearchSetRepository
 from app.services.ports.unit_of_work import UnitOfWork
 
 
@@ -37,16 +38,21 @@ class CatalogService:
         self,
         catalog: ProductCatalog,
         mandates: MandateRepository,
+        search_sets: SearchSetRepository,
         audit: AuditService,
         unit_of_work: UnitOfWork,
+        clock: Clock,
         candidate_guard: int,
     ) -> None:
         self._catalog = catalog
         self._mandates = mandates
+        self._search_sets = search_sets
         self._audit = audit
         self._unit_of_work = unit_of_work
-        # The offer batch guard may be larger, but search is only a bounded preview.
-        self._candidate_guard = min(candidate_guard, MAX_SEARCH_CANDIDATES)
+        self._clock = clock
+        # The agent sees a short preview. Offers price the stored set, which the guard bounds.
+        self._preview_limit = MAX_SEARCH_CANDIDATES
+        self._candidate_guard = candidate_guard
 
     def search(self, agent: AgentKey, query: SearchQuery) -> SearchResult:
         query = replace(query, query=validate_query(query))
@@ -60,7 +66,10 @@ class CatalogService:
                     sorted(set(query.required_attributes) | set(mandate.required_attributes))
                 ),
             )
-            result = self._search(query, mandate, new_request_id())
+            result, offer_ids = self._search(query, mandate, new_request_id())
+            self._search_sets.add(
+                SearchSet(result.request_id, agent.buyer_id, offer_ids, self._clock.now())
+            )
             self._audit.record(
                 AuditStep.SEARCH,
                 agent.agent_id,
@@ -70,6 +79,7 @@ class CatalogService:
                 input_data=asdict(result.understood),
                 output_data={
                     "candidate_ids": [item.product_id for item in result.candidates],
+                    "offer_set_size": len(offer_ids),
                     "hint_category": result.hint_category,
                     "total_hits": result.total_hits,
                     "hint": asdict(result.hint),
@@ -84,7 +94,7 @@ class CatalogService:
         query: SearchQuery,
         mandate: Mandate,
         request_id: str,
-    ) -> SearchResult:
+    ) -> tuple[SearchResult, tuple[str, ...]]:
         hits, excluded = self._filter(query, mandate)
         categories = summarize_categories(tuple(product for product, _ in hits), query.category)
         category = query.category
@@ -98,8 +108,11 @@ class CatalogService:
         missing = tuple(
             field for field in ("quantity", "unit", "deliver_by") if getattr(query, field) is None
         )
+        stored = selected[: self._candidate_guard]
+        offer_ids = tuple(product.product_id for product, _ in stored)
+        # The preview comes from the stored set, so every shown product can be priced by id too.
         candidates = tuple(
-            candidate(product, match, query) for product, match in selected[: self._candidate_guard]
+            candidate(product, match, query) for product, match in stored[: self._preview_limit]
         )
         exclusions = tuple(
             ExcludedProduct(product.product_id, reason)
@@ -110,13 +123,13 @@ class CatalogService:
             for product, _ in excluded
             if category is None or product.category == category
         )
-        return SearchResult(
+        result = SearchResult(
             understood=query,
             candidates=candidates,
             total_hits=len(hits),
             categories=categories,
             hint=search_hint(
-                len(candidates),
+                len(offer_ids),
                 len(selected),
                 eligible_excluded_count,
                 missing,
@@ -128,6 +141,7 @@ class CatalogService:
             request_id=request_id,
             choices=choices,
         )
+        return result, offer_ids
 
     def _filter(
         self,
