@@ -24,7 +24,8 @@ _HINT_SENTENCES = {
     ),
     SearchHintCode.GUARD_CUT: "The list is not complete. Add an attribute, a unit or more words.",
     SearchHintCode.READY: (
-        "The list has every product of this type. Call get_offers with all candidates."
+        "The search holds every product of this type. Call get_offers with the request_id "
+        "and no product_ids."
     ),
 }
 

@@ -10,6 +10,7 @@ from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
     InMemoryCartRepository,
     InMemoryOfferRepository,
+    InMemorySearchSetRepository,
     InMemoryUnitOfWork,
 )
 from app.adapters.postgres.offer_codec import OFFER_CODEC
@@ -88,6 +89,7 @@ class _World:
             source,
             self.offers,
             self.signer,
+            InMemorySearchSetRepository(),
             self.clock,
             AuditService(
                 self.audit,

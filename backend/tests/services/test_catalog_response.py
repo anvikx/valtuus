@@ -16,7 +16,10 @@ _SENTENCES = {
     "NO_MATCH": "No product matches. Try other words, or fewer words.",
     "MISSING_FIELDS": "Ask the buyer for the missing values before the offers.",
     "GUARD_CUT": "The list is not complete. Add an attribute, a unit or more words.",
-    "READY": "The list has every product of this type. Call get_offers with all candidates.",
+    "READY": (
+        "The search holds every product of this type. "
+        "Call get_offers with the request_id and no product_ids."
+    ),
 }
 
 
@@ -61,6 +64,7 @@ def test_hint_priority(hits, excluded, missing, expected):
     assert audit.input_data == asdict(result.understood)
     assert audit.output_data == {
         "candidate_ids": [p.product_id for p in result.candidates],
+        "offer_set_size": min(hits, 2),
         "hint_category": result.hint_category,
         "total_hits": hits,
         "hint": asdict(result.hint),
@@ -100,7 +104,7 @@ def test_top_eight_counts_all_categories_and_deduplicates_examples():
 
 
 def test_guard_preserves_total_and_category_counts_at_boundary():
-    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(41))))
+    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(41))), candidate_guard=40)
 
     cut = catalog.search(agent_key(), query())
 
@@ -166,6 +170,7 @@ def test_postgres_persists_one_search_with_the_response_facts(database):
     from app.adapters.postgres.repositories import (
         PostgresAuditRepository,
         PostgresMandateRepository,
+        PostgresSearchSetRepository,
     )
     from app.adapters.postgres.tables import audit_records
     from app.services.audit_service import AuditService
@@ -185,7 +190,15 @@ def test_postgres_persists_one_search_with_the_response_facts(database):
         FixedClock(NOW),
         database,
     )
-    catalog = CatalogService(products, mandates, audit, database, 500)
+    catalog = CatalogService(
+        products,
+        mandates,
+        PostgresSearchSetRepository(database),
+        audit,
+        database,
+        FixedClock(NOW),
+        500,
+    )
 
     result = catalog.search(agent_key(), query())
 

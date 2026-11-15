@@ -34,6 +34,7 @@ from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
 from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE
+from app.domain.constants import MAX_SEARCH_CANDIDATES
 from app.domain.enums import AgentScope
 from app.domain.errors import GatewayError
 from app.services.decision_waiter import HOLD_SECONDS
@@ -130,13 +131,15 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         description=(
             "Search en/fi/sv names, including inside words, with accents folded. "
             f"Use {QUERY_RULE}. Negated names do not match. "
-            "Returns the complete hint category, subject to the safety guard. "
+            f"Returns a preview of the hint category: at most {MAX_SEARCH_CANDIDATES} candidates. "
+            "The gateway stores every hit, subject to the safety guard, under request_id. "
             f"{HINT_CODE_DESCRIPTION} "
             "Inspect categories and examples to choose a type; use category to reach another. "
             "READY means complete for hint_category, not certainty about the intended type. "
             "Ask the buyer about choices and missing_fields in one question; search again with "
             "the chosen codes in required_attributes and the others in declined_attributes. "
-            "No price or stock; call get_offers with all candidates and the returned request_id. "
+            "No price or stock; call get_offers with the returned request_id and no product_ids "
+            "to price every hit, or with product_ids to price chosen products. "
             "VALIDATION_ERROR: correct the query or attribute codes. " + ATTRIBUTE_DESCRIPTION
         )
     )
@@ -151,9 +154,11 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
 
     @server.tool()
     def get_offers(request: OfferRequest, ctx: Context) -> OfferResponse:
-        """Live price and stock for chosen products, ranked by the mandate.
+        """Live price and stock, ranked by the mandate.
 
-        Send request_id from search_products, so the audit trail shows the search.
+        Send request_id from search_products with no product_ids to price every hit of that
+        search, or send product_ids to price chosen products. An old request_id expires: search
+        again.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
         UPSTREAM_UNAVAILABLE: follow next_step and wait the stated seconds before retrying.
