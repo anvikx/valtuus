@@ -172,6 +172,10 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         VALIDATION_ERROR: send product_ids or a search request_id; send fewer ids if over the
         limit. For invalid fields, follow next_step and correct the request.
         UNAUTHENTICATED/FORBIDDEN: follow next_step to obtain a valid key with offer scope.
+        proposed_split: when rank 1 cannot cover the quantity, several products for one delivery
+        date: qty is sales units per product. Build one cart from its lines. If unfilled_qty is
+        over 0 (in the requested unit), tell the buyer how much cannot be delivered. null: rank 1
+        covers the request.
         UPSTREAM_UNAVAILABLE: follow next_step and wait the stated seconds before retrying.
         """
         with _error_body():

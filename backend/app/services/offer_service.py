@@ -23,12 +23,14 @@ from app.domain.offer import (
     OfferLine,
     OfferQuery,
     Price,
+    ProposedSplit,
     RejectedProduct,
     RequestedItem,
     SubstituteFor,
 )
 from app.domain.ranking import rank_offer_lines
 from app.domain.screening import reject, screen
+from app.domain.split import propose_split
 from app.domain.substitutes import is_equivalent, substitute_for
 from app.domain.units import json_number
 from app.services.audit_service import AuditService
@@ -102,6 +104,9 @@ class OfferService:
         rejected = missing + screened_out
         # Cut after the rank, so the lines shown are the best of all priced products.
         lines = ranked[:MAX_OFFER_LINES]
+        contents = {
+            item.product.product_id: item.product.content_per_sales_unit for item in candidates
+        }
         offer = self._signed(
             Offer(
                 offer_id=f"o_{uuid4().hex}",
@@ -112,7 +117,7 @@ class OfferService:
                 valid_until=_valid_until(issued_at, lines),
                 requested=RequestedItem(query.quantity, query.unit, query.deliver_by),
                 lines=lines,
-                proposed_split=None,
+                proposed_split=propose_split(lines, contents, query, query.preferred_brands),
                 rejected=rejected[:MAX_REJECTED_SHOWN],
                 signature=None,
                 request_id=query.request_id or new_request_id(),
@@ -285,9 +290,20 @@ class OfferService:
                 "lines": [line.product_id for line in offer.lines],
                 "lines_not_shown": offer.lines_not_shown,
                 "rejected": {item.product_id: item.reason_code for item in rejected},
+                "split": _split_audit(offer.proposed_split),
             },
             mandate_version=mandate_version,
         )
+
+
+def _split_audit(split: ProposedSplit | None) -> dict[str, object] | None:
+    if split is None:
+        return None
+
+    return {
+        "lines": {line.product_id: line.qty for line in split.lines},
+        "unfilled_qty": split.unfilled_qty,
+    }
 
 
 def _offer_sentence(offer: Offer, rejected: Sequence[RejectedProduct]) -> str:
