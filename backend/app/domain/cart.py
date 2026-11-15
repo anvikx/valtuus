@@ -86,6 +86,20 @@ class LineChange:
 
 
 @dataclass(frozen=True)
+class CartVersion:
+    """Revision N-1, kept on revision N so one cart read can mark what changed."""
+
+    lines: tuple[CartLine, ...]
+    total_ex_vat: Decimal
+    delivery_day_total_ex_vat: Decimal
+    reason_sentences: tuple[str, ...]
+    # Who made revision N and when, not N-1.
+    updated_by: RevisionAuthor
+    updated_at: datetime
+    summary: str
+
+
+@dataclass(frozen=True)
 class Cart:
     """The lines of one revision never change. A change of lines makes the next revision."""
 
@@ -118,6 +132,8 @@ class Cart:
     revision: int = 1
     # None only for snapshots written before revision deltas were stored.
     changes: tuple[LineChange, ...] | None = None
+    # None for revision 1, and for a revision stored before this field existed.
+    previous_version: CartVersion | None = None
 
 
 @dataclass(frozen=True)

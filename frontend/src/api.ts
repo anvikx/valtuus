@@ -40,7 +40,7 @@ const WIRE_STATE_TO_STATUS: Readonly<Record<string, CartStatus>> = {
   REJECTED: 'rejected',
   EXPIRED: 'expired',
   DENIED: 'denied',
-  // Not on the backend yet. The handoff lists it for a cart that the buyer cancels.
+  // The agent withdrew the cart because the buyer no longer wants it.
   WITHDRAWN: 'withdrawn',
 }
 
@@ -150,7 +150,7 @@ export interface WireCart {
   readonly decided_at: string | null
   readonly reject_reason: string | null
   readonly approve_url: string | null
-  // Not on the backend yet, so both are optional. A missing revision reads as 1.
+  // Optional so a fixture can leave them out. A missing revision reads as 1.
   readonly revision?: number
   readonly previous_version?: WireCartVersion | null
 }

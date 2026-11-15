@@ -7,7 +7,7 @@ from app.api.schemas.catalog import InterpretedRequest
 from app.api.schemas.common import CartRevisionValue, PositiveSalesUnits, Reasons, RequestModel
 from app.api.schemas.offers import SubstituteFor
 from app.domain.cart import CartDraft, CartLineInput
-from app.domain.enums import CartState, Decision, ReasonCode
+from app.domain.enums import CartState, Decision, ReasonCode, RevisionAuthor
 from app.domain.errors import NeedsClarificationError
 
 
@@ -118,6 +118,18 @@ class CartLine(Reasons):
     )
 
 
+class PreviousCartVersion(BaseModel):
+    lines: list[CartLine] = Field(description="Lines of revision N-1.")
+    total_ex_vat: Decimal = Field(description="Total of revision N-1, EUR ex VAT.")
+    delivery_day_total_ex_vat: Decimal = Field(
+        description="Delivery day total of revision N-1, EUR ex VAT.",
+    )
+    reason_sentences: list[str] = Field(description="Reasons of revision N-1.")
+    updated_by: RevisionAuthor = Field(description="Who made the current revision.")
+    updated_at: datetime = Field(description="When the current revision was made.")
+    summary: str = Field(description="What changed, in plain words: Milk 1,000 to 800.")
+
+
 class CartResponse(Reasons):
     cart_id: str = Field(description="Cart id.")
     revision: int = Field(description="Revision of the lines. Each change makes the next one.")
@@ -167,6 +179,9 @@ class CartResponse(Reasons):
     )
     next_step: str | None = Field(
         description="What the agent tells the buyer now. null unless PENDING_APPROVAL.",
+    )
+    previous_version: PreviousCartVersion | None = Field(
+        description="Revision N-1, so the approve page can mark what changed. null for revision 1.",
     )
 
 
