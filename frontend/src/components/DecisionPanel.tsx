@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactElement, type SubmitEvent } from 'react'
 
-import type { Cart, CartChange, CartUpdate } from '../api.ts'
+import type { Cart, CartChange, CartUpdate, OfferTrust } from '../api.ts'
 import { ChangeSheet } from './ChangeSheet.tsx'
 import { ApprovalSummary } from './CartReview.tsx'
 import { TrustMark } from './TrustMark.tsx'
@@ -14,6 +14,7 @@ const REASON_ERROR_ID = 'reject-reason-error'
 interface DecisionPanelProps {
   readonly cart: Cart
   readonly isBusy: boolean
+  readonly trust: OfferTrust
   // An update the user has not reviewed yet: every decision waits for the Review tap.
   readonly isReviewPending: boolean
   readonly update?: CartUpdate
@@ -26,6 +27,7 @@ interface DecisionPanelProps {
 export function DecisionPanel({
   cart,
   isBusy,
+  trust,
   isReviewPending,
   update,
   onApprove,
@@ -68,7 +70,7 @@ export function DecisionPanel({
     <>
       <div className="desktop-only stack">
         <ApprovalSummary cart={cart} update={update} />
-        <TrustMark />
+        <TrustMark trust={trust} />
       </div>
       <div className="actions">
         {cart.isInsideLimits ? (

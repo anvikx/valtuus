@@ -420,10 +420,12 @@ blockquote {
   margin-bottom: var(--space-2);
 }
 
-/* Ordered result: flow steps, badge, summary rows and order lines. */
+/* Result screens: flow steps, badge, summary rows and order lines. */
+/* auto, not 1fr: a step with an icon is wider, and equal columns broke "4 Approval" onto two
+   lines at 393px. auto columns wrap only when all four do not fit on one line. */
 .flow-steps {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, auto);
   gap: var(--space-2);
   margin: 0;
   padding: 0;

@@ -10,6 +10,8 @@ const API_V1 = '/v1'
 const HEALTHY_STATUS = 'ok'
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 const IS_FIXTURE_MODE = import.meta.env.VITE_USE_FIXTURES === 'true'
+// The prototype's only signer. Another issuer in a valid signature is not this gateway's.
+const MOCK_ISSUER = 'Valio Aimo (mock)'
 
 const HTTP_STATUS = {
   okFirst: 200,
@@ -182,6 +184,11 @@ export interface WireOrderConfirmation {
   readonly signature: string | null
 }
 
+// Only the fields the trust check reads. The rest of the offer is in the signed payload.
+interface WireSignedOffer {
+  readonly signature: string | null
+}
+
 export interface WireAuditRecord {
   readonly record_id: string
   readonly cart_id: string | null
@@ -268,6 +275,8 @@ export interface UnderstoodRequest {
 }
 
 export interface CartLine {
+  // The signed offer that holds the line's price.
+  readonly offerId: string
   readonly productId: string
   readonly name: string
   readonly qty: number
@@ -328,12 +337,14 @@ export interface OrderConfirmation {
   readonly placedAt: string
 }
 
-// unchecked: the keys or the order could not be loaded, or the browser has no Ed25519.
-export type OrderTrust =
-  | { readonly kind: 'verified'; readonly issuer: string }
-  | { readonly kind: 'unsigned' }
-  | { readonly kind: 'invalid' }
-  | { readonly kind: 'unchecked' }
+// unchecked: the keys or the signed object could not be loaded, or the browser has no Ed25519.
+type NotVerified =
+  { readonly kind: 'unsigned' } | { readonly kind: 'invalid' } | { readonly kind: 'unchecked' }
+
+export type OrderTrust = { readonly kind: 'verified' } | NotVerified
+
+// stockAsOf: the oldest stock answer behind the cart's lines.
+export type OfferTrust = { readonly kind: 'verified'; readonly stockAsOf: string } | NotVerified
 
 export interface AuditEntry {
   readonly id: string
@@ -476,6 +487,7 @@ function toUnderstood(wire: WireInterpretedRequest | null): UnderstoodRequest | 
 
 function toCartLine(wire: WireCartLine): CartLine {
   return {
+    offerId: wire.offer_id,
     productId: wire.product_id,
     name: wire.name,
     qty: wire.qty,
@@ -715,11 +727,11 @@ function isSignedCart(payload: JwsPayload, orderId: string, cart: Cart): boolean
     payload.order_id === orderId &&
     payload.cart_id === cart.id &&
     payload.total_ex_vat === cart.total &&
-    typeof payload.issuer === 'string'
+    payload.issuer === MOCK_ISSUER
   )
 }
 
-// Throws when the check cannot run. The issuer comes from the signed payload, not the body.
+// Throws when the check cannot run.
 export async function getOrderTrust(orderId: string, cart: Cart): Promise<OrderTrust> {
   const path = `/orders/${encodeURIComponent(orderId)}`
   const order = (await call(HTTP_METHOD.get, path)) as WireOrderConfirmation
@@ -732,7 +744,88 @@ export async function getOrderTrust(orderId: string, cart: Cart): Promise<OrderT
     return { kind: 'invalid' }
   }
 
-  return { kind: 'verified', issuer: String(payload.issuer) }
+  return { kind: 'verified' }
+}
+
+// product_id to unit_price of the signed offer lines. Anything else in the payload is ignored.
+function signedPrices(payload: JwsPayload): ReadonlyMap<unknown, unknown> {
+  const lines: unknown[] = Array.isArray(payload.lines) ? payload.lines : []
+  return new Map(
+    lines
+      .filter((line): line is Readonly<Record<string, unknown>> => {
+        return typeof line === 'object' && line !== null
+      })
+      .map((line) => [line.product_id, line.unit_price]),
+  )
+}
+
+// "Price fixed" must hold for what the page shows: each line of this offer has the signed price.
+// Number() so "1.5" and "1.50" match. Both come from the same Decimal.
+function isSignedOffer(payload: JwsPayload, offerId: string, lines: readonly CartLine[]): boolean {
+  if (payload.offer_id !== offerId || payload.issuer !== MOCK_ISSUER) {
+    return false
+  }
+
+  if (typeof payload.source_time !== 'string') {
+    return false
+  }
+
+  const prices = signedPrices(payload)
+  return lines
+    .filter((line) => line.offerId === offerId)
+    .every((line) => Number(prices.get(line.productId)) === Number(line.unitPrice))
+}
+
+interface SignedOffer {
+  readonly offerId: string
+  readonly signature: string
+}
+
+async function getOfferSignature(offerId: string): Promise<string | null> {
+  const path = `/offers/${encodeURIComponent(offerId)}`
+  return ((await call(HTTP_METHOD.get, path)) as WireSignedOffer).signature
+}
+
+// The offer's stock time when its signature is valid and covers the lines, else null.
+async function signedStockTime(
+  { offerId, signature }: SignedOffer,
+  keys: readonly SigningKey[],
+  lines: readonly CartLine[],
+): Promise<string | null> {
+  const payload = await verifyJws(signature, keys)
+  if (payload === null || !isSignedOffer(payload, offerId, lines)) {
+    return null
+  }
+
+  return String(payload.source_time)
+}
+
+// Throws when the check cannot run, for example on a cart with no lines.
+// The stock time comes from the signed payload, not the body.
+export async function getOfferTrust(lines: readonly CartLine[]): Promise<OfferTrust> {
+  const offerIds = [...new Set(lines.map((line) => line.offerId))]
+  const offers = await Promise.all(
+    offerIds.map(async (offerId) => ({ offerId, signature: await getOfferSignature(offerId) })),
+  )
+  const signed = offers.filter((offer): offer is SignedOffer => offer.signature !== null)
+  if (signed.length < offers.length) {
+    return { kind: 'unsigned' }
+  }
+
+  const keys = await getSigningKeys()
+  const stockTimes = await Promise.all(signed.map((offer) => signedStockTime(offer, keys, lines)))
+  const validTimes = stockTimes.filter((time) => time !== null)
+  if (validTimes.length < stockTimes.length) {
+    return { kind: 'invalid' }
+  }
+
+  // The oldest stock answer, so the page never claims fresher stock than one line has.
+  const oldest = validTimes.toSorted((a, b) => Date.parse(a) - Date.parse(b))[0]
+  if (oldest === undefined) {
+    throw new Error('A cart with no lines has no offer to check.')
+  }
+
+  return { kind: 'verified', stockAsOf: oldest }
 }
 
 export async function rejectCart(cartId: string, revision: number, reason: string): Promise<Cart> {

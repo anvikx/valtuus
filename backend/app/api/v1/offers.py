@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import ServicesDep, require_scope
+from app.api.deps import MainUserDep, ServicesDep, buyer_of, require_scope
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import offer_response
@@ -27,6 +27,13 @@ minutes (`valid_until`). The price holds until `price_valid_to`.
 
 **Scope:** `offer`.
 """
+_GET = """
+A stored offer with its `signature`, for the approval page to check the cart's prices.
+
+**Request:** `GET /api/v1/offers/{offer_id}`
+
+**Auth:** main user session only. The agent has the offer from `POST /api/v1/offers`.
+"""
 
 
 @router.post("", description=describe(_OFFERS, OfferResponse, OfferRequest))
@@ -36,3 +43,8 @@ def get_offers(
     services: ServicesDep,
 ) -> OfferResponse:
     return offer_response(services.offers.get_offers(agent, request.to_domain()))
+
+
+@router.get("/{offer_id}", description=describe(_GET, OfferResponse))
+def read_offer(offer_id: str, user: MainUserDep, services: ServicesDep) -> OfferResponse:
+    return offer_response(services.offers.get_offer(buyer_of(user), offer_id))

@@ -2,8 +2,9 @@ import type { ReactElement } from 'react'
 
 import type { Cart, CartStatus } from '../api.ts'
 import { formatDateTime } from '../format.ts'
+import { FlowSteps, type StopTone } from './FlowSteps.tsx'
 import type { IconName } from './Icon.tsx'
-import { ResultScreen, type ResultTone } from './ResultScreen.tsx'
+import { ResultScreen } from './ResultScreen.tsx'
 
 // An ordered cart shows OrderedResult instead.
 type ClosedStatus = Exclude<CartStatus, 'waiting' | 'ordered'>
@@ -14,7 +15,7 @@ interface ClosedResultProps {
 }
 
 interface ClosedView {
-  readonly tone: ResultTone
+  readonly tone: StopTone
   readonly icon: IconName
   readonly title: string
   readonly sentence: (cart: Cart) => string
@@ -80,15 +81,20 @@ const CLOSED_VIEWS: Readonly<Record<ClosedStatus, ClosedView>> = {
 export function ClosedResult({ cart, status }: ClosedResultProps): ReactElement {
   const { tone, icon, title, sentence, detail, deliveryNote } = CLOSED_VIEWS[status]
 
+  // Only a closed cart shows the steps: they mark where the flow stopped. An ordered cart
+  // finished every step, so the steps tell the reader nothing new.
   return (
-    <ResultScreen
-      cart={cart}
-      tone={tone}
-      icon={icon}
-      title={title}
-      sentence={sentence(cart)}
-      detail={detail?.(cart)}
-      deliveryNote={deliveryNote}
-    />
+    <>
+      <FlowSteps currentPhase={null} stopTone={tone} />
+      <ResultScreen
+        cart={cart}
+        tone={tone}
+        icon={icon}
+        title={title}
+        sentence={sentence(cart)}
+        detail={detail?.(cart)}
+        deliveryNote={deliveryNote}
+      />
+    </>
   )
 }

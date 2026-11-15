@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { Cart, CartUpdate, UnderstoodRequest } from '../api.ts'
+import type { Cart, CartUpdate, OfferTrust, UnderstoodRequest } from '../api.ts'
 import {
   formatAttribute,
   formatCount,
@@ -18,6 +18,7 @@ interface CartReviewProps {
   readonly cart: Cart
   readonly buyerId: string
   readonly agentName: string | null
+  readonly trust: OfferTrust
   // Set once the user has reviewed the update: it turns on the change marks.
   readonly update?: CartUpdate
 }
@@ -131,7 +132,13 @@ function RequestSection({ cart }: { cart: Cart }): ReactElement {
 }
 
 // Everything the main user needs to decide on a waiting cart, top to bottom as in the UI spec.
-export function CartReview({ cart, buyerId, agentName, update }: CartReviewProps): ReactElement {
+export function CartReview({
+  cart,
+  buyerId,
+  agentName,
+  trust,
+  update,
+}: CartReviewProps): ReactElement {
   return (
     <>
       <FlowSteps currentPhase="approval" />
@@ -152,7 +159,7 @@ export function CartReview({ cart, buyerId, agentName, update }: CartReviewProps
       </div>
       <OrderLines cart={cart} update={update} />
       <div className="phone-only">
-        <TrustMark />
+        <TrustMark trust={trust} />
       </div>
       <RequestSection cart={cart} />
     </>
