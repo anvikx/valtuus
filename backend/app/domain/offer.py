@@ -76,7 +76,8 @@ class SubstituteFor:
     basis: SubstituteBasis
     reason_code: ReasonCode
     reason_sentence: str
-    price_difference_per_unit: Decimal
+    # Per comparison unit (L, KG or PCS). None: the requested product has no price or size.
+    price_difference_per_unit: Decimal | None
 
 
 @dataclass(frozen=True)

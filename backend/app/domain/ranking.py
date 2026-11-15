@@ -1,6 +1,6 @@
 """Rank by delivery/stock group, then preferred brand and price per requested unit."""
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import replace
 from decimal import Decimal
 from enum import IntEnum
@@ -8,7 +8,14 @@ from enum import IntEnum
 from app.domain.constants import CURRENCY, UNKNOWN_STOCK_MARKER
 from app.domain.enums import OfferTier, ReasonCode, StockModel
 from app.domain.money import line_total, round_money
-from app.domain.offer import Availability, Candidate, ComparisonPrice, OfferLine, OfferQuery
+from app.domain.offer import (
+    Availability,
+    Candidate,
+    ComparisonPrice,
+    OfferLine,
+    OfferQuery,
+    SubstituteFor,
+)
 from app.domain.reason_text import day_text, reason_sentence
 from app.domain.units import comparison_unit, price_per_unit, sales_units_needed
 
@@ -22,9 +29,22 @@ class _Group(IntEnum):
     LATE = 2
 
 
-def rank_offer_lines(candidates: Iterable[Candidate], query: OfferQuery) -> tuple[OfferLine, ...]:
-    """Equal keys fall back to product_id, so the same data always gives the same order."""
-    scored = sorted(_scored(candidate, query) for candidate in candidates)
+def rank_offer_lines(
+    candidates: Iterable[Candidate],
+    query: OfferQuery,
+    substitutes: Sequence[tuple[Candidate, SubstituteFor]] = (),
+) -> tuple[OfferLine, ...]:
+    """Equal keys fall back to product_id, so the same data always gives the same order.
+
+    Substitutes rank after every requested line: a person must approve each one, so a cheaper
+    substitute must not lead a line the agent can order as asked.
+    """
+    scored = sorted(
+        [
+            *(_scored(candidate, query, None) for candidate in candidates),
+            *(_scored(candidate, query, marked) for candidate, marked in substitutes),
+        ]
+    )
     return tuple(
         replace(line, rank=rank, tier=_TIERS[rank - 1] if rank <= len(_TIERS) else None)
         for rank, (*_, line) in enumerate(scored, start=1)
@@ -34,7 +54,8 @@ def rank_offer_lines(candidates: Iterable[Candidate], query: OfferQuery) -> tupl
 def _scored(
     candidate: Candidate,
     query: OfferQuery,
-) -> tuple[_Group, bool, Decimal, str, OfferLine]:
+    substitute_for: SubstituteFor | None,
+) -> tuple[bool, _Group, bool, Decimal, str, OfferLine]:
     product, price, availability = candidate.product, candidate.price, candidate.availability
     _require_screened(availability)
 
@@ -68,7 +89,7 @@ def _scored(
         closing_time=availability.closing_time,
         line_total=line_total(needed, price.unit_price),
         max_auto_qty=None,
-        substitute_for=None,
+        substitute_for=substitute_for,
         reason_codes=codes,
         reason_sentences=sentences,
     )
@@ -77,7 +98,8 @@ def _scored(
     outside_preference = bool(preferred) and (product.brand or "").casefold() not in preferred
     # Following rank 1 must not exceed a preferred product's stock when another product
     # can fill the request. Brand preference only breaks ties within a stock group.
-    return group, outside_preference, per_unit, product.product_id, line
+    is_substitute = substitute_for is not None
+    return is_substitute, group, outside_preference, per_unit, product.product_id, line
 
 
 def _require_screened(availability: Availability) -> None:

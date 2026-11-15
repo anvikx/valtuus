@@ -18,9 +18,9 @@ from app.adapters.postgres.offer_codec import OFFER_CODEC
 from app.api.results import offer_response
 from app.api.schemas.offers import OfferResponse
 from app.domain.audit import REQUEST_ID_PATTERN
-from app.domain.catalog import Product
+from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
 from app.domain.constants import GATEWAY_TIMEZONE
-from app.domain.enums import AuditStep, ReasonCode, Unit
+from app.domain.enums import AllergenStatus, AllergenType, AuditStep, ReasonCode, Unit
 from app.domain.errors import (
     InvalidRequestError,
     NotFoundError,
@@ -472,3 +472,101 @@ def test_a_cutoff_crossed_during_the_upstream_call_is_rejected(monkeypatch) -> N
     (rejected,) = offer.rejected
     assert rejected.reason_code is ReasonCode.CUTOFF_PASSED
     assert rejected.closing_time == CLOSING
+
+
+_BOX_ID = "465039"
+
+
+def _substitute_world(
+    *,
+    box_allergens: Allergens | None = None,
+    milk_price: bool = True,
+    milk_stock: bool = False,
+) -> _World:
+    """Run 5: 464306 cannot be delivered; Valio Aimo names the 5 l box 465039 in its place."""
+    requested = replace(product(), substitute_ids=(_BOX_ID,))
+    box = product(_BOX_ID, sales_unit="KI", content=ContentPerSalesUnit(Decimal(5), Unit.L))
+    if box_allergens is not None:
+        box = replace(box, allergens=box_allergens)
+    prices = [price(), price(_BOX_ID, "5.25")] if milk_price else [price(_BOX_ID, "5.25")]
+    stocks = [stock(_BOX_ID, sales_unit="KI"), *([stock()] if milk_stock else [])]
+    source = FakePriceSource(prices, stocks)
+    return _World(source, products=(requested, box))
+
+
+def _with_substitutes(world: _World, *product_ids: str):
+    asked = replace(query(*product_ids), include_substitutes=True)
+    return world.service.get_offers(samples.agent_key(), asked)
+
+
+def test_an_undeliverable_product_gets_its_equivalent_marked() -> None:
+    """The mark lives in the signed, stored offer, so the agent cannot drop it from the cart."""
+    world = _substitute_world()
+
+    offer = _with_substitutes(world)
+
+    (line,) = offer.lines
+    assert line.product_id == _BOX_ID
+    assert line.substitute_for.product_id == MILK_ID
+    assert line.substitute_for.reason_code is ReasonCode.NOT_AVAILABLE
+    assert line.substitute_for.price_difference_per_unit == Decimal("0.04")
+    assert [item.reason_code for item in offer.rejected] == [ReasonCode.NOT_AVAILABLE]
+    assert world.offers.get(offer.offer_id) == offer
+    assert [(route, ids) for route, ids, _ in world.source.calls] == [
+        ("prices", (MILK_ID,)),
+        ("availability", (MILK_ID,)),
+        ("prices", (_BOX_ID,)),
+        ("availability", (_BOX_ID,)),
+    ]
+
+
+def test_no_substitute_unless_the_agent_asks() -> None:
+    """For a generic ingredient every match is already a line; a swap would be noise."""
+    world = _substitute_world()
+
+    offer = world.get_offers()
+
+    assert offer.lines == ()
+    assert [ids for _, ids, _ in world.source.calls] == [(MILK_ID,), (MILK_ID,)]
+
+
+def test_a_deliverable_product_gets_no_substitute() -> None:
+    world = _substitute_world(milk_stock=True)
+
+    offer = _with_substitutes(world)
+
+    assert [line.product_id for line in offer.lines] == [MILK_ID]
+    assert len(world.source.calls) == 2
+
+
+def test_an_equivalent_with_other_allergens_is_not_offered() -> None:
+    """Valio Aimo's pair is not proof of safety: the swap must not add an allergen."""
+    soy = Allergens(AllergenStatus.KNOWN, (), {AllergenType.CONTAINS: ("AM", "AY")})
+    world = _substitute_world(box_allergens=soy)
+
+    offer = _with_substitutes(world)
+
+    assert offer.lines == ()
+    assert len(world.source.calls) == 2
+
+
+def test_a_requested_equivalent_is_a_plain_line() -> None:
+    """The agent asked for the box itself, so it replaces nothing."""
+    world = _substitute_world()
+
+    offer = _with_substitutes(world, MILK_ID, _BOX_ID)
+
+    (line,) = offer.lines
+    assert (line.product_id, line.substitute_for) == (_BOX_ID, None)
+
+
+def test_a_requested_product_with_no_price_gives_no_difference() -> None:
+    """The person still sees the substitute; the gateway does not invent a difference."""
+    world = _substitute_world(milk_price=False)
+
+    offer = _with_substitutes(world)
+
+    (line,) = offer.lines
+    assert line.substitute_for.reason_code is ReasonCode.NO_PRICE
+    assert line.substitute_for.price_difference_per_unit is None
+    assert offer_response(offer).lines[0].substitute_for.price_difference_per_unit is None
