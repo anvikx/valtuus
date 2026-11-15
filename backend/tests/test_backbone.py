@@ -1,4 +1,4 @@
-"""Pins the routes, auth and tools while the services are stubs, so each part builds behind them."""
+"""Pins the REST routes, authentication boundaries and agent tools."""
 
 import dataclasses
 import json
@@ -88,19 +88,6 @@ _OFFERS_PATH = "/api/v1/offers"
 _CARTS_PATH = "/api/v1/carts"
 _MANDATE_PATH = "/api/v1/mandate"
 _REVOKE_PATH = "/api/v1/agents/claude-code/revoke"
-_LIVE_PATHS = {
-    _OFFERS_PATH,
-    _CARTS_PATH,
-    "/api/v1/carts/c_1",
-    "/api/v1/carts/c_1/checkout",
-    _REVISIONS_PATH,
-    _WITHDRAW_PATH,
-    "/api/v1/orders/o_1",
-    _MANDATE_PATH,
-    _AUDIT_PATH,
-    "/api/v1/catalog/search?query=milk",
-}
-_STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
 _HUMAN_ACTIONS = [
     ("POST", "/api/v1/carts/c_1/approve", {"revision": 1}),
@@ -172,15 +159,6 @@ def test_agent_route_without_scope_is_forbidden(
 
     assert response.status_code == HTTPStatus.FORBIDDEN
     assert response.json()["error"] == "FORBIDDEN"
-
-
-@pytest.mark.parametrize(("method", "path", "headers", "body"), _STUB_CALLS)
-def test_agent_route_reaches_its_service(method, path, headers, body) -> None:
-    """501 means auth and validation passed and the stub service ran."""
-    # TODO: expect the real status codes when the services land, and remove this test then.
-    response = _client().request(method, path, headers={**_AUTH, **headers}, json=body)
-
-    assert response.status_code == HTTPStatus.NOT_IMPLEMENTED
 
 
 def test_mandate_answers_with_rules_and_gateway_time() -> None:
@@ -497,7 +475,7 @@ def test_session_opens_human_action(method, path, body) -> None:
 
     response = client.request(method, path, headers=_AUTH, json=body)
 
-    # The service answers (a stub 501, or 404 for the made up cart): the door let it through.
+    # A missing cart gives 404, while mandate edits and revocation reach their services.
     assert response.status_code not in {HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN}
 
 
