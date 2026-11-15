@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactElement, type RefObject } from 'react'
 
 import {
   ApiError,
@@ -12,6 +12,7 @@ import {
   type AuditTrail,
   type Cart,
   type CartChange,
+  type CartStatus,
   type OrderTrust,
   type Session,
 } from '../api.ts'
@@ -49,6 +50,17 @@ function isConflict(error: unknown): boolean {
 }
 
 const UNCHECKED: OrderTrust = { kind: 'unchecked' }
+const CHECK_INTERVAL_MS = 10_000
+
+interface ShownCart {
+  readonly cartId: string
+  readonly revision: number | null
+  readonly status: CartStatus | null
+}
+
+// 'keep' leaves the page on screen when the load fails, so a silent reload shows nothing.
+type LoadFailure = 'show' | 'keep'
+type Reload = (onFailure?: LoadFailure) => Promise<void>
 
 // Like the audit, a failed check must not hide the order. The mark says it was not checked.
 function checkOrder(cart: Cart): Promise<OrderTrust | null> {
@@ -57,6 +69,51 @@ function checkOrder(cart: Cart): Promise<OrderTrust | null> {
   }
 
   return getOrderTrust(cart.orderId, cart).catch(() => UNCHECKED)
+}
+
+// Rule 5: check silently while the tab is visible, and reload only when the revision or the
+// state differs from the screen. The reload never swaps a waiting cart under a finger: a new
+// revision shows the update bar first. A closed cart is final, so it is not checked.
+function useSilentCheck(shown: ShownCart, isBusy: RefObject<boolean>, reload: Reload): void {
+  const { cartId, revision, status } = shown
+
+  useEffect(() => {
+    if (status !== 'waiting') {
+      return
+    }
+
+    async function check(): Promise<void> {
+      // A decision reloads by itself, and a hidden tab makes no calls.
+      if (document.hidden || isBusy.current) {
+        return
+      }
+
+      try {
+        const cart = await getCart(cartId)
+        // A decision that started during the call reloads by itself.
+        const isChanged = cart.revision !== revision || cart.status !== status
+        if (isChanged && !isBusy.current) {
+          await reload('keep')
+        }
+      } catch (error: unknown) {
+        // A failed check shows nothing. The next one tries again.
+        if (isSignedOut(error)) {
+          redirectToLogin()
+        }
+      }
+    }
+
+    function onVisibility(): void {
+      void check()
+    }
+
+    const timer = window.setInterval(onVisibility, CHECK_INTERVAL_MS)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [cartId, revision, status, isBusy, reload])
 }
 
 async function loadPage(cartId: string): Promise<PageData> {
@@ -115,11 +172,20 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     }
   }, [reviewedRevision])
 
-  const load = useCallback(
-    () =>
-      loadPage(cartId).then(
+  // A decision and a silent check can load at the same time. Only the last load started may set
+  // the state, so a slower, older load never puts a decided cart back as waiting.
+  const lastLoad = useRef(0)
+  const load: Reload = useCallback(
+    (onFailure = 'show') => {
+      lastLoad.current += 1
+      const loadId = lastLoad.current
+      const isLatest = (): boolean => loadId === lastLoad.current
+
+      return loadPage(cartId).then(
         (data) => {
-          setState({ kind: 'ready', data })
+          if (isLatest()) {
+            setState({ kind: 'ready', data })
+          }
         },
         (error: unknown) => {
           if (isSignedOut(error)) {
@@ -127,15 +193,29 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
             return
           }
 
-          setState({ kind: 'failed' })
+          if (isLatest() && onFailure === 'show') {
+            setState({ kind: 'failed' })
+          }
         },
-      ),
+      )
+    },
     [cartId],
   )
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const shownCart = state.kind === 'ready' ? state.data.cart : null
+  useSilentCheck(
+    {
+      cartId,
+      revision: shownCart?.revision ?? null,
+      status: shownCart?.status ?? null,
+    },
+    isBusyRef,
+    load,
+  )
 
   // The buttons stay disabled until the reload shows the new cart state, so the user cannot
   // send a second decision on a cart that is already decided.
