@@ -1,9 +1,17 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 
-import type { Cart, CartLine, CartUpdate, LineStock } from '../api.ts'
+import {
+  offerFactsKey,
+  type Cart,
+  type CartLine,
+  type CartUpdate,
+  type LineStock,
+  type OfferFactsByLine,
+} from '../api.ts'
 import { formatCount, formatDate } from '../format.ts'
 import type { StopTone } from './FlowSteps.tsx'
 import { Icon, type IconName } from './Icon.tsx'
+import { LineFacts } from './LineFacts.tsx'
 
 export type ResultTone = 'done' | StopTone
 
@@ -14,6 +22,8 @@ interface CartProps {
 interface OrderLinesProps extends CartProps {
   // Marks what changed against the version the user saw before.
   readonly update?: CartUpdate
+  // Missing for a line whose offer could not be read: the line then shows no facts row.
+  readonly facts?: OfferFactsByLine
 }
 
 interface ResultScreenProps extends CartProps {
@@ -95,7 +105,7 @@ function removedNames(cart: Cart, update: CartUpdate): string[] {
     .map((line) => line.name)
 }
 
-export function OrderLines({ cart, update }: OrderLinesProps): ReactElement {
+export function OrderLines({ cart, update, facts }: OrderLinesProps): ReactElement {
   const removed = update === undefined ? [] : removedNames(cart, update)
 
   return (
@@ -123,6 +133,7 @@ export function OrderLines({ cart, update }: OrderLinesProps): ReactElement {
                 <Quantity line={line} before={before} /> × {unitPrice} ex VAT
               </p>
               <p className="muted">{stockWords(line.stock)}</p>
+              <LineFacts facts={facts?.get(offerFactsKey(line))} />
             </li>
           )
         })}

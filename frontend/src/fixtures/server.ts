@@ -92,6 +92,26 @@ const AUDIT_PATH = /^\/v1\/audit\/([^/]+)$/
 const ORDER_PATH = /^\/v1\/orders\/([^/]+)$/
 const OFFER_PATH = /^\/v1\/offers\/([^/]+)$/
 
+// Offer lines of the fixture carts. o_demo has data, o_coffee has none, so both shapes show.
+const OFFER_LINES: Readonly<Record<string, readonly Record<string, unknown>[]>> = {
+  o_demo: [
+    {
+      product_id: '464306',
+      delivery_reliability: '0.984',
+      co2_kg_per_kg: '2.3',
+      labels: ['GOODS_FROM_FINLAND_BLUE_SWAN', 'coolTemperature'],
+    },
+  ],
+  o_coffee: [
+    {
+      product_id: '400100',
+      delivery_reliability: null,
+      co2_kg_per_kg: null,
+      labels: [],
+    },
+  ],
+}
+
 type Outcome =
   'waiting' | 'ordered' | 'agentOrdered' | 'rejected' | 'expired' | 'denied' | 'withdrawn'
 
@@ -532,7 +552,12 @@ function route(request: WireRequest): WireResponse {
   // Fixture offers are unsigned too.
   const offerMatch = OFFER_PATH.exec(request.path)
   if (offerMatch !== null) {
-    return reply(STATUS.ok, { offer_id: decodeURIComponent(offerMatch[1]), signature: null })
+    const offerId = decodeURIComponent(offerMatch[1])
+    return reply(STATUS.ok, {
+      offer_id: offerId,
+      signature: null,
+      lines: OFFER_LINES[offerId] ?? [],
+    })
   }
 
   return reply(STATUS.notFound)

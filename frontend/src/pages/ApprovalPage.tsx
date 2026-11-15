@@ -6,7 +6,7 @@ import {
   changeCart,
   getAudit,
   getCart,
-  getOfferTrust,
+  getOfferReview,
   getOrderTrust,
   getSession,
   rejectCart,
@@ -14,6 +14,8 @@ import {
   type Cart,
   type CartChange,
   type CartStatus,
+  type OfferFactsByLine,
+  type OfferReview,
   type OfferTrust,
   type OrderTrust,
   type Session,
@@ -38,6 +40,8 @@ interface PageData {
   readonly trust: OrderTrust | null
   // null unless the cart waits for a decision.
   readonly offerTrust: OfferTrust | null
+  // Empty unless the cart waits for a decision.
+  readonly offerFacts: OfferFactsByLine
 }
 
 type LoadState =
@@ -59,6 +63,7 @@ function isConflict(error: unknown): boolean {
 }
 
 const UNCHECKED = { kind: 'unchecked' } as const
+const NO_FACTS: OfferFactsByLine = new Map()
 const CHECK_INTERVAL_MS = 10_000
 
 interface ShownCart {
@@ -81,13 +86,14 @@ function checkOrder(cart: Cart): Promise<OrderTrust | null> {
 }
 
 // Both versions, because the page shows the previous lines until the user taps Review.
-function checkOffers(cart: Cart): Promise<OfferTrust | null> {
+// The review never rejects: a failed offer read leaves its facts out and marks trust unchecked.
+function checkOffers(cart: Cart): Promise<OfferReview | null> {
   if (cart.status !== 'waiting') {
     return Promise.resolve(null)
   }
 
   const lines = [...cart.lines, ...(cart.update?.previousLines ?? [])]
-  return getOfferTrust(lines).catch(() => UNCHECKED)
+  return getOfferReview(lines)
 }
 
 // Rule 4 for a closed cart: when a silent check finds it closed, the waiting page stays behind
@@ -150,14 +156,15 @@ function useSilentCheck(shown: ShownCart, isBusy: RefObject<boolean>, reload: Re
 async function loadPage(cartId: string): Promise<PageData> {
   const session = await getSession()
   const [cart, audit] = await Promise.all([getCart(cartId), getAudit(cartId).catch(() => null)])
-  const [trust, offerTrust] = await Promise.all([checkOrder(cart), checkOffers(cart)])
+  const [trust, offerReview] = await Promise.all([checkOrder(cart), checkOffers(cart)])
 
   return {
     session,
     cart,
     audit,
     trust,
-    offerTrust,
+    offerTrust: offerReview?.trust ?? null,
+    offerFacts: offerReview?.facts ?? NO_FACTS,
   }
 }
 
@@ -330,7 +337,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
 
   const { held } = state
   const isClosePending = held !== null
-  const { session, cart: latest, audit, trust, offerTrust } = held ?? state.data
+  const { session, cart: latest, audit, trust, offerTrust, offerFacts } = held ?? state.data
   const { update } = latest
   // Only a waiting cart holds the old version back. A decided cart shows what was decided, even
   // after a reload resets reviewedRevision.
@@ -404,6 +411,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
           buyerId={session.buyerId}
           agentName={audit?.agentName ?? null}
           trust={offerTrust ?? UNCHECKED}
+          facts={offerFacts}
           update={isUpdatePending ? undefined : (update ?? undefined)}
         />
         {timeline}

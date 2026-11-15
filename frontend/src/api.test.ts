@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getOfferTrust, type CartLine } from './api.ts'
+import { getOfferReview, type CartLine, type OfferTrust } from './api.ts'
 import type { SigningKey } from './jws.ts'
+
+async function getOfferTrust(lines: readonly CartLine[]): Promise<OfferTrust> {
+  return (await getOfferReview(lines)).trust
+}
 
 // The backend signs offers with this issuer. A token from any other issuer proves nothing here.
 const ISSUER = 'Valio Aimo (mock)'
@@ -197,11 +201,11 @@ describe('getOfferTrust', () => {
   })
 
   // No lines means nothing was checked, so the caller must show "not checked", not "verified".
-  it('throws on a cart with no lines', async () => {
+  it('says unchecked on a cart with no lines', async () => {
     serve(jwk, {})
 
-    const check = getOfferTrust([])
+    const trust = await getOfferTrust([])
 
-    await expect(check).rejects.toThrow()
+    expect(trust).toEqual({ kind: 'unchecked' })
   })
 })

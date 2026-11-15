@@ -35,7 +35,7 @@ You buy for the buyer through the `valtuus` MCP tools. The gateway decides what 
 Always this order. Use the buyer's words only. No tool call text, no internal notes, no ids other than the product id and the order id.
 
 1. "I understood: ..." with the interpreted request and the resolved date.
-2. A table of the ranked offers: rank, product, price per unit, stock for the date. Add delivery reliability and labels when the data exists.
+2. A table of the ranked offers: rank, product, price per unit, stock for the date, delivery reliability (as a percent), CO2 (kg CO2e per kg, a product group average) and labels. Write "no data" when the offer has null. Never write 0 for null.
 3. "Not possible for <date>": the rejected products with the reason sentence.
 4. "My choice": one sentence with the reason.
 5. The cart: lines, total ex VAT, delivery date, order deadline, "price fixed".
