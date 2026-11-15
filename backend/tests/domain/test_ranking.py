@@ -154,6 +154,28 @@ def test_a_box_ranks_on_its_price_per_litre() -> None:
     assert lines[0].sales_units_needed == 2
 
 
+@pytest.mark.parametrize(
+    ("pack_size", "quantity", "boxes"),
+    [
+        pytest.param("5", "1000", 200, id="1000-l-five-litre-boxes"),
+        pytest.param("5", "12", 3, id="12-l-five-litre-boxes"),
+        pytest.param("20", "1000", 50, id="1000-l-two-times-10-l-boxes"),
+        pytest.param("20", "41", 3, id="41-l-two-times-10-l-boxes"),
+    ],
+)
+def test_offer_uses_full_box_count(pack_size, quantity, boxes):
+    """Offer quantities and totals must count boxes rather than the litres inside them."""
+    boxed = replace(
+        _candidate("box", "7.00"),
+        product=product("box", content=ContentPerSalesUnit(Decimal(pack_size), Unit.L)),
+    )
+
+    (line,) = rank_offer_lines([boxed], query("box", quantity=quantity))
+
+    assert line.sales_units_needed == boxes
+    assert line.line_total == Decimal("7.00") * boxes
+
+
 def test_a_lot_size_under_1_orders_whole_sales_units() -> None:
     """16,872 products have allowedLotSize 0.01. It counts as 1 (D37), so 2.5 L is 3 packs."""
     candidate = replace(_candidate(), product=product(lot_size=Decimal("0.01")))
