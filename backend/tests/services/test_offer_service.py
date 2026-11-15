@@ -163,6 +163,16 @@ def test_offer_uses_current_mandate_brand():
     assert next_offer.lines[0].brand == "Valio"
 
 
+def test_offer_audit_records_mandate_version():
+    """The mandate ranks the offer, so the audit must show which version did it."""
+    world = _run_1()
+    world.mandates.add(replace(world.mandates.latest(samples.BUYER_ID), version=2))
+
+    world.service.get_offers(samples.agent_key(), query())
+
+    assert world.audit.records[0].mandate_version == 2
+
+
 def test_request_brand_applies_without_mandate_preference():
     world = _World(
         FakePriceSource([price(), price("arla", "1.50")], [stock(), stock("arla")]),

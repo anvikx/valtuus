@@ -15,6 +15,7 @@ from app.domain.constants import (
 )
 from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import InvalidRequestError, NotFoundError
+from app.domain.mandate import Mandate
 from app.domain.offer import (
     AvailabilitySnapshot,
     Candidate,
@@ -75,7 +76,8 @@ class OfferService:
                 "Send fewer product ids.",
             )
 
-        query = self._with_preferences(agent.buyer_id, query)
+        mandate = self._mandate(agent.buyer_id)
+        query = replace(query, preferred_brands=mandate.preferred_brands or query.preferred_brands)
         issued_at = self._clock.now()
         products, missing = self._products(product_ids)
         # No Valio call inside the transaction: a slow answer would hold the database lock.
@@ -106,7 +108,7 @@ class OfferService:
         )
         with self._unit_of_work.transaction():
             self._offers.add(offer)
-            self._record(agent, query, offer, rejected)
+            self._record(agent, query, offer, rejected, mandate.version)
         return offer
 
     def _search_set_ids(self, agent: AgentKey, query: OfferQuery) -> tuple[str, ...]:
@@ -138,12 +140,12 @@ class OfferService:
 
         return offer
 
-    def _with_preferences(self, buyer_id: str, query: OfferQuery) -> OfferQuery:
+    def _mandate(self, buyer_id: str) -> Mandate:
         with self._unit_of_work.transaction():
             mandate = self._mandates.latest(buyer_id)
         if mandate is None:
             raise NotFoundError("The buyer has no mandate.", "Ask the buyer to set a mandate.")
-        return replace(query, preferred_brands=mandate.preferred_brands or query.preferred_brands)
+        return mandate
 
     def _products(
         self,
@@ -200,6 +202,7 @@ class OfferService:
         query: OfferQuery,
         offer: Offer,
         rejected: Sequence[RejectedProduct],
+        mandate_version: int,
     ) -> None:
         # rejected is the full list: the offer shows only the first ones.
         self._audit.record(
@@ -221,6 +224,7 @@ class OfferService:
                 "lines_not_shown": offer.lines_not_shown,
                 "rejected": {item.product_id: item.reason_code for item in rejected},
             },
+            mandate_version=mandate_version,
         )
 
 
