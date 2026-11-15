@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.catalog import InterpretedRequest
 from app.api.schemas.common import PositiveSalesUnits, Reasons, RequestModel
@@ -137,4 +137,24 @@ class CartResponse(Reasons):
     )
     next_step: str | None = Field(
         description="What the agent tells the buyer now. null unless PENDING_APPROVAL.",
+    )
+
+
+class CartLineChange(BaseModel):
+    product_id: str = Field(description="Product whose sales-unit quantity changed.")
+    name: str = Field(description="Product name from the current or removed line.")
+    qty_before: int | None = Field(description="Previous sales-unit quantity. null: product added.")
+    qty_after: int | None = Field(description="Current sales-unit quantity. null: product removed.")
+
+
+class CartDetailsResponse(CartResponse):
+    revision_count: int = Field(
+        ge=1,
+        description="Total revisions created for this cart, starting at revision 1. "
+        "Approval, rejection and expiry do not add revisions.",
+    )
+    changes: list[CartLineChange] = Field(
+        description="Added products, removed products and quantity differences from the "
+        "immediately preceding revision (N-1). Empty for revision 1 or if the prior "
+        "legacy snapshot is unavailable.",
     )

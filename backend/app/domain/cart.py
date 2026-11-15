@@ -75,6 +75,16 @@ class CartLine:
 
 
 @dataclass(frozen=True)
+class LineChange:
+    """A product whose quantity differs between two revisions. None: not in that revision."""
+
+    product_id: str
+    name: str
+    qty_before: int | None
+    qty_after: int | None
+
+
+@dataclass(frozen=True)
 class Cart:
     """The lines of one revision never change. A change of lines makes the next revision."""
 
@@ -105,6 +115,8 @@ class Cart:
     reject_reason: str | None
     # A body stored before revisions existed loads as the first one.
     revision: int = 1
+    # None only for snapshots written before revision deltas were stored.
+    changes: tuple[LineChange, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -114,16 +126,6 @@ class CartRevision:
     cart: Cart
     author: RevisionAuthor
     created_at: datetime
-
-
-@dataclass(frozen=True)
-class LineChange:
-    """A product whose quantity differs between two revisions. None: not in that revision."""
-
-    product_id: str
-    name: str
-    qty_before: int | None
-    qty_after: int | None
 
 
 def cart_changes(
