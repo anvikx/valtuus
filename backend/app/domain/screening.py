@@ -24,6 +24,9 @@ def screen(
     if availability is None or availability.available_date is None or not availability.amount:
         return reject(product.product_id, product.name, ReasonCode.NOT_AVAILABLE)
 
+    if availability.is_sales_blocked:
+        return reject(product.product_id, product.name, ReasonCode.SALES_BLOCKED)
+
     if availability.closing_time is None:
         return reject(product.product_id, product.name, ReasonCode.DEADLINE_UNKNOWN)
 

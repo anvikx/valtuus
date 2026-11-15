@@ -76,6 +76,16 @@ def test_missing_live_data_is_a_reject_with_a_reason(live_price, live_stock, cod
     assert result.reason_sentence
 
 
+def test_a_sales_blocked_product_gets_no_offer() -> None:
+    """Valio Aimo will not sell it, so an offer line would be an order that cannot arrive."""
+    blocked = replace(stock(), is_sales_blocked=True)
+
+    result = screen(product(), price(), blocked, query(), NOW)
+
+    assert result.reason_code is ReasonCode.SALES_BLOCKED
+    assert result.reason_sentence == "Valio Aimo has blocked the sale of this product."
+
+
 @pytest.mark.parametrize("model", [StockModel.STOCK, StockModel.TERMINAL, None])
 def test_zero_stock_is_unavailable_for_every_model(model) -> None:
     result = screen(product(), price(), stock(amount=0, model=model), query(), NOW)
