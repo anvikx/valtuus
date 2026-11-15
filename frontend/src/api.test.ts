@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getOfferReview, type CartLine, type OfferTrust } from './api.ts'
+import { getCart, getOfferReview, type CartLine, type OfferTrust } from './api.ts'
+import { PENDING_CART } from './fixtures/run1.ts'
+import { SUBSTITUTE_EXTRAS } from './fixtures/substitute.ts'
 import type { SigningKey } from './jws.ts'
 
 async function getOfferTrust(lines: readonly CartLine[]): Promise<OfferTrust> {
@@ -73,6 +75,7 @@ function line(offerId: string, unitPrice = '1.50'): CartLine {
     lineTotal: unitPrice,
     deliveryDate: '2026-11-16',
     stock: { kind: 'in-stock' },
+    substituteFor: null,
   }
 }
 
@@ -207,5 +210,33 @@ describe('getOfferTrust', () => {
     const trust = await getOfferTrust([])
 
     expect(trust).toEqual({ kind: 'unchecked' })
+  })
+})
+
+describe('getCart', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // The approver must see that a line is not the product the buyer asked for, and why.
+  it('keeps the product a substitute replaces', async () => {
+    vi.stubGlobal('fetch', async () => Response.json({ ...PENDING_CART, ...SUBSTITUTE_EXTRAS }))
+
+    const cart = await getCart('c_substitute')
+
+    expect(cart.lines[0].substituteFor).toEqual({
+      requestedName: 'Valio Arki Eila 1 l',
+      reason: 'Valio Aimo cannot deliver this product.',
+      priceDifference: { amount: '0.04', per: 'L' },
+    })
+  })
+
+  // A line the buyer asked for must not read as a substitute.
+  it('gives no substitute for the requested product', async () => {
+    vi.stubGlobal('fetch', async () => Response.json(PENDING_CART))
+
+    const cart = await getCart('c_demo')
+
+    expect(cart.lines[0].substituteFor).toBeNull()
   })
 })

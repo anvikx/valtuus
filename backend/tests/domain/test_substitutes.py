@@ -90,6 +90,21 @@ def test_the_price_difference_is_per_litre_not_per_sales_unit() -> None:
     assert marked.reason_sentence == "Valio Aimo cannot deliver this product."
 
 
+@pytest.mark.parametrize(
+    ("unit", "per"),
+    [(Unit.L, Unit.L), (Unit.KG, Unit.KG), (Unit.PCS, Unit.PCS), (None, Unit.PCS)],
+)
+def test_the_difference_names_its_unit(unit: Unit | None, per: Unit) -> None:
+    """The approver reads 0.04 EUR. Without the unit it could be per litre or per 5 l box."""
+    kilos = ContentPerSalesUnit(Decimal(1), Unit.KG)
+    requested = product(content=kilos) if unit is Unit.KG else product()
+    box = replace(_box(), product=product(_BOX_ID, content=kilos)) if unit is Unit.KG else _box()
+
+    marked = substitute_for(requested, price(), _not_delivered(), box, query(unit=unit))
+
+    assert marked.per is per
+
+
 def test_a_cheaper_substitute_has_a_negative_difference() -> None:
     marked = substitute_for(product(), price(), _not_delivered(), _box("4.95"), query())
 

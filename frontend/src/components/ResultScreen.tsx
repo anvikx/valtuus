@@ -7,6 +7,7 @@ import {
   type CartUpdate,
   type LineStock,
   type OfferFactsByLine,
+  type PriceDifference,
 } from '../api.ts'
 import { formatCount, formatDate } from '../format.ts'
 import type { StopTone } from './FlowSteps.tsx'
@@ -98,6 +99,29 @@ function Quantity({ line, before }: { line: CartLine; before?: CartLine }): Reac
   )
 }
 
+const PER_WORDS: Readonly<Record<string, string>> = { L: 'per L', KG: 'per kg', PCS: 'each' }
+
+// The substitute against the requested product, per comparison unit: "+0.04 EUR per L".
+function differenceWords({ amount, per }: PriceDifference, currency: string): string {
+  if (Number(amount) === 0) {
+    return 'same price'
+  }
+
+  const sign = amount.startsWith('-') ? '' : '+'
+  return `${sign}${money(amount, currency)} ${PER_WORDS[per] ?? `per ${per}`}`
+}
+
+// The requested name struck through. The struck text says "not delivered" for a screen reader,
+// which does not announce strikethrough.
+function ReplacedProduct({ name }: { name: string }): ReactElement {
+  return (
+    <p className="muted">
+      In place of <s>{name}</s>
+      <span className="sr-only"> not delivered</span>
+    </p>
+  )
+}
+
 function removedNames(cart: Cart, update: CartUpdate): string[] {
   const keptIds = new Set(cart.lines.map((line) => line.productId))
   return update.previousLines
@@ -117,9 +141,12 @@ export function OrderLines({ cart, update, facts }: OrderLinesProps): ReactEleme
         {cart.lines.map((line) => {
           const before = update?.previousLines.find((old) => old.productId === line.productId)
           const unitPrice = money(line.unitPrice, cart.currency)
+          const substitution = line.substituteFor
+          const difference = substitution?.priceDifference ?? null
 
           return (
             <li className="order-line" key={line.productId}>
+              {substitution === null ? null : <ReplacedProduct name={substitution.requestedName} />}
               <div className="line-head">
                 <strong>
                   {line.name}
@@ -131,8 +158,15 @@ export function OrderLines({ cart, update, facts }: OrderLinesProps): ReactEleme
               </div>
               <p className="muted">
                 <Quantity line={line} before={before} /> × {unitPrice} ex VAT
+                {difference === null ? null : ` · ${differenceWords(difference, cart.currency)}`}
               </p>
               <p className="muted">{stockWords(line.stock)}</p>
+              {/* The reason says "this product" for the requested one, so it names it first. */}
+              {substitution === null ? null : (
+                <p className="line-reason">
+                  {substitution.requestedName}: {substitution.reason}
+                </p>
+              )}
               <LineFacts facts={facts?.get(offerFactsKey(line))} />
             </li>
           )

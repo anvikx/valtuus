@@ -99,6 +99,16 @@ export interface WireInterpretedRequest {
   readonly preferred_brands: readonly string[]
 }
 
+export interface WireSubstituteFor {
+  readonly product_id: string
+  readonly name: string
+  readonly basis: string
+  readonly reason_code: string
+  readonly reason_sentence: string
+  readonly price_difference_per_unit: string | null
+  readonly per: string | null
+}
+
 export interface WireCartLine {
   readonly offer_id: string
   readonly product_id: string
@@ -111,7 +121,7 @@ export interface WireCartLine {
   readonly decision: string
   readonly reason_codes: readonly string[]
   readonly reason_sentences: readonly string[]
-  readonly substitute_for: unknown
+  readonly substitute_for: WireSubstituteFor | null
   readonly stock_model: string | null
   readonly available_qty: number | null
 }
@@ -293,6 +303,21 @@ export type LineStock =
   | { readonly kind: 'unconfirmed' }
   | { readonly kind: 'short'; readonly available: number }
 
+// The requested product a line replaces, because Valio Aimo cannot supply it.
+export interface Substitution {
+  readonly requestedName: string
+  // Why the requested product is not in the cart. It says "this product" for the requested one.
+  readonly reason: string
+  // Substitute price minus requested price, ex VAT. Negative when cheaper. null: not known.
+  readonly priceDifference: PriceDifference | null
+}
+
+export interface PriceDifference {
+  readonly amount: string
+  // The comparison unit of the offer: L, KG or PCS. Not the sales unit.
+  readonly per: string
+}
+
 export interface CartLine {
   // The signed offer that holds the line's price.
   readonly offerId: string
@@ -303,6 +328,7 @@ export interface CartLine {
   readonly lineTotal: string
   readonly deliveryDate: string
   readonly stock: LineStock
+  readonly substituteFor: Substitution | null
 }
 
 export interface CartUpdate {
@@ -543,6 +569,30 @@ function toLineStock({ stock_model, reason_codes, available_qty, qty }: WireCart
   return { kind: 'in-stock' }
 }
 
+function toSubstitution(wire: WireSubstituteFor | null): Substitution | null {
+  if (wire === null) {
+    return null
+  }
+
+  return {
+    requestedName: wire.name,
+    reason: wire.reason_sentence,
+    priceDifference: toPriceDifference(wire),
+  }
+}
+
+// Either part missing makes the number meaningless, so the line shows no difference.
+function toPriceDifference({
+  price_difference_per_unit: amount,
+  per,
+}: WireSubstituteFor): PriceDifference | null {
+  if (amount === null || per === null) {
+    return null
+  }
+
+  return { amount, per }
+}
+
 function toCartLine(wire: WireCartLine): CartLine {
   return {
     offerId: wire.offer_id,
@@ -553,6 +603,7 @@ function toCartLine(wire: WireCartLine): CartLine {
     lineTotal: wire.line_total,
     deliveryDate: wire.delivery_date,
     stock: toLineStock(wire),
+    substituteFor: toSubstitution(wire.substitute_for),
   }
 }
 

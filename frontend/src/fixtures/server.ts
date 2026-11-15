@@ -16,6 +16,7 @@
 //   c_unavailable    every read answers 503
 //   c_revised        waiting, revision 2: the agent changed the milk and added coffee
 //   c_revised_stale  like c_revised, but approve and reject answer 409 and a revision 3 shows
+//   c_substitute     waiting; Valio Aimo cannot deliver the milk, so an equivalent replaces it
 //
 // Permissions: /permissions. /permissions?save=fail makes a save answer 503, and
 // /permissions?revoke=fail a stop agent answer 503.
@@ -46,6 +47,7 @@ import {
   withdrawnCart,
 } from './run1.ts'
 import { MILK_ID, REVISED_EXTRAS, reviseCart, type LineChange } from './revised.ts'
+import { SUBSTITUTE_EXTRAS } from './substitute.ts'
 
 const STATUS = {
   ok: 200,
@@ -72,6 +74,7 @@ const ANSWERS_ID = 'c_answers'
 const INSIDE_LIMITS_ID = 'c_inside_limits'
 const REVISED_ID = 'c_revised'
 const STALE_ID = 'c_revised_stale'
+const SUBSTITUTE_ID = 'c_substitute'
 const AGENT_UPDATER = 'AGENT'
 const USER_UPDATER = 'MAIN_USER'
 const STALE_MILK_QTY = 700
@@ -134,6 +137,7 @@ const CART_EXTRAS: Readonly<Record<string, Partial<WireCart>>> = {
   },
   [REVISED_ID]: REVISED_EXTRAS,
   [STALE_ID]: REVISED_EXTRAS,
+  [SUBSTITUTE_ID]: SUBSTITUTE_EXTRAS,
 }
 
 const START_OUTCOME: Readonly<Record<string, Outcome>> = {
@@ -150,6 +154,7 @@ const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   [APPROVE_FAILS_ID]: 'waiting',
   [REVISED_ID]: 'waiting',
   [STALE_ID]: 'waiting',
+  [SUBSTITUTE_ID]: 'waiting',
 }
 
 // Storage helpers. sessionStorage keeps a decision over a reload. It can throw in a private
