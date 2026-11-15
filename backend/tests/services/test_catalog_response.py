@@ -15,7 +15,7 @@ _SENTENCES = {
     "EXCLUDED_ONLY": "Products match, but the buyer's rules remove all of them. Tell the buyer.",
     "NO_MATCH": "No product matches. Try other words, or fewer words.",
     "MISSING_FIELDS": "Ask the buyer for the missing values before the offers.",
-    "GUARD_CUT": "The list is not complete. Add an attribute, a unit or more words.",
+    "GUARD_CUT": "The search is not complete. Add an attribute, a unit or more words.",
     "READY": (
         "The search holds every product of this type. "
         "Call get_offers with the request_id and no product_ids."

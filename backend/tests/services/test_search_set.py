@@ -155,6 +155,18 @@ def test_offers_cut_the_rejected_list_but_audit_every_rejection():
     assert len(sink.records[0].output_data["rejected"]) == _COUNT
 
 
+def test_the_offer_audit_lists_the_ids_the_search_gave():
+    """The agent sent no ids, so only this shows which products were priced."""
+    catalog, search_sets, _ = _search()
+    result = catalog.search(agent_key(), query())
+    sink = _Sink()
+    offers = _offers(_catalog(), search_sets, FixedClock(NOW), sink=sink)
+
+    offers.get_offers(agent_key(), _by_request(result.request_id))
+
+    assert sink.records[0].output_data["priced_ids"] == _IDS
+
+
 def test_another_buyers_request_id_is_not_found():
     """Same answer as an unknown id, so nobody can probe other buyers' searches."""
     catalog, search_sets, _ = _search()
