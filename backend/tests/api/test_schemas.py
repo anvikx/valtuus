@@ -139,6 +139,8 @@ _CART = {
             "closing_time": "2026-11-15T17:00:00+02:00",
             "decision": "AUTO",
             "substitute_for": None,
+            "stock_model": "TERMINAL",
+            "available_qty": None,
             "reason_codes": [],
             "reason_sentences": [],
         },
