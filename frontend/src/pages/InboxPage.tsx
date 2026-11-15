@@ -123,7 +123,11 @@ function decidedDetail(cart: Cart): string {
 }
 
 // One amount when both limits match: "up to 500.00 EUR per order and per delivery day".
-function limitsSentence({ maxOrder, maxPerDay }: Mandate): string {
+function limitsSentence({ maxOrder, maxPerDay, canAutoOrder }: Mandate): string {
+  if (!canAutoOrder) {
+    return 'Your agent orders nothing alone. You approve every cart.'
+  }
+
   const perOrder = money(maxOrder, CURRENCY)
   const perDay =
     maxOrder === maxPerDay ? 'per delivery day' : `${money(maxPerDay, CURRENCY)} per delivery day`
@@ -290,13 +294,21 @@ function Summary({
           <dt>Decided today</dt>
           <dd>{decided}</dd>
         </div>
-        {mandate === null ? null : (
+        {mandate === null || mandate.canAutoOrder ? null : (
+          <div>
+            <dt>Agent orders alone</dt>
+            <dd>Off</dd>
+          </div>
+        )}
+        {mandate === null || !mandate.canAutoOrder ? null : (
           <div>
             <dt>Agent orders alone up to</dt>
             <dd>{money(mandate.maxOrder, CURRENCY)}</dd>
           </div>
         )}
-        {mandate === null || mandate.maxPerDay === mandate.maxOrder ? null : (
+        {mandate === null ||
+        !mandate.canAutoOrder ||
+        mandate.maxPerDay === mandate.maxOrder ? null : (
           <div>
             <dt>Per delivery day</dt>
             <dd>{money(mandate.maxPerDay, CURRENCY)}</dd>

@@ -404,6 +404,7 @@ let mandate: WireMandate = {
   required_attributes: [],
   forbidden_allergens: [],
   allergen_unknown_policy: 'HUMAN',
+  can_auto_order: false,
 }
 
 function answerMandate(request: WireRequest): WireResponse {
