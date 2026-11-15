@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
 
-import type { Cart, CartUpdate, OfferTrust, UnderstoodRequest } from '../api.ts'
+import type { Cart, CartUpdate, OfferFactsByLine, OfferTrust, UnderstoodRequest } from '../api.ts'
 import {
   formatAttribute,
   formatCount,
@@ -19,6 +19,7 @@ interface CartReviewProps {
   readonly buyerId: string
   readonly agentName: string | null
   readonly trust: OfferTrust
+  readonly facts: OfferFactsByLine
   // Set once the user has reviewed the update: it turns on the change marks.
   readonly update?: CartUpdate
 }
@@ -137,6 +138,7 @@ export function CartReview({
   buyerId,
   agentName,
   trust,
+  facts,
   update,
 }: CartReviewProps): ReactElement {
   return (
@@ -157,7 +159,7 @@ export function CartReview({
       <div className="phone-only">
         <ApprovalSummary cart={cart} update={update} />
       </div>
-      <OrderLines cart={cart} update={update} />
+      <OrderLines cart={cart} update={update} facts={facts} />
       <div className="phone-only">
         <TrustMark trust={trust} />
       </div>

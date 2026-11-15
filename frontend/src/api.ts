@@ -186,9 +186,19 @@ export interface WireOrderConfirmation {
   readonly signature: string | null
 }
 
-// Only the fields the trust check reads. The rest of the offer is in the signed payload.
+// Decimals come as numbers or strings, so the facts are read through Number().
+interface WireOfferLine {
+  readonly product_id: string
+  readonly delivery_reliability: number | string | null
+  readonly co2_kg_per_kg: number | string | null
+  readonly labels: readonly string[]
+}
+
+// Only the fields the trust check and the line facts read. The rest of the offer is in the
+// signed payload.
 interface WireSignedOffer {
   readonly signature: string | null
+  readonly lines?: readonly WireOfferLine[]
 }
 
 export interface WireAuditRecord {
@@ -355,6 +365,27 @@ export type OrderTrust = { readonly kind: 'verified' } | NotVerified
 
 // stockAsOf: the oldest stock answer behind the cart's lines.
 export type OfferTrust = { readonly kind: 'verified'; readonly stockAsOf: string } | NotVerified
+
+// Product facts from the signed offer line. null is "no data", never 0.
+export interface OfferFacts {
+  // 0 to 1.
+  readonly deliveryReliability: number | null
+  // A product group average, not a measure of this product.
+  readonly co2KgPerKg: number | null
+  readonly labels: readonly string[]
+}
+
+export type OfferFactsByLine = ReadonlyMap<string, OfferFacts>
+
+export interface OfferReview {
+  readonly trust: OfferTrust
+  // A line is missing here when its offer could not be read.
+  readonly facts: OfferFactsByLine
+}
+
+export function offerFactsKey({ offerId, productId }: CartLine): string {
+  return `${offerId}/${productId}`
+}
 
 export interface AuditEntry {
   readonly id: string
@@ -804,14 +835,38 @@ function isSignedOffer(payload: JwsPayload, offerId: string, lines: readonly Car
     .every((line) => Number(prices.get(line.productId)) === Number(line.unitPrice))
 }
 
+interface ReadOffer {
+  readonly offerId: string
+  readonly wire: WireSignedOffer
+}
+
 interface SignedOffer {
   readonly offerId: string
   readonly signature: string
 }
 
-async function getOfferSignature(offerId: string): Promise<string | null> {
+async function readOffer(offerId: string): Promise<WireSignedOffer> {
   const path = `/offers/${encodeURIComponent(offerId)}`
-  return ((await call(HTTP_METHOD.get, path)) as WireSignedOffer).signature
+  return (await call(HTTP_METHOD.get, path)) as WireSignedOffer
+}
+
+function toNumber(value: number | string | null): number | null {
+  return value === null ? null : Number(value)
+}
+
+function factsOf(offers: readonly ReadOffer[]): OfferFactsByLine {
+  return new Map(
+    offers.flatMap(({ offerId, wire }) =>
+      (wire.lines ?? []).map((line): [string, OfferFacts] => [
+        `${offerId}/${line.product_id}`,
+        {
+          deliveryReliability: toNumber(line.delivery_reliability),
+          co2KgPerKg: toNumber(line.co2_kg_per_kg),
+          labels: line.labels,
+        },
+      ]),
+    ),
+  )
 }
 
 // The offer's stock time when its signature is valid and covers the lines, else null.
@@ -830,12 +885,13 @@ async function signedStockTime(
 
 // Throws when the check cannot run, for example on a cart with no lines.
 // The stock time comes from the signed payload, not the body.
-export async function getOfferTrust(lines: readonly CartLine[]): Promise<OfferTrust> {
-  const offerIds = [...new Set(lines.map((line) => line.offerId))]
-  const offers = await Promise.all(
-    offerIds.map(async (offerId) => ({ offerId, signature: await getOfferSignature(offerId) })),
+async function checkOffers(
+  offers: readonly ReadOffer[],
+  lines: readonly CartLine[],
+): Promise<OfferTrust> {
+  const signed = offers.flatMap(({ offerId, wire }) =>
+    wire.signature === null ? [] : [{ offerId, signature: wire.signature }],
   )
-  const signed = offers.filter((offer): offer is SignedOffer => offer.signature !== null)
   if (signed.length < offers.length) {
     return { kind: 'unsigned' }
   }
@@ -854,6 +910,23 @@ export async function getOfferTrust(lines: readonly CartLine[]): Promise<OfferTr
   }
 
   return { kind: 'verified', stockAsOf: oldest }
+}
+
+// Reads each stored offer once for both the trust check and the line facts. A failed read
+// hides only its own part: no facts for that offer, and an unchecked trust mark.
+export async function getOfferReview(lines: readonly CartLine[]): Promise<OfferReview> {
+  const offerIds = [...new Set(lines.map((line) => line.offerId))]
+  const results = await Promise.allSettled(offerIds.map(readOffer))
+  const read = results.flatMap((result, index): ReadOffer[] =>
+    result.status === 'fulfilled' ? [{ offerId: offerIds[index], wire: result.value }] : [],
+  )
+  const facts = factsOf(read)
+  if (read.length < offerIds.length) {
+    return { trust: { kind: 'unchecked' }, facts }
+  }
+
+  const trust = await checkOffers(read, lines).catch((): OfferTrust => ({ kind: 'unchecked' }))
+  return { trust, facts }
 }
 
 export async function rejectCart(cartId: string, revision: number, reason: string): Promise<Cart> {

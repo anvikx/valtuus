@@ -7,6 +7,8 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 const HAS_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/
 const SECONDS_PER_MINUTE = 60
 const SECONDS_PER_HOUR = 3600
+const PERCENT = 100
+const PERCENT_PRECISION = 6
 
 interface Instant {
   readonly date: Date
@@ -121,10 +123,44 @@ export function formatCount(count: number): string {
   return count.toLocaleString(LOCALE)
 }
 
-/** FREE_FROM_LACTOSE gives "Free from lactose". The backend has no labels yet. */
+/** FREE_FROM_LACTOSE gives "Free from lactose". */
 export function formatAttribute(code: string): string {
   const words = code.toLowerCase().replaceAll('_', ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}`
+}
+
+// Package label codes that formatAttribute makes read badly: proper nouns, EU, and the
+// temperature marks (checked in the product data, 2026-11-15).
+const LABEL_WORDS: Readonly<Record<string, string>> = {
+  GOODS_FROM_FINLAND_BLUE_SWAN: 'Goods from Finland (blue swan)',
+  MADE_IN_FINLAND_FLAG_WITH_KEY: 'Made in Finland (key flag)',
+  FINNISH_HEART_SYMBOL: 'Finnish heart symbol',
+  SVANEN: 'Nordic Swan Ecolabel',
+  EU_ORGANIC_FARMING: 'EU organic farming',
+  EU_ECO_LABEL: 'EU Ecolabel',
+  RAINFOREST_ALLIANCE: 'Rainforest Alliance',
+  FAIR_TRADE_MARK: 'Fairtrade mark',
+  MARINE_STEWARDSHIP_COUNCIL_LABEL: 'Marine Stewardship Council',
+  AQUACULTURE_STEWARDSHIP_COUNCIL: 'Aquaculture Stewardship Council',
+  warmTemperature: 'Warm temperature',
+  coolTemperature: 'Cool temperature',
+  freezeTemperature: 'Freeze temperature',
+}
+
+/** SVANEN gives "Nordic Swan Ecolabel". A code not in the map reads like an attribute. */
+export function formatLabel(code: string): string {
+  return LABEL_WORDS[code] ?? formatAttribute(code)
+}
+
+/** 0.984 gives "98 %". Rounds down, so the page never claims more than the data says. */
+export function formatPercent(fraction: number): string {
+  // toFixed first: 0.57 * 100 is 56.99999999999999 and would floor to 56.
+  return `${Math.floor(Number((fraction * PERCENT).toFixed(PERCENT_PRECISION)))} %`
+}
+
+/** 2.346 gives "2.35". */
+export function formatKg(kg: number): string {
+  return kg.toLocaleString(LOCALE, { maximumFractionDigits: 2 })
 }
 
 // The choices the search asks the buyer about. A rule set here stops the question.
