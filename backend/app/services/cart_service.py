@@ -5,7 +5,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from app.domain.agent_key import AgentKey
-from app.domain.audit import cart_sentence, policy_sentence, revision_sentence
+from app.domain.audit import cart_sentence, changes_text, policy_sentence, revision_sentence
 from app.domain.cart import (
     OPEN_STATES,
     STATE_BY_DECISION,
@@ -14,6 +14,7 @@ from app.domain.cart import (
     CartLine,
     CartLineInput,
     CartRevision,
+    CartVersion,
     LineChange,
     PricedLine,
     cart_changes,
@@ -301,8 +302,17 @@ class CartService:
 
         revised, result = self._decided(cart, draft)
         changes = cart_changes(cart.lines, revised.lines)
-        revised = replace(revised, changes=changes)
         now = self._clock.now()
+        previous = CartVersion(
+            lines=cart.lines,
+            total_ex_vat=cart.total_ex_vat,
+            delivery_day_total_ex_vat=cart.delivery_day_total_ex_vat,
+            reason_sentences=cart.reason_sentences,
+            updated_by=RevisionAuthor.AGENT,
+            updated_at=now,
+            summary=changes_text(changes),
+        )
+        revised = replace(revised, changes=changes, previous_version=previous)
         self._claim(claim)
         self._keep_base(cart, now)
         self._carts.save(revised)

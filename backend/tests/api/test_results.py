@@ -1,7 +1,10 @@
+import dataclasses
+
 import pytest
 
 from app.api.results import cart_response
-from app.domain.enums import CartState
+from app.domain.cart import CartVersion
+from app.domain.enums import CartState, RevisionAuthor
 from tests.adapters import samples
 
 _PUBLIC_URL = "https://junction.anvik.fi"
@@ -61,3 +64,37 @@ def test_cart_details_serializes_changes_and_preserves_money():
         {"product_id": "removed", "name": "Removed", "qty_before": 5, "qty_after": None},
     ]
     assert body["approve_url"] == f"{_PUBLIC_URL}/carts/c_1"
+
+
+def test_cart_serializes_previous_version_for_the_approve_page():
+    """The approve page reads these fields to strike out what the main user saw before."""
+    previous = samples.cart()
+    version = CartVersion(
+        lines=previous.lines,
+        total_ex_vat=previous.total_ex_vat,
+        delivery_day_total_ex_vat=previous.delivery_day_total_ex_vat,
+        reason_sentences=("Over the limit.",),
+        updated_by=RevisionAuthor.AGENT,
+        updated_at=samples.NOW,
+        summary="Milk 1,000 to 800",
+    )
+    cart = dataclasses.replace(samples.cart(), revision=2, previous_version=version)
+
+    body = cart_response(cart, _PUBLIC_URL).model_dump(mode="json")
+    old = cart_response(previous, _PUBLIC_URL).model_dump(mode="json")
+
+    assert body["previous_version"] == {
+        "lines": old["lines"],
+        "total_ex_vat": "1010.00",
+        "delivery_day_total_ex_vat": old["delivery_day_total_ex_vat"],
+        "reason_sentences": ["Over the limit."],
+        "updated_by": "AGENT",
+        "updated_at": "2026-11-14T09:30:00Z",
+        "summary": "Milk 1,000 to 800",
+    }
+
+
+def test_first_revision_has_no_previous_version():
+    body = cart_response(samples.cart(), _PUBLIC_URL).model_dump(mode="json")
+
+    assert body["previous_version"] is None

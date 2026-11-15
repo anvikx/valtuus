@@ -33,7 +33,7 @@ from app.adapters.postgres.repositories import (
     PostgresUserRepository,
 )
 from app.domain.agent_key import User
-from app.domain.cart import CartRevision, LineChange
+from app.domain.cart import CartRevision, CartVersion, LineChange
 from app.domain.enums import AgentKeyStatus, CartState, RevisionAuthor, UserRole
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.policy.engine import PolicyEngine
@@ -295,6 +295,25 @@ def test_get_locked_reads_the_cart_in_a_transaction(store: _Store) -> None:
     with store.unit_of_work.transaction():
         assert store.carts.get_locked("c_1") == samples.cart()
         assert store.carts.get_locked("c_missing") is None
+
+
+def test_cart_keeps_its_previous_version(store: _Store) -> None:
+    """The approve page marks a change from one cart read, so the old lines must load back."""
+    first = samples.cart()
+    version = CartVersion(
+        lines=first.lines,
+        total_ex_vat=first.total_ex_vat,
+        delivery_day_total_ex_vat=first.delivery_day_total_ex_vat,
+        reason_sentences=("Over the limit.",),
+        updated_by=RevisionAuthor.AGENT,
+        updated_at=samples.NOW,
+        summary="Milk 1,000 to 800",
+    )
+    second = dataclasses.replace(first, revision=2, previous_version=version)
+    with store.unit_of_work.transaction():
+        store.carts.add(second)
+
+    assert store.carts.get(second.cart_id) == second
 
 
 def _revision(revision: int, author: RevisionAuthor) -> CartRevision:

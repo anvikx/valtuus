@@ -15,7 +15,14 @@ from app.adapters.memory.repositories import (
     InMemoryOrderRepository,
     InMemoryUnitOfWork,
 )
-from app.domain.cart import CartDraft, CartLineInput, CartRevision, LineChange, PricedLine
+from app.domain.cart import (
+    CartDraft,
+    CartLineInput,
+    CartRevision,
+    CartVersion,
+    LineChange,
+    PricedLine,
+)
 from app.domain.enums import (
     AuditStep,
     CartState,
@@ -1128,3 +1135,47 @@ def test_stock_marker_warning_requires_human_at_creation_and_policy_rerun():
     assert cart.lines[0].decision is Decision.HUMAN
     assert read.current_decision is Decision.HUMAN
     assert read.current_reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)
+
+
+def test_first_revision_has_no_previous_version():
+    """Nothing came before revision 1, so the approve page marks no change."""
+    world = _world_with_offer()
+    cart = world.create(_buy(100))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, cart.cart_id)
+
+    assert details.cart.previous_version is None
+
+
+def test_revision_keeps_the_preceding_revision_as_the_previous_version():
+    """The approve page strikes out the old lines, total and reasons the main user saw before."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    world.clock.at = NOW + timedelta(minutes=5)
+    world.revise(first.cart_id, _buy(80))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.previous_version == CartVersion(
+        lines=first.lines,
+        total_ex_vat=first.total_ex_vat,
+        delivery_day_total_ex_vat=first.delivery_day_total_ex_vat,
+        reason_sentences=first.reason_sentences,
+        updated_by=RevisionAuthor.AGENT,
+        updated_at=NOW + timedelta(minutes=5),
+        summary=f"{first.lines[0].name} 100 to 80",
+    )
+
+
+def test_previous_version_is_never_older_than_n_minus_1():
+    """Revision 1 against revision 3 would show a change the main user never had to review."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    second = world.revise(first.cart_id, _buy(80))
+    world.revise(first.cart_id, _buy(60), base=2, key="third-revision")
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.previous_version is not None
+    assert details.cart.previous_version.lines == second.lines
+    assert details.cart.previous_version.total_ex_vat == second.total_ex_vat

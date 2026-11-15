@@ -67,8 +67,13 @@ def revision_sentence(
     total_ex_vat: Decimal,
 ) -> str:
     """Revision 2 by the agent: Milk 1,000 to 800, added Coffee 6. 12.50 EUR ex VAT, ..."""
-    changed = ", ".join(_change_text(change) for change in changes) or _NO_LINE_CHANGE
+    changed = changes_text(changes)
     return f"Revision {revision} by {_AUTHOR_TEXT[author]}: {changed}. {_fixed_total(total_ex_vat)}"
+
+
+def changes_text(changes: Iterable[LineChange]) -> str:
+    """Milk 1,000 to 800, added Coffee 6, removed Oat drink."""
+    return ", ".join(_change_text(change) for change in changes) or _NO_LINE_CHANGE
 
 
 def policy_sentence(decision: Decision, reason_sentences: Iterable[str]) -> str:
