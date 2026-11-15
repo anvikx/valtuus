@@ -117,7 +117,9 @@ def time(monkeypatch):
 
 def _client(monkeypatch, upstream: _Upstream, clock: _Time) -> ValioClient:
     monkeypatch.setattr("app.adapters.valio_client.urlopen", upstream)
-    return ValioClient("https://example.test/api/", SecretStr("secret"), ValioRequests(clock))
+    return ValioClient(
+        "https://example.test/api/", SecretStr("secret"), ValioRequests(clock), clock
+    )
 
 
 def _http_error(code: int) -> HTTPError:
@@ -149,7 +151,7 @@ def test_a_product_with_no_price_is_absent(monkeypatch, time):
         ["000000", "111111", "222222"], _MONDAY
     )
 
-    assert set(prices) == {"464306"}
+    assert prices == {}
 
 
 def test_a_null_tax_is_an_unknown_vat_rate(monkeypatch, time):
@@ -189,27 +191,29 @@ def test_availability_keeps_the_raw_markers_and_reads_times_in_helsinki(monkeypa
     assert unknown.sales_unit is None
 
 
-def test_a_server_error_is_retried_once(monkeypatch, time):
-    upstream = _Upstream(_http_error(503), _PRICE_ANSWER)
+def test_a_server_error_is_retried_with_a_growing_wait(monkeypatch, time):
+    """A short outage must not fail the offer, and each wait gives the API more time to recover."""
+    upstream = _Upstream(_http_error(503), _http_error(502), _PRICE_ANSWER)
 
     prices = _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
     assert "464306" in prices
-    assert len(upstream.calls) == 2
+    assert len(upstream.calls) == 3
+    assert time.slept == [0.5, 1.0]
 
 
 @pytest.mark.parametrize(
     "failure",
     [_http_error(502), TimeoutError(), URLError(TimeoutError("timeout"))],
 )
-def test_a_second_failure_is_upstream_unavailable(monkeypatch, time, failure):
-    """No offer from old or partial data: the caller gets an error it can show."""
-    upstream = _Upstream(failure, failure)
+def test_a_third_failure_is_upstream_unavailable(monkeypatch, time, failure):
+    """No offer from old or partial data: after 3 attempts the caller gets an error it can show."""
+    upstream = _Upstream(failure, failure, failure)
 
     with pytest.raises(UpstreamUnavailableError):
         _client(monkeypatch, upstream, time).prices(["464306"], _MONDAY)
 
-    assert len(upstream.calls) == 2
+    assert len(upstream.calls) == 3
 
 
 def test_a_client_error_is_not_retried(monkeypatch, time):
@@ -371,3 +375,91 @@ def test_a_broken_stock_amount_is_upstream_unavailable(monkeypatch, time, amount
 
     with pytest.raises(UpstreamUnavailableError):
         _client(monkeypatch, _Upstream(answer), time).availability(["1"], _MONDAY)
+
+
+def test_a_repeated_call_within_60_seconds_uses_the_cached_answer(monkeypatch, time):
+    """A repeated agent call must not hit the Valio API again, also for a product with no price."""
+    upstream = _Upstream(_PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    first = client.prices(["464306", "000000"], _MONDAY)
+
+    time.advance(59)
+    again = client.prices(["464306", "000000"], _MONDAY)
+
+    assert again == first
+    assert set(again) == {"464306"}
+    assert len(upstream.calls) == 1
+
+
+def test_a_cached_answer_expires_after_60_seconds(monkeypatch, time):
+    upstream = _Upstream(_PRICE_ANSWER, _PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    client.prices(["464306"], _MONDAY)
+
+    time.advance(60)
+    client.prices(["464306"], _MONDAY)
+
+    assert len(upstream.calls) == 2
+
+
+def test_the_cache_is_per_date(monkeypatch, time):
+    """Price and stock depend on the delivery date, so one date must not answer for another."""
+    upstream = _Upstream(_PRICE_ANSWER, _PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    client.prices(["464306"], _MONDAY)
+
+    client.prices(["464306"], _MONDAY + timedelta(days=1))
+
+    assert len(upstream.calls) == 2
+    assert json.loads(upstream.calls[1][0].data)["requestedDate"] == "2026-11-17"
+
+
+def test_only_the_products_not_in_the_cache_are_requested(monkeypatch, time):
+    upstream = _Upstream(_PRICE_ANSWER, _PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    client.prices(["464306"], _MONDAY)
+
+    prices = client.prices(["464306", "222222"], _MONDAY)
+
+    assert json.loads(upstream.calls[1][0].data)["products"] == ["222222"]
+    assert set(prices) == {"464306"}
+
+
+def test_a_failure_is_not_cached(monkeypatch, time):
+    """An outage must not block the next call for 60 seconds."""
+    upstream = _Upstream(_http_error(422), _PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    with pytest.raises(UpstreamUnavailableError):
+        client.prices(["464306"], _MONDAY)
+
+    prices = client.prices(["464306"], _MONDAY)
+
+    assert "464306" in prices
+    assert len(upstream.calls) == 2
+
+
+def test_a_mixed_stock_answer_shows_the_oldest_source_time(monkeypatch, time):
+    """The offer must not claim stock is newer than the oldest answer it used."""
+    later = {**_AVAILABILITY_ANSWER, "timeNow": "2026-11-14T15:39:28+0200"}
+    upstream = _Upstream(_AVAILABILITY_ANSWER, later)
+    client = _client(monkeypatch, upstream, time)
+    client.availability(["464306"], _MONDAY)
+
+    time.advance(30)
+    snapshot = client.availability(["464306", "465039"], _MONDAY)
+
+    assert json.loads(upstream.calls[1][0].data)["products"] == ["465039"]
+    assert set(snapshot.items) == {"464306", "465039"}
+    assert snapshot.source_time == datetime(2026, 11, 14, 15, 38, 58, tzinfo=GATEWAY_TIMEZONE)
+
+
+def test_the_60_seconds_count_from_the_request_not_the_answer(monkeypatch, time):
+    """Slow retries must not make an answer live longer than 60 seconds after it was asked."""
+    upstream = _Upstream(_http_error(503), _http_error(503), _PRICE_ANSWER, _PRICE_ANSWER)
+    client = _client(monkeypatch, upstream, time)
+    client.prices(["464306"], _MONDAY)
+
+    time.advance(60 - sum(time.slept))
+    client.prices(["464306"], _MONDAY)
+
+    assert len(upstream.calls) == 4
