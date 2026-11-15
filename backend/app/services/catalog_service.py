@@ -96,7 +96,7 @@ class CatalogService:
         request_id: str,
     ) -> tuple[SearchResult, tuple[str, ...]]:
         hits, excluded = self._filter(query, mandate)
-        categories = summarize_categories(tuple(product for product, _ in hits), query.category)
+        categories = summarize_categories(hits, query.category, query.query)
         category = query.category
         if category is None and categories:
             category = categories[0].category
