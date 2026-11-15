@@ -14,7 +14,13 @@ from app.api.deps import (
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
 from app.api.results import cart_response, order_confirmation
-from app.api.schemas.carts import CartRequest, CartResponse, RejectRequest, RevisionRequest
+from app.api.schemas.carts import (
+    CartActionRequest,
+    CartRequest,
+    CartResponse,
+    RejectRequest,
+    RevisionRequest,
+)
 from app.api.schemas.common import IdempotencyKeyValue
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.agent_key import AgentKey
@@ -92,7 +98,9 @@ _CHECKOUT = """
 Place the order of an AUTO cart, or of a pending cart that the current mandate now allows.
 The policy runs again with the current mandate.
 
-**Request:** `POST /api/v1/carts/c_1/checkout` with an `Idempotency-Key` header.
+**Request:** `POST /api/v1/carts/c_1/checkout` with an `Idempotency-Key` header
+and body `{"revision": 1}` from the cart you reviewed. A stale revision returns 409.
+Read and review the current cart before sending its revision.
 
 **Limit:** HUMAN, DENY or EXPIRED returns 409, and the cart keeps that new state. After the
 15 minutes of the offer, a changed price or too little stock gives EXPIRED. Send the same
@@ -104,7 +112,8 @@ _APPROVE = """
 Approve a cart that waits for approval, and place its order. The policy runs again with the
 current mandate.
 
-**Request:** `POST /api/v1/carts/c_1/approve`
+**Request:** `POST /api/v1/carts/c_1/approve` with body `{"revision": 1}` from the cart
+you reviewed. A stale revision returns 409. Read and review the current cart again.
 
 **Limit:** a second approve returns the same confirmation. A cart that is not approved, such as
 an expired one, returns 409.
@@ -114,7 +123,8 @@ an expired one, returns 409.
 _REJECT = """
 Reject a cart that waits for approval, with a reason.
 
-**Request:** `{"reason": "Too expensive."}`
+**Request:** `{"revision": 1, "reason": "Too expensive."}`. A stale revision returns 409.
+Read and review the current cart before rejecting it.
 
 **Auth:** main user session only.
 """
@@ -182,19 +192,31 @@ def withdraw_cart(
     return cart_response(services.carts.withdraw_cart(agent, cart_id), public_url)
 
 
-@router.post("/{cart_id}/checkout", description=describe(_CHECKOUT, OrderConfirmation))
+@router.post(
+    "/{cart_id}/checkout", description=describe(_CHECKOUT, OrderConfirmation, CartActionRequest)
+)
 def checkout(
     cart_id: str,
+    request: CartActionRequest,
     idempotency_key: IdempotencyKey,
     agent: Annotated[AgentKey, Depends(require_scope(AgentScope.CHECKOUT))],
     services: ServicesDep,
 ) -> OrderConfirmation:
-    return order_confirmation(services.orders.checkout(agent, cart_id, idempotency_key))
+    return order_confirmation(
+        services.orders.checkout(agent, cart_id, request.revision, idempotency_key)
+    )
 
 
-@router.post("/{cart_id}/approve", description=describe(_APPROVE, OrderConfirmation))
-def approve(cart_id: str, user: HumanSessionDep, services: ServicesDep) -> OrderConfirmation:
-    return order_confirmation(services.approvals.approve(user, cart_id))
+@router.post(
+    "/{cart_id}/approve", description=describe(_APPROVE, OrderConfirmation, CartActionRequest)
+)
+def approve(
+    cart_id: str,
+    request: CartActionRequest,
+    user: HumanSessionDep,
+    services: ServicesDep,
+) -> OrderConfirmation:
+    return order_confirmation(services.approvals.approve(user, cart_id, request.revision))
 
 
 @router.post(
@@ -208,4 +230,6 @@ def reject(
     services: ServicesDep,
     public_url: PublicUrlDep,
 ) -> CartResponse:
-    return cart_response(services.approvals.reject(user, cart_id, request.reason), public_url)
+    return cart_response(
+        services.approvals.reject(user, cart_id, request.revision, request.reason), public_url
+    )

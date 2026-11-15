@@ -21,7 +21,7 @@ from app.api.results import (
 from app.api.schemas.audit import AuditResponse
 from app.api.schemas.carts import CartRequest, CartResponse
 from app.api.schemas.catalog import SearchRequest, SearchResponse
-from app.api.schemas.common import ErrorBody, IdempotencyKeyValue
+from app.api.schemas.common import CartRevisionValue, ErrorBody, IdempotencyKeyValue
 from app.api.schemas.mandate import MandateResponse
 from app.api.schemas.offers import OfferRequest, OfferResponse
 from app.api.schemas.orders import OrderConfirmation
@@ -125,18 +125,22 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
     @server.tool()
     def checkout(
         cart_id: str,
+        revision: CartRevisionValue,
         idempotency_key: IdempotencyKeyValue,
         ctx: Context,
     ) -> OrderConfirmation:
         """Place the order of an AUTO cart, or of a pending cart with current_decision AUTO.
 
         A 409 means no new order: the cart is now pending, denied or expired, or it was ordered
-        with another key. get_cart says why.
-        Send the same idempotency_key on a retry to get the same order.
+        with another key, or the revision changed. Send the revision you reviewed. For a stale
+        revision, read get_cart and review its current lines before checking out again.
+        Send the same revision and idempotency_key on a retry to get the same order.
         """
         with _error_body():
             agent = _agent(ctx, AgentScope.CHECKOUT)
-            return order_confirmation(services.orders.checkout(agent, cart_id, idempotency_key))
+            return order_confirmation(
+                services.orders.checkout(agent, cart_id, revision, idempotency_key)
+            )
 
     @server.tool()
     def get_order(order_id: str, ctx: Context) -> OrderConfirmation:
