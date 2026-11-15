@@ -102,6 +102,7 @@ class _World:
             idempotency = PostgresIdempotencyRepository(database)
             offers = PostgresOfferRepository(database)
             unit_of_work = database
+        self.unit_of_work = unit_of_work
         self.cart = samples.cart(state=state)
         with unit_of_work.transaction():
             mandates.add(samples.mandate())
@@ -134,6 +135,7 @@ class _World:
             audit,
             unit_of_work,
         )
+        self.order_service = order_service
         self.service = ApprovalService(
             self.carts,
             self.cart_service,
@@ -144,11 +146,11 @@ class _World:
             unit_of_work,
         )
 
-    def approve(self, user: User = _MAIN_USER) -> Order | Cart:
-        return self.service.approve(user, self.cart.cart_id)
+    def approve(self, user: User = _MAIN_USER, revision: int = 1) -> Order | Cart:
+        return self.service.approve(user, self.cart.cart_id, revision)
 
-    def reject(self, reason: str = _REASON, user: User = _MAIN_USER) -> Cart:
-        return self.service.reject(user, self.cart.cart_id, reason)
+    def reject(self, reason: str = _REASON, user: User = _MAIN_USER, revision: int = 1) -> Cart:
+        return self.service.reject(user, self.cart.cart_id, revision, reason)
 
     def steps(self) -> list[AuditStep]:
         return [record.step for record in self.audit.for_cart(self.cart.cart_id)]
@@ -252,7 +254,7 @@ def test_missing_cart_is_not_found() -> None:
     world = _World()
 
     with pytest.raises(NotFoundError):
-        world.service.reject(_MAIN_USER, "c_missing", _REASON)
+        world.service.reject(_MAIN_USER, "c_missing", 1, _REASON)
 
 
 def test_user_with_no_buyer_is_refused() -> None:
@@ -509,3 +511,38 @@ def test_postgres_approve_of_an_unseen_revision_is_refused(database: Database, m
 
     assert world.orders.by_cart(world.cart.cart_id) is None
     assert world.carts.get(world.cart.cart_id).revision == 2
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_postgres_stale_revision_does_not_decide_cart(database, action):
+    world = _World(database=database)
+    revised = dataclasses.replace(world.cart, revision=2)
+    with world.unit_of_work.transaction():
+        world.carts.save(revised)
+
+    with pytest.raises(ConflictError, match="revision 2"):
+        getattr(world, action)(revision=1)
+
+    assert world.carts.get(world.cart.cart_id) == revised
+    assert world.orders.by_cart(world.cart.cart_id) is None
+    assert world.steps() == []
+
+
+def test_approval_does_not_return_order_for_a_concurrent_new_revision(monkeypatch):
+    """A newer revision can be ordered before the old approval obtains the cart lock."""
+    world = _World()
+    real_get_cart = world.cart_service.get_cart
+
+    def revise_and_order(buyer_id, cart_id):
+        before = real_get_cart(buyer_id, cart_id)
+        revised = _revise(world)
+        world.order_service.place(revised, _MAIN_USER)
+        return before
+
+    monkeypatch.setattr(world.cart_service, "get_cart", revise_and_order)
+
+    with pytest.raises(ConflictError, match="revision 2"):
+        world.approve(revision=1)
+
+    assert world.orders.by_cart(world.cart.cart_id).revision == 2
+    assert world.steps().count(AuditStep.ORDER) == 1

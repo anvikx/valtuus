@@ -39,6 +39,7 @@ from app.domain.enums import (
     UserRole,
 )
 from app.domain.errors import ConflictError, NotFoundError, UpstreamUnavailableError
+from app.domain.idempotency import request_hash
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer, OfferLine
 from app.domain.order import Order
@@ -211,8 +212,10 @@ class _World:
         )
         return self.cart_service.create_cart(samples.agent_key(), draft, key or f"cart-{qty}")
 
-    def checkout(self, cart_id: str, key: str = "k-1", buyer: str = samples.BUYER_ID):
-        return self.service.checkout(samples.agent_key(buyer_id=buyer), cart_id, key)
+    def checkout(
+        self, cart_id: str, key: str = "k-1", buyer: str = samples.BUYER_ID, revision: int = 1
+    ):
+        return self.service.checkout(samples.agent_key(buyer_id=buyer), cart_id, revision, key)
 
     def raise_limit(self, version: int, limit: Decimal) -> None:
         with self.unit_of_work.transaction():
@@ -286,7 +289,7 @@ def test_order_names_the_cart_revision_it_was_placed_from() -> None:
     with world.unit_of_work.transaction():
         world.carts.save(cart)
 
-    order = world.checkout(cart.cart_id)
+    order = world.checkout(cart.cart_id, revision=cart.revision)
 
     assert order.revision == 2
 
@@ -737,3 +740,56 @@ def test_approval_cannot_override_new_allergen_rule() -> None:
     assert held.reason_codes == (ReasonCode.FORBIDDEN_ALLERGEN,)
     assert held.lines[0].reason_codes == held.reason_codes
     assert world.orders.by_cart(cart.cart_id) is None
+
+
+def test_checkout_uses_revision_in_idempotency_fingerprint():
+    world = _World()
+    cart = world.cart(20)
+
+    world.checkout(cart.cart_id, revision=1)
+
+    stored = world.idempotency.get(samples.BUYER_ID, "k-1")
+    assert stored.request_hash == request_hash("checkout", {"cart_id": cart.cart_id, "revision": 1})
+
+
+def test_postgres_checkout_rejects_old_revision_without_order(database):
+    world = _World(database=database)
+    cart = world.cart(20)
+    revised = dataclasses.replace(cart, revision=2)
+    with world.unit_of_work.transaction():
+        world.carts.save(revised)
+    before = world.steps(cart.cart_id)
+
+    with pytest.raises(ConflictError, match="revision 2"):
+        world.checkout(cart.cart_id, revision=1)
+
+    assert world.carts.get(cart.cart_id) == revised
+    assert world.orders.by_cart(cart.cart_id) is None
+    assert world.steps(cart.cart_id) == before
+    assert world.idempotency.get(samples.BUYER_ID, "k-1") is None
+
+
+def test_postgres_checkout_rechecks_revision_after_refresh(database, monkeypatch):
+    """Price refresh is outside the lock, so a revision can land while it is running."""
+    world = _World(database=database)
+    cart = world.cart(20)
+    world.clock.at = _STALE
+    real_prices = world.source.prices
+
+    def revise_before_prices(product_ids, day):
+        draft = CartDraft(
+            lines=(CartLineInput(offer_id="o_1", product_id=MILK_ID, qty=40),),
+            request_text="make it 40",
+            clarifications=(),
+        )
+        world.cart_service.revise_cart(samples.agent_key(), cart.cart_id, 1, draft, "revision-2")
+        return real_prices(product_ids, day)
+
+    monkeypatch.setattr(world.source, "prices", revise_before_prices)
+
+    with pytest.raises(ConflictError, match="revision 2"):
+        world.checkout(cart.cart_id, revision=1)
+
+    assert world.carts.get(cart.cart_id).revision == 2
+    assert world.orders.by_cart(cart.cart_id) is None
+    assert world.idempotency.get(samples.BUYER_ID, "k-1") is None

@@ -1,7 +1,7 @@
 from dataclasses import replace
 
 from app.domain.agent_key import User
-from app.domain.cart import Cart
+from app.domain.cart import Cart, require_revision
 from app.domain.enums import AuditStep, CartState
 from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError
 from app.domain.order import Order
@@ -38,11 +38,12 @@ class ApprovalService:
         self._audit = audit
         self._unit_of_work = unit_of_work
 
-    def approve(self, user: User, cart_id: str) -> Order | Cart:
+    def approve(self, user: User, cart_id: str, revision: int) -> Order | Cart:
         """An Order, or the cart in its new state (EXPIRED, DENIED). A second tap gets the same
         Order."""
         # get_cart owns the buyer check and expiry on read. place locks and reads it again.
         cart = self._cart_service.get_cart(_buyer_id(user), cart_id)
+        require_revision(cart, revision)
         if cart.state is not CartState.PENDING_APPROVAL:
             return self._settled(cart)
 
@@ -52,7 +53,7 @@ class ApprovalService:
 
         return self._settled(result)
 
-    def reject(self, user: User, cart_id: str, reason: str) -> Cart:
+    def reject(self, user: User, cart_id: str, revision: int, reason: str) -> Cart:
         """REJECTED is final. Any other state is a 409, sent after the commit, so an expiry
         found on the way is kept."""
         reason = _reason_text(reason)
@@ -61,6 +62,7 @@ class ApprovalService:
             self._carts.get_locked(cart_id)
             # get_cart owns the buyer check and expiry on read.
             cart = self._cart_service.get_cart(_buyer_id(user), cart_id)
+            require_revision(cart, revision)
             if cart.state is CartState.PENDING_APPROVAL:
                 return self._store_reject(user, cart_id, reason)
 

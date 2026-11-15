@@ -6,6 +6,7 @@ from types import MappingProxyType
 
 from app.domain.catalog import SearchQuery
 from app.domain.enums import CartState, Decision, ReasonCode, RevisionAuthor, StockModel
+from app.domain.errors import ConflictError
 from app.domain.offer import SubstituteFor
 
 # Checkout and approve act only on these. Every other state is final.
@@ -151,3 +152,14 @@ def cart_changes(
 
 def _qty(line: CartLine | None) -> int | None:
     return None if line is None else line.qty
+
+
+def require_revision(cart: Cart, revision: int) -> None:
+    """A decision applies only to the exact lines the caller reviewed."""
+    if revision == cart.revision:
+        return
+
+    raise ConflictError(
+        f"Cart {cart.cart_id} is at revision {cart.revision}, not revision {revision}.",
+        "Read the cart again, review its current lines, and send the current revision.",
+    )

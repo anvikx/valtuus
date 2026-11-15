@@ -4,7 +4,13 @@ from decimal import Decimal
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from app.api.schemas.carts import CartRequest, CartResponse, RevisionRequest
+from app.api.schemas.carts import (
+    CartActionRequest,
+    CartRequest,
+    CartResponse,
+    RejectRequest,
+    RevisionRequest,
+)
 from app.api.schemas.catalog import ContentPerSalesUnit, SearchResponse
 from app.api.schemas.mandate import MandateResponse, MandateUpdateRequest
 from app.api.schemas.offers import OfferResponse
@@ -324,3 +330,14 @@ def test_mandate_update_passes_the_automatic_order_switch() -> None:
     changes = MandateUpdateRequest.model_validate({"can_auto_order": False}).to_domain()
 
     assert changes.can_auto_order is False
+
+
+@pytest.mark.parametrize("revision", [0, -1, True, 1.5, "2", None])
+@pytest.mark.parametrize("model", [CartActionRequest, RejectRequest])
+def test_cart_action_requires_a_positive_integer_revision(model, revision):
+    body = {"revision": revision}
+    if model is RejectRequest:
+        body["reason"] = "Too expensive."
+
+    with pytest.raises(ValidationError):
+        model.model_validate(body)

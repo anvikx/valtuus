@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import order_sentence, policy_sentence
-from app.domain.cart import OPEN_STATES, STATE_BY_DECISION, Cart, CartLine
+from app.domain.cart import OPEN_STATES, STATE_BY_DECISION, Cart, CartLine, require_revision
 from app.domain.enums import AuditStep, CartState, Decision, ReasonCode
 from app.domain.errors import ConflictError, NotFoundError
 from app.domain.fresh_check import line_holds
@@ -76,13 +76,20 @@ class OrderService:
         self._audit = audit
         self._unit_of_work = unit_of_work
 
-    def checkout(self, agent: AgentKey, cart_id: str, idempotency_key: str) -> Order | Cart:
+    def checkout(
+        self,
+        agent: AgentKey,
+        cart_id: str,
+        revision: int,
+        idempotency_key: str,
+    ) -> Order | Cart:
         """An Order, or the cart in its new state (HUMAN, DENY, EXPIRED), already committed."""
         # get_cart answers 404 for another buyer's cart and runs expiry on read. It goes before
         # the key read: a parallel call that commits between the two then shows as a used key,
         # not as an ORDERED cart with no order for this call.
         cart = self._cart_service.get_cart(agent.buyer_id, cart_id)
-        fingerprint = request_hash(_OPERATION, {"cart_id": cart_id})
+        require_revision(cart, revision)
+        fingerprint = request_hash(_OPERATION, {"cart_id": cart_id, "revision": revision})
         used = self._idempotency.get(agent.buyer_id, idempotency_key)
         if used is not None:
             return self._replay(used, fingerprint)
@@ -135,6 +142,7 @@ class OrderService:
             if approved_by is None:
                 self._orders.lock_days(cart.buyer_id, (line.delivery_date for line in cart.lines))
             locked = self._cart_service.locked_cart(cart.cart_id)
+            require_revision(locked, cart.revision)
             # A call with the same key may have placed the order while this one waited on the lock.
             used = None if claim is None else self._idempotency.get(claim.buyer_id, claim.key)
             if used is not None:
@@ -142,11 +150,6 @@ class OrderService:
 
             if locked.state not in OPEN_STATES:
                 return locked
-
-            # The agent revised the cart after this call read it. The fresh data, and an approve,
-            # were for the old lines, so nothing is placed.
-            if locked.revision != cart.revision:
-                raise _revised(locked)
 
             now = self._clock.now()
             policy = self._cart_service.current_policy(locked, now)
@@ -372,11 +375,4 @@ def _order_line(line: CartLine, gtin: str | None) -> OrderLine:
         line_total=line.line_total,
         delivery_date=line.delivery_date,
         substitute_for=line.substitute_for,
-    )
-
-
-def _revised(cart: Cart) -> ConflictError:
-    return ConflictError(
-        f"Cart {cart.cart_id} changed to revision {cart.revision} during this call.",
-        "Read the cart again and decide on the current revision.",
     )

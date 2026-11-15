@@ -68,7 +68,7 @@ _AGENT_ONLY_CALLS = [
     ("GET", "/api/v1/catalog/search?query=milk", {}, None),
     ("POST", "/api/v1/offers", {}, {"product_ids": ["p_1"]}),
     ("POST", "/api/v1/carts", _IDEMPOTENCY, _CART),
-    ("POST", "/api/v1/carts/c_1/checkout", _IDEMPOTENCY, None),
+    ("POST", "/api/v1/carts/c_1/checkout", _IDEMPOTENCY, {"revision": 1}),
     ("POST", _REVISIONS_PATH, _IDEMPOTENCY, {**_CART, "base_revision": 1}),
     ("POST", _WITHDRAW_PATH, {}, None),
     ("GET", _AUDIT_PATH, {}, None),
@@ -99,8 +99,8 @@ _LIVE_PATHS = {
 _STUB_CALLS = [call for call in _AGENT_CALLS if call[1] not in _LIVE_PATHS]
 # A person must do these. An agent key that tries one is refused and recorded.
 _HUMAN_ACTIONS = [
-    ("POST", "/api/v1/carts/c_1/approve", None),
-    ("POST", "/api/v1/carts/c_1/reject", {"reason": "too much"}),
+    ("POST", "/api/v1/carts/c_1/approve", {"revision": 1}),
+    ("POST", "/api/v1/carts/c_1/reject", {"revision": 1, "reason": "too much"}),
     ("PUT", "/api/v1/mandate", {"max_auto_order_value": "300.00"}),
     ("POST", _REVOKE_PATH, None),
 ]
