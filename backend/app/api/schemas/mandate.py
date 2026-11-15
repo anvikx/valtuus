@@ -2,13 +2,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
+from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema, model_validator
 
 from app.api.schemas.catalog import AttributeCodeValue
 from app.api.schemas.common import RequestModel
 from app.domain.constants import MAX_MANDATE_LIMIT, MONEY_DECIMALS
 from app.domain.enums import Decision
 from app.domain.mandate import ALLERGEN_DESCRIPTION, VALID_ALLERGENS
+from app.domain.mandate import RankingWeights as DomainRankingWeights
 from app.domain.money import round_money
 from app.services.mandate_service import MandateChanges
 
@@ -25,6 +26,26 @@ class RankingWeights(BaseModel):
     price: float = Field(description="Weight of a low price.")
     reliability: float = Field(description="Weight of delivery reliability.")
     co2: float = Field(description="Weight of low CO2.")
+
+
+class RankingWeightsUpdate(RequestModel):
+    """All three weights, so a change never leaves one at an old value by mistake."""
+
+    price: float = Field(ge=0, allow_inf_nan=False, description="Weight of a low price.")
+    reliability: float = Field(
+        ge=0,
+        allow_inf_nan=False,
+        description="Weight of delivery reliability.",
+    )
+    co2: float = Field(ge=0, allow_inf_nan=False, description="Weight of low CO2.")
+
+    @model_validator(mode="after")
+    def _one_is_positive(self) -> "RankingWeightsUpdate":
+        # All zero would score every line 0 and rank by product id alone.
+        if not (self.price or self.reliability or self.co2):
+            raise ValueError("at least one weight must be above 0")
+
+        return self
 
 
 class Mandate(BaseModel):
@@ -100,6 +121,11 @@ class MandateUpdateRequest(RequestModel):
         default=None,
         description="true: let the agent order carts within the limits with no approval.",
     )
+    ranking_weights: RankingWeightsUpdate | None = Field(
+        default=None,
+        description="New ranking weights inside each delivery group. Each is 0 or more and "
+        "at least one is above 0.",
+    )
 
     def to_domain(self) -> MandateChanges:
         def as_tuple(values: list[str] | None) -> tuple[str, ...] | None:
@@ -113,6 +139,7 @@ class MandateUpdateRequest(RequestModel):
             forbidden_allergens=as_tuple(self.forbidden_allergens),
             allergen_unknown_policy=self.allergen_unknown_policy,
             can_auto_order=self.can_auto_order,
+            ranking_weights=_weights(self.ranking_weights),
         )
 
 
@@ -120,3 +147,10 @@ def _cents(limit: Decimal | None) -> Decimal | None:
     """Input such as 1e6 or -0 passes the bounds but reads back as 1E+6 or -0. Store cents."""
     # abs() only clears the sign of -0: the bounds already refuse a negative limit.
     return None if limit is None else abs(round_money(limit))
+
+
+def _weights(update: RankingWeightsUpdate | None) -> DomainRankingWeights | None:
+    if update is None:
+        return None
+
+    return DomainRankingWeights(update.price, update.reliability, update.co2)

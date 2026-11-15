@@ -7,10 +7,14 @@ import pytest
 from app.domain.catalog import ContentPerSalesUnit
 from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
 from app.domain.offer import Candidate, ComparisonPrice, SubstituteFor
-from app.domain.ranking import rank_offer_lines
-from tests.fakes.offer_data import MILK_ID, MONDAY, price, product, query, stock
+from app.domain.ranking import rank_offer_lines as _rank
+from tests.fakes.offer_data import MILK_ID, MONDAY, PRICE_ONLY, price, product, query, stock
 
 _UNKNOWN_STOCK_MARKER = 999_999
+
+
+def rank_offer_lines(candidates, offer_query, substitutes=()):
+    return _rank(candidates, offer_query, PRICE_ONLY, substitutes)
 
 
 def _candidate(product_id: str = MILK_ID, unit_price: str = "1.01", **stock_fields) -> Candidate:

@@ -1,4 +1,4 @@
-"""Rank by delivery/stock group, then preferred brand and price per requested unit."""
+"""Rank by band (substitute, delivery group, preferred brand), then the mandate weighted score."""
 
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
@@ -7,6 +7,7 @@ from enum import IntEnum
 
 from app.domain.constants import CURRENCY, UNKNOWN_STOCK_MARKER
 from app.domain.enums import OfferTier, ReasonCode, StockModel
+from app.domain.mandate import RankingWeights
 from app.domain.money import line_total, round_money
 from app.domain.offer import (
     Availability,
@@ -29,9 +30,17 @@ class _Group(IntEnum):
     LATE = 2
 
 
+_ZERO = Decimal(0)
+_WORST = Decimal(1)
+
+# Sort key before the score: substitutes last, then delivery group, then outside the brands.
+_Band = tuple[bool, _Group, bool]
+
+
 def rank_offer_lines(
     candidates: Iterable[Candidate],
     query: OfferQuery,
+    weights: RankingWeights,
     substitutes: Sequence[tuple[Candidate, SubstituteFor]] = (),
 ) -> tuple[OfferLine, ...]:
     """Equal keys fall back to product_id, so the same data always gives the same order.
@@ -39,23 +48,82 @@ def rank_offer_lines(
     Substitutes rank after every requested line: a person must approve each one, so a cheaper
     substitute must not lead a line the agent can order as asked.
     """
-    scored = sorted(
-        [
-            *(_scored(candidate, query, None) for candidate in candidates),
-            *(_scored(candidate, query, marked) for candidate, marked in substitutes),
-        ]
+    entries = [
+        *(_scored(candidate, query, None) for candidate in candidates),
+        *(_scored(candidate, query, marked) for candidate, marked in substitutes),
+    ]
+    scores = _scores(entries, weights)
+    # The raw price breaks score ties, because Decimal division can round two prices to one score.
+    keyed = sorted(
+        (band, score, per_unit, product_id, line)
+        for (band, per_unit, product_id, line), score in zip(entries, scores, strict=True)
     )
     return tuple(
         replace(line, rank=rank, tier=_TIERS[rank - 1] if rank <= len(_TIERS) else None)
-        for rank, (*_, line) in enumerate(scored, start=1)
+        for rank, (*_, line) in enumerate(keyed, start=1)
     )
+
+
+def _scores(
+    entries: Sequence[tuple[_Band, Decimal, str, OfferLine]],
+    weights: RankingWeights,
+) -> list[Decimal]:
+    """One base for the whole offer, so a line scores the same in any band."""
+    bands = [band for band, *_ in entries]
+    lines = [line for *_, line in entries]
+    price = _premiums([per_unit for _, per_unit, *_ in entries], bands)
+    co2 = _premiums([line.co2_kg_per_kg for line in lines], bands)
+    # Float weights go through str so 0.1 stays 0.1 and equal inputs give equal scores.
+    w_price, w_reliability, w_co2 = (
+        Decimal(str(w)) for w in (weights.price, weights.reliability, weights.co2)
+    )
+    return [
+        w_price * price_premium + w_reliability * _reliability_cost(line) + w_co2 * co2_premium
+        for line, price_premium, co2_premium in zip(lines, price, co2, strict=True)
+    ]
+
+
+def _reliability_cost(line: OfferLine) -> Decimal:
+    # Fail closed: a product with no data never ranks above one with data.
+    if line.delivery_reliability is None:
+        return _WORST
+
+    return _WORST - line.delivery_reliability
+
+
+def _premiums(values: Sequence[Decimal | None], bands: Sequence[_Band]) -> list[Decimal]:
+    """Share above the lowest known value: 1.01 against 1.00 is 0.01, the scale of reliability.
+
+    Min-max scaling made a 1 cent gap count 1.0 and let a dearer line reorder two others.
+    The base comes from the best band with data, so a cheap late line, substitute or other
+    brand does not make price gaps count more between the lines ahead of it. A lower value in
+    a worse band scores below 0, which keeps its order inside that band.
+    None scores at least 1 and never better than the worst known value, so no data never wins.
+    """
+    known = [(band, value) for band, value in zip(bands, values, strict=True) if value is not None]
+    if not known:
+        return [_WORST] * len(values)
+
+    best = min(band for band, _ in known)
+    low = min(value for band, value in known if band == best)
+    scored = {value: _premium(value, low) for _, value in known}
+    missing = max(_WORST, *scored.values())
+    return [missing if value is None else scored[value] for value in values]
+
+
+def _premium(value: Decimal, low: Decimal) -> Decimal:
+    # A share of 0 is undefined. Fail closed: any value above a zero minimum scores as no data.
+    if low <= _ZERO:
+        return _ZERO if value <= low else _WORST
+
+    return (value - low) / low
 
 
 def _scored(
     candidate: Candidate,
     query: OfferQuery,
     substitute_for: SubstituteFor | None,
-) -> tuple[bool, _Group, bool, Decimal, str, OfferLine]:
+) -> tuple[_Band, Decimal, str, OfferLine]:
     product, price, availability = candidate.product, candidate.price, candidate.availability
     _require_screened(availability)
 
@@ -98,8 +166,8 @@ def _scored(
     outside_preference = bool(preferred) and (product.brand or "").casefold() not in preferred
     # Following rank 1 must not exceed a preferred product's stock when another product
     # can fill the request. Brand preference only breaks ties within a stock group.
-    is_substitute = substitute_for is not None
-    return is_substitute, group, outside_preference, per_unit, product.product_id, line
+    band = (substitute_for is not None, group, outside_preference)
+    return band, per_unit, product.product_id, line
 
 
 def _require_screened(availability: Availability) -> None:

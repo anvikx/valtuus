@@ -2,6 +2,7 @@ import dataclasses
 from decimal import Decimal
 
 import pytest
+from pydantic_core import to_jsonable_python
 
 from app.adapters.memory.repositories import (
     InMemoryAuditRepository,
@@ -14,7 +15,7 @@ from app.domain.agent_key import User
 from app.domain.audit import AuditRecord
 from app.domain.enums import AuditStep, Decision, UserRole
 from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
-from app.domain.mandate import Mandate
+from app.domain.mandate import Mandate, RankingWeights
 from app.services.audit_service import AuditService
 from app.services.mandate_service import MandateChanges, MandateService
 from tests.adapters import samples
@@ -83,6 +84,7 @@ def _mandate(**changes: object) -> Mandate:
         required_attributes=(),
         forbidden_allergens=(),
         allergen_unknown_policy=Decision.HUMAN,
+        ranking_weights=RankingWeights(price=1.0, reliability=0.0, co2=0.0),
     )
     return dataclasses.replace(plain, **changes)
 
@@ -323,3 +325,42 @@ def test_turning_on_automatic_orders_is_a_new_version_on_the_record() -> None:
     assert updated.version == 3
     assert updated.can_auto_order is True
     assert records.records[-1].input_data == {"can_auto_order": True}
+
+
+def test_update_takes_ranking_weights() -> None:
+    """The main user turns on reliability and CO2 ranking here, and it must reach the next offer."""
+    service, mandates = _service()
+    weights = RankingWeights(price=0.2, reliability=0.5, co2=0.3)
+
+    updated = service.update(_MAIN_USER, MandateChanges(ranking_weights=weights))
+
+    assert updated.version == 2
+    assert updated.ranking_weights == weights
+    assert mandates.latest(samples.BUYER_ID) == updated
+    assert "Ranking weights: price 0.2, reliability 0.5, CO2 0.3." in service.summary(updated)
+
+
+def test_same_ranking_weights_make_no_version() -> None:
+    """A save with no change must not bump the version a waiting cart is checked against."""
+    service, _ = _service()
+    current = samples.mandate()
+
+    updated = service.update(_MAIN_USER, MandateChanges(ranking_weights=current.ranking_weights))
+
+    assert updated.version == current.version
+
+
+def test_ranking_weights_on_the_record_can_be_stored_as_json() -> None:
+    """The postgres audit store dumps input_data to JSON, so the weights must survive that."""
+    records = _Records()
+    service, _ = _service(records)
+
+    service.update(
+        _MAIN_USER,
+        MandateChanges(ranking_weights=RankingWeights(price=0.2, reliability=0.5, co2=0.3)),
+    )
+
+    (record,) = records.records
+    assert to_jsonable_python(record.input_data) == {
+        "ranking_weights": {"price": 0.2, "reliability": 0.5, "co2": 0.3},
+    }
