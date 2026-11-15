@@ -108,7 +108,9 @@ class _World:
             mandates.add(samples.mandate())
             offers.add(samples.offer())
             self.carts.add(self.cart)
+        self.offers = offers
         audit = AuditService(self.audit, self.carts, offers, self.clock, unit_of_work)
+        self.audit_service = audit
         mandate_service = MandateService(mandates, self.clock, audit, unit_of_work)
         self.cart_service = CartService(
             offers,
