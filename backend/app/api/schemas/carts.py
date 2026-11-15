@@ -7,7 +7,7 @@ from app.api.schemas.catalog import InterpretedRequest
 from app.api.schemas.common import CartRevisionValue, PositiveSalesUnits, Reasons, RequestModel
 from app.api.schemas.offers import SubstituteFor
 from app.domain.cart import CartDraft, CartLineInput
-from app.domain.enums import CartState, Decision, ReasonCode, RevisionAuthor
+from app.domain.enums import CartState, Decision, ReasonCode, RevisionAuthor, StockModel
 from app.domain.errors import NeedsClarificationError
 
 
@@ -115,6 +115,14 @@ class CartLine(Reasons):
     decision: Decision = Field(description="Decision for this line.")
     substitute_for: SubstituteFor | None = Field(
         description="Product this line replaces. null when it is not a substitute.",
+    )
+    stock_model: StockModel | None = Field(
+        description="Stock model of the offer line. STOCK: available_qty is a count, except "
+        "999999 or more is unknown. TERMINAL: no count, so available_qty is null. null: not given, "
+        "ranked as stock not confirmed.",
+    )
+    available_qty: int | None = Field(
+        description="Stock at the offer source_time, not a reservation. null: amount not known.",
     )
 
 
