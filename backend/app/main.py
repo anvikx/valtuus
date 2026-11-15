@@ -351,6 +351,7 @@ def create_app(
             store.users,
             store.unit_of_work,
             agent_key=settings.agent_key.get_secret_value(),
+            orders=store.orders,
         )
         loader = ProductStore(settings.data_dir)
         catalog_store = PostgresCatalog(store.database) if store.database else loader
