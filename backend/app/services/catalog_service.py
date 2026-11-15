@@ -11,6 +11,7 @@ from app.domain.catalog_search import (
     fits_search,
     validate_query,
 )
+from app.domain.constants import MAX_SEARCH_CANDIDATES
 from app.domain.enums import AuditStep, Decision, ReasonCode
 from app.domain.errors import NotFoundError
 from app.domain.mandate import Mandate
@@ -44,7 +45,8 @@ class CatalogService:
         self._mandates = mandates
         self._audit = audit
         self._unit_of_work = unit_of_work
-        self._candidate_guard = candidate_guard
+        # The offer batch guard may be larger, but search is only a bounded preview.
+        self._candidate_guard = min(candidate_guard, MAX_SEARCH_CANDIDATES)
 
     def search(self, agent: AgentKey, query: SearchQuery) -> SearchResult:
         query = replace(query, query=validate_query(query))

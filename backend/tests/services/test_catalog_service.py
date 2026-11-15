@@ -213,12 +213,13 @@ def test_complete_category_and_safety_guard():
 
     result = catalog.search(agent_key(), query())
 
-    assert len(result.candidates) == 500
+    assert len(result.candidates) == 40
     assert result.hint.code == "GUARD_CUT"
     catalog, _ = service(FakeCatalog(*(item(str(n)) for n in range(121))))
     result = catalog.search(agent_key(), query())
-    assert len(result.candidates) == 121
-    assert result.hint.code == "READY"
+    assert len(result.candidates) == 40
+    assert result.total_hits == 121
+    assert result.hint.code == "GUARD_CUT"
 
 
 def test_postgres_uses_exact_name_rules_after_prefilter(database):

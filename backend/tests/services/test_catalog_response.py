@@ -100,17 +100,17 @@ def test_top_eight_counts_all_categories_and_deduplicates_examples():
 
 
 def test_guard_preserves_total_and_category_counts_at_boundary():
-    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(501))))
+    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(41))))
 
     cut = catalog.search(agent_key(), query())
 
-    assert len(cut.candidates) == 500
-    assert cut.total_hits == cut.categories[0].hits == 501
+    assert len(cut.candidates) == 40
+    assert cut.total_hits == cut.categories[0].hits == 41
     assert cut.hint.code == "GUARD_CUT"
     assert cut.categories[0].in_list is True
-    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(500))))
+    catalog, _ = service(FakeCatalog(*(item(str(i)) for i in range(40))))
     complete = catalog.search(agent_key(), query())
-    assert len(complete.candidates) == complete.total_hits == 500
+    assert len(complete.candidates) == complete.total_hits == 40
     assert complete.hint.code == "READY"
     assert complete.categories[0].in_list is True
 

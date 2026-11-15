@@ -32,5 +32,5 @@ class Settings(BaseSettings):
     # Base64 of a 32 byte Ed25519 seed (`openssl rand -base64 32`). Signs offers and orders as
     # the mock issuer. Empty means they go out with signature null.
     signing_private_key: SecretStr = SecretStr("")
-    # Most product ids one get_offers call takes. Only a guard: a search sends all candidates.
+    # Most product ids one get_offers call takes. Search previews at most 40 candidates.
     candidate_guard: PositiveInt = 500
