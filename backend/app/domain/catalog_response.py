@@ -22,7 +22,7 @@ _HINT_SENTENCES = {
         "Ask the buyer which choices they need, in one question. Search again with the chosen "
         "codes in required_attributes and the other codes in declined_attributes."
     ),
-    SearchHintCode.GUARD_CUT: "The list is not complete. Add an attribute, a unit or more words.",
+    SearchHintCode.GUARD_CUT: "The search is not complete. Add an attribute, a unit or more words.",
     SearchHintCode.READY: (
         "The search holds every product of this type. Call get_offers with the request_id "
         "and no product_ids."

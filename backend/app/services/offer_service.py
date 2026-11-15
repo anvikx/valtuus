@@ -122,7 +122,7 @@ class OfferService:
         )
         with self._unit_of_work.transaction():
             self._offers.add(offer)
-            self._record(agent, query, offer, rejected, mandate.version)
+            self._record(agent, query, product_ids, offer, rejected, mandate.version)
         return offer
 
     def _search_set_ids(self, agent: AgentKey, query: OfferQuery) -> tuple[str, ...]:
@@ -259,6 +259,7 @@ class OfferService:
         self,
         agent: AgentKey,
         query: OfferQuery,
+        priced_ids: Sequence[str],
         offer: Offer,
         rejected: Sequence[RejectedProduct],
         mandate_version: int,
@@ -279,6 +280,8 @@ class OfferService:
             },
             output_data={
                 "offer_id": offer.offer_id,
+                # A request by request_id sends no product_ids: this shows what the search gave.
+                "priced_ids": list(priced_ids),
                 "lines": [line.product_id for line in offer.lines],
                 "lines_not_shown": offer.lines_not_shown,
                 "rejected": {item.product_id: item.reason_code for item in rejected},
