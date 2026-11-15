@@ -84,7 +84,7 @@ export function DecisionPanel({
         >
           {isReviewPending
             ? 'Review the update first'
-            : `Approve order (${cart.total} ${cart.currency})`}
+            : `Approve order (${cart.total} ${cart.currency} ex VAT)`}
         </button>
         <div className="actions-secondary">
           <button
