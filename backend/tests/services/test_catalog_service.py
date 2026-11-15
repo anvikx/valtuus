@@ -141,10 +141,46 @@ def test_whole_word_hits_pick_the_default_category():
     assert catalog.search(agent_key(), query()).hint_category == "10400"
 
 
+def test_close_categories_ask_the_buyer():
+    """The search does not guess between butter and butter buns. The buyer picks."""
+    products = [
+        item("1", "Butter bun", category="41764"),
+        item("2", "Butter croissant", category="41764"),
+        item("3", "Butter cake", category="41764"),
+        item("4", "Butter 500 g", category="10500"),
+        item("5", "Butter 200 g", category="10500"),
+    ]
+    catalog, records = service(FakeCatalog(*products))
+
+    result = catalog.search(agent_key(), query("butter"))
+
+    assert result.hint.code == "ASK_CATEGORY"
+    assert result.hint_category is None
+    assert result.candidates == ()
+    assert [(c.category, c.in_list) for c in result.categories] == [
+        ("41764", False),
+        ("10500", False),
+    ]
+    assert records.records[-1].output_data["offer_set_size"] == 0
+
+
+def test_a_category_close_on_one_count_only_is_the_default():
+    """kerma is a whole word in one name per category, but cream has many more hits."""
+    products = [
+        item("1", "Kerma 1 l", category="10401"),
+        item("2", "Vispikerma 1 l", category="10401"),
+        item("3", "Kuohukerma 1 l", category="10401"),
+        item("4", "Laskiaispulla kerma", category="11030"),
+    ]
+    catalog, _ = service(FakeCatalog(*products))
+
+    assert catalog.search(agent_key(), query("kerma")).hint_category == "10401"
+
+
 def test_numeric_category_tie_break_and_no_match():
     catalog, records = service(FakeCatalog(item("1", category="10"), item("2", category="2")))
 
-    assert catalog.search(agent_key(), query()).hint_category == "2"
+    assert [c.category for c in catalog.search(agent_key(), query()).categories] == ["2", "10"]
     assert catalog.search(agent_key(), query("xyzzy")).candidates == ()
     assert records.records[-1].output_data["hint"]["code"] == "NO_MATCH"
 
