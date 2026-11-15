@@ -541,6 +541,12 @@ blockquote {
   border-top: var(--border-width) solid var(--line);
 }
 
+.line-reason {
+  color: var(--decide);
+  font: var(--type-small);
+  font-weight: 600;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
