@@ -60,7 +60,7 @@ def test_nested_field_points_to_its_schema() -> None:
     offers = spec["paths"][_OFFERS]["post"]["description"]
 
     # A list of models and an optional model.
-    assert "| `lines` | Offer lines, best rank first. See `OfferLine`. |" in offers
+    assert "| `lines` | Offer lines, best rank first. At most 30. See `OfferLine`. |" in offers
     assert "See `ProposedSplit`." in offers
 
 
