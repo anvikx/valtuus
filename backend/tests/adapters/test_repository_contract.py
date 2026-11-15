@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryAuditRepository,
@@ -32,10 +33,14 @@ from app.adapters.postgres.repositories import (
     PostgresUserRepository,
 )
 from app.domain.agent_key import User
-from app.domain.cart import CartRevision
+from app.domain.cart import CartRevision, LineChange
 from app.domain.enums import AgentKeyStatus, CartState, RevisionAuthor, UserRole
 from app.domain.idempotency import IdempotencyRecord
+from app.domain.policy.engine import PolicyEngine
 from app.domain.session import Session
+from app.services.audit_service import AuditService
+from app.services.cart_service import CartService
+from app.services.mandate_service import MandateService
 from app.services.ports.repositories import (
     AgentKeyRepository,
     AuditRepository,
@@ -50,6 +55,7 @@ from app.services.ports.repositories import (
 )
 from app.services.ports.unit_of_work import UnitOfWork
 from tests.adapters import samples
+from tests.fakes.offer_data import FakeCatalog
 
 
 @dataclass(frozen=True)
@@ -402,3 +408,59 @@ def test_confirmed_history_is_scoped_to_buyer_and_excludes_auto(store: _Store) -
     assert store.orders.list_confirmed(samples.BUYER_ID) == [confirmed]
     assert store.orders.list_confirmed("buyer-b") == [other]
     assert store.orders.list_confirmed("new-buyer") == []
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [None, (LineChange("p_2", "Oat milk 1 l", 2, 5),)],
+    ids=["legacy-snapshot", "stored-changes"],
+)
+def test_cart_details_reads_stored_revisions_without_writing(store: _Store, delta, monkeypatch):
+    """The same history must be visible on memory and Postgres, without a write on polling."""
+    first = samples.cart()
+    second = dataclasses.replace(
+        first,
+        revision=2,
+        changes=delta,
+        lines=(dataclasses.replace(first.lines[0], qty=5),),
+    )
+    with store.unit_of_work.transaction():
+        store.mandates.add(samples.mandate())
+        store.offers.add(samples.offer())
+        store.carts.add(second)
+        store.revisions.add(CartRevision(first, RevisionAuthor.AGENT, samples.NOW))
+        store.revisions.add(CartRevision(second, RevisionAuthor.AGENT, samples.NOW))
+    clock = FixedClock(samples.NOW - timedelta(hours=1))
+    audit = AuditService(store.audit, store.carts, store.offers, clock, store.unit_of_work)
+    service = CartService(
+        store.offers,
+        store.carts,
+        store.revisions,
+        store.orders,
+        store.idempotency,
+        MandateService(store.mandates, clock, audit, store.unit_of_work),
+        FakeCatalog(),
+        PolicyEngine(()),
+        clock,
+        audit,
+        store.unit_of_work,
+    )
+
+    history_reads = []
+    read_history = store.revisions.for_cart
+
+    def history(cart_id):
+        history_reads.append(cart_id)
+        return read_history(cart_id)
+
+    monkeypatch.setattr(store.revisions, "for_cart", history)
+
+    details = service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert history_reads == ([first.cart_id] if delta is None else [])
+    assert details.cart.revision == 2
+    assert details.revision_count == 2
+    assert details.changes == (LineChange("p_2", "Oat milk 1 l", 2, 5),)
+    assert store.carts.get(first.cart_id) == second
+    assert len(store.revisions.for_cart(first.cart_id)) == 2
+    assert store.audit.for_cart(first.cart_id) == []

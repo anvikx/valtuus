@@ -15,7 +15,7 @@ from app.adapters.memory.repositories import (
     InMemoryOrderRepository,
     InMemoryUnitOfWork,
 )
-from app.domain.cart import CartDraft, CartLineInput, CartRevision, PricedLine
+from app.domain.cart import CartDraft, CartLineInput, CartRevision, LineChange, PricedLine
 from app.domain.enums import (
     AuditStep,
     CartState,
@@ -948,3 +948,163 @@ def test_withdrawn_cart_cannot_be_revised() -> None:
 
     with pytest.raises(ConflictError, match=CartState.WITHDRAWN):
         world.revise(first.cart_id, _buy(800))
+
+
+def test_first_cart_read_has_one_revision_and_no_changes():
+    world = _world_with_offer()
+    cart = world.create(_buy(100))
+    before_audit = world.audit.for_cart(cart.cart_id)
+    before_history = world.revisions.for_cart(cart.cart_id)
+
+    details = world.service.get_cart_details(samples.BUYER_ID, cart.cart_id)
+
+    assert details.cart.revision == 1
+    assert details.revision_count == 1
+    assert details.changes == ()
+    assert world.audit.for_cart(cart.cart_id) == before_audit
+    assert world.revisions.for_cart(cart.cart_id) == before_history
+
+
+def test_cart_read_changes_compare_only_the_preceding_revision():
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    world.revise(first.cart_id, _buy(80))
+    third = world.revise(first.cart_id, _buy(60), base=2, key="third-revision")
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.revision == 3
+    assert details.revision_count == 3
+    assert details.changes == (LineChange(MILK_ID, third.lines[0].name, 80, 60),)
+
+
+def test_cart_read_changes_include_added_and_removed_products():
+    world = _world_with_offer(_offer("o_1", _line(), _line(_OAT_ID)))
+    first = world.create(_buy(100))
+    second = world.revise(first.cart_id, _buy(20, product_id=_OAT_ID))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.changes == (
+        LineChange(_OAT_ID, second.lines[0].name, None, 20),
+        LineChange(MILK_ID, first.lines[0].name, 100, None),
+    )
+
+
+def test_cart_read_with_unchanged_quantities_has_no_changes():
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    world.revise(first.cart_id, _buy(100))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.revision_count == 2
+    assert details.changes == ()
+
+
+def test_legacy_cart_read_does_not_backfill_history():
+    world = _world_with_offer(samples.offer())
+    cart = samples.cart()
+    world.carts.add(cart)
+    world.clock.at = samples.NOW - timedelta(hours=1)
+
+    details = world.service.get_cart_details(samples.BUYER_ID, cart.cart_id)
+
+    assert details.revision_count == 1
+    assert details.changes == ()
+    assert world.revisions.for_cart(cart.cart_id) == []
+    assert world.steps(cart.cart_id) == []
+
+
+@pytest.mark.parametrize("state", list(CartState))
+def test_cart_read_keeps_history_for_open_and_terminal_states(state):
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    second = world.revise(first.cart_id, _buy(80))
+    world.carts.save(dataclasses.replace(second, state=state))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.state is state
+    assert details.revision_count == 2
+    assert details.changes[0].qty_before == 100
+    assert details.changes[0].qty_after == 80
+
+
+def test_cart_read_expiry_does_not_add_a_revision():
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    world.revise(first.cart_id, _buy(80))
+    world.clock.at = CLOSING
+
+    first_read = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+    second_read = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert first_read == second_read
+    assert first_read.cart.state is CartState.EXPIRED
+    assert first_read.revision_count == 2
+    assert world.numbers(first.cart_id) == [1, 2]
+    assert world.steps(first.cart_id).count(AuditStep.CART) == 3
+
+
+def test_other_buyers_history_is_not_read(monkeypatch):
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    history_reads = []
+    monkeypatch.setattr(world.revisions, "for_cart", lambda cart_id: history_reads.append(cart_id))
+
+    with pytest.raises(NotFoundError):
+        world.service.get_cart_details("another-buyer", first.cart_id)
+
+    assert history_reads == []
+
+
+def test_newer_history_is_not_mixed_into_an_earlier_cart_read():
+    """A revision may commit between the cart read and the history read."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    second = world.revise(first.cart_id, _buy(80))
+    future = dataclasses.replace(second, revision=3)
+    world.revisions.add(CartRevision(future, RevisionAuthor.AGENT, NOW))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.revision == 2
+    assert details.revision_count == 2
+    assert details.changes == (LineChange(MILK_ID, second.lines[0].name, 100, 80),)
+
+
+def test_current_cart_contains_revision_changes_without_a_history_read(monkeypatch):
+    """The copied current revision supplies the polling response in one cart-row read."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    second = world.revise(first.cart_id, _buy(80))
+    stored = world.carts.get(first.cart_id)
+
+    def refuse_history_scan(cart_id):
+        pytest.fail(f"Reading {cart_id} should not scan revision history.")
+
+    monkeypatch.setattr(world.revisions, "for_cart", refuse_history_scan)
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert stored.changes == (LineChange(MILK_ID, second.lines[0].name, 100, 80),)
+    assert details.cart == stored
+    assert details.revision_count == 2
+    assert details.changes == stored.changes
+
+
+def test_missing_previous_revision_does_not_use_an_older_revision():
+    """D33 compares N with N-1; using revision 1 for revision 3 would invent a wrong delta."""
+    world = _world_with_offer()
+    first = world.create(_buy(100))
+    third = dataclasses.replace(first, revision=3, changes=None)
+    world.carts.save(third)
+    world.revisions.add(CartRevision(third, RevisionAuthor.AGENT, NOW))
+
+    details = world.service.get_cart_details(samples.BUYER_ID, first.cart_id)
+
+    assert details.cart.revision == 3
+    assert details.revision_count == 3
+    assert details.changes == ()
+    assert world.numbers(first.cart_id) == [1, 3]

@@ -14,6 +14,7 @@ from app.domain.cart import (
     CartLine,
     CartLineInput,
     CartRevision,
+    LineChange,
     PricedLine,
     cart_changes,
 )
@@ -69,6 +70,13 @@ class CurrentPolicy:
     result: PolicyResult
     duplicate_of_order_id: str | None
     previous_reject_reason: str | None
+
+
+@dataclass(frozen=True)
+class CartDetails:
+    cart: Cart
+    revision_count: int
+    changes: tuple[LineChange, ...]
 
 
 class CartService:
@@ -171,6 +179,33 @@ class CartService:
 
         return self._on_read(cart)
 
+    def get_cart_details(self, buyer_id: str, cart_id: str) -> CartDetails:
+        """Read metadata only after ownership and expiry checks, without writing history."""
+        cart = self.get_cart(buyer_id, cart_id)
+        changes = cart.changes
+        if changes is None:
+            changes = self._legacy_changes(cart)
+        return CartDetails(
+            cart=cart,
+            revision_count=cart.revision,
+            changes=changes,
+        )
+
+    def _legacy_changes(self, cart: Cart) -> tuple[LineChange, ...]:
+        """Old snapshots may lack the delta. Never compare against a version before N-1."""
+        if cart.revision == 1:
+            return ()
+
+        previous = next(
+            (
+                item.cart
+                for item in self._revisions.for_cart(cart.cart_id)
+                if item.cart.revision == cart.revision - 1
+            ),
+            None,
+        )
+        return () if previous is None else cart_changes(previous.lines, cart.lines)
+
     def list_for_inbox(self, buyer_id: str) -> Sequence[Cart]:
         """Pending carts first, the earliest deadline on top. Then the rest, the latest first.
 
@@ -265,12 +300,13 @@ class CartService:
             raise _stale_base(cart)
 
         revised, result = self._decided(cart, draft)
+        changes = cart_changes(cart.lines, revised.lines)
+        revised = replace(revised, changes=changes)
         now = self._clock.now()
         self._claim(claim)
         self._keep_base(cart, now)
         self._carts.save(revised)
         self._revisions.add(CartRevision(revised, RevisionAuthor.AGENT, now))
-        changes = cart_changes(cart.lines, revised.lines)
         sentence = revision_sentence(
             revised.revision,
             RevisionAuthor.AGENT,
@@ -356,6 +392,7 @@ class CartService:
             decided_at=None,
             reject_reason=None,
             revision=identity.revision,
+            changes=(),
         )
         return cart, result
 

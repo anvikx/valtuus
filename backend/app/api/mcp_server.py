@@ -11,6 +11,7 @@ from starlette.applications import Starlette
 from app.api.deps import Services, check_scope
 from app.api.results import (
     audit_response,
+    cart_details_response,
     cart_response,
     mandate_response,
     offer_response,
@@ -19,7 +20,7 @@ from app.api.results import (
     search_response,
 )
 from app.api.schemas.audit import AuditResponse
-from app.api.schemas.carts import CartRequest, CartResponse
+from app.api.schemas.carts import CartDetailsResponse, CartRequest, CartResponse
 from app.api.schemas.catalog import SearchRequest, SearchResponse
 from app.api.schemas.common import CartRevisionValue, ErrorBody, IdempotencyKeyValue
 from app.api.schemas.mandate import MandateResponse
@@ -113,14 +114,17 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             return cart_response(cart, public_url)
 
     @server.tool()
-    def get_cart(cart_id: str, ctx: Context) -> CartResponse:
-        """The cart and its current state. Poll it while the main user decides.
+    def get_cart(cart_id: str, ctx: Context) -> CartDetailsResponse:
+        """The current cart, revision, revision_count and changes since revision N-1.
+        Poll it while the main user decides.
 
         PENDING_APPROVAL: repeat approve_url in each status line to the buyer.
         """
         with _error_body():
             agent = _agent(ctx, AgentScope.CART)
-            return cart_response(services.carts.get_cart(agent.buyer_id, cart_id), public_url)
+            return cart_details_response(
+                services.carts.get_cart_details(agent.buyer_id, cart_id), public_url
+            )
 
     @server.tool()
     def checkout(

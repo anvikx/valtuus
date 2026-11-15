@@ -13,9 +13,10 @@ from app.api.deps import (
 )
 from app.api.docs import describe
 from app.api.errors import ERROR_RESPONSES
-from app.api.results import cart_response, order_confirmation
+from app.api.results import cart_details_response, cart_response, order_confirmation
 from app.api.schemas.carts import (
     CartActionRequest,
+    CartDetailsResponse,
     CartRequest,
     CartResponse,
     RejectRequest,
@@ -88,7 +89,9 @@ user come first, the earliest deadline on top. Then the other carts, the latest 
 **Auth:** main user session only.
 """
 _GET = """
-The cart and its current state. Poll it every 10 seconds while the main user decides.
+The cart and its current state, revision number, revision count and line changes
+from the immediately preceding revision (N-1). An unchanged read adds no history or audit record.
+Poll it every 10 seconds while the main user decides.
 
 **Request:** `GET /api/v1/carts/c_1`
 
@@ -152,14 +155,14 @@ def list_carts(
     return [cart_response(cart, public_url) for cart in carts]
 
 
-@router.get("/{cart_id}", description=describe(_GET, CartResponse))
+@router.get("/{cart_id}", description=describe(_GET, CartDetailsResponse))
 def get_cart(
     cart_id: str,
     buyer_id: Annotated[str, Depends(require_buyer(AgentScope.CART))],
     services: ServicesDep,
     public_url: PublicUrlDep,
-) -> CartResponse:
-    return cart_response(services.carts.get_cart(buyer_id, cart_id), public_url)
+) -> CartDetailsResponse:
+    return cart_details_response(services.carts.get_cart_details(buyer_id, cart_id), public_url)
 
 
 @router.post("/{cart_id}/revisions", description=describe(_REVISE, CartResponse, RevisionRequest))

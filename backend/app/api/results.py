@@ -5,7 +5,7 @@ from dataclasses import asdict
 
 from app.api.schemas.audit import AuditRecord as AuditRecordBody
 from app.api.schemas.audit import AuditResponse
-from app.api.schemas.carts import CartResponse
+from app.api.schemas.carts import CartDetailsResponse, CartResponse
 from app.api.schemas.catalog import SearchResponse
 from app.api.schemas.mandate import Mandate as MandateBody
 from app.api.schemas.mandate import MandateResponse
@@ -20,6 +20,7 @@ from app.domain.errors import ConflictError
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
 from app.domain.order import Order
+from app.services.cart_service import CartDetails
 from app.services.mandate_service import MandateService
 
 # The frontend page where the main user approves or rejects a cart.
@@ -53,6 +54,17 @@ def cart_response(cart: Cart, public_url: str) -> CartResponse:
             **asdict(cart),
             "approve_url": approve_url,
             "next_step": next_step,
+        },
+    )
+
+
+def cart_details_response(details: CartDetails, public_url: str) -> CartDetailsResponse:
+    body = cart_response(details.cart, public_url).model_dump()
+    return CartDetailsResponse.model_validate(
+        {
+            **body,
+            "revision_count": details.revision_count,
+            "changes": [asdict(change) for change in details.changes],
         },
     )
 
