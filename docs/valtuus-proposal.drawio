@@ -1,4 +1,4 @@
-<mxfile host="app.diagrams.net" pages="8">
+<mxfile host="app.diagrams.net" pages="10">
   <diagram name="1 Overview" id="ov">
     <mxGraphModel dx="1200" dy="1001" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="740" math="0" shadow="0">
       <root>
@@ -225,10 +225,10 @@
         <mxCell id="std5" value="&lt;b&gt;OpenAPI 3&lt;/b&gt;&lt;br&gt;REST at /api/v1, the source of truth. Spec at /api/openapi.json" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
           <mxGeometry x="60" y="220" width="520" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="std6" value="&lt;b&gt;JWS with EdDSA (RFC 7515, RFC 8037)&lt;/b&gt;&lt;br&gt;Every offer and order confirmation is signed with Ed25519" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+        <mxCell id="std6" value="&lt;b&gt;Planned: JWS with EdDSA (RFC 7515, RFC 8037)&lt;/b&gt;&lt;br&gt;Offers and order confirmations will be signed with Ed25519. Today the page says Not signed yet" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="60" y="290" width="520" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="std7" value="&lt;b&gt;JWKS (RFC 7517)&lt;/b&gt;&lt;br&gt;Public key at /.well-known/jwks.json. Anyone can verify a signature" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
+        <mxCell id="std7" value="&lt;b&gt;Planned: JWKS (RFC 7517)&lt;/b&gt;&lt;br&gt;Public key at /.well-known/jwks.json, so anyone can verify a signature" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;dashed=1;" vertex="1" parent="1">
           <mxGeometry x="60" y="360" width="520" height="60" as="geometry" />
         </mxCell>
         <mxCell id="std8" value="&lt;b&gt;GS1 GTIN&lt;/b&gt;&lt;br&gt;Products by GTIN. The order line uses the GTIN of the sales unit" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=12;align=left;spacing=10;" vertex="1" parent="1">
@@ -719,6 +719,160 @@
         </mxCell>
         <mxCell id="pth23" value="We never call the prototype AP2 or UCP compliant." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=13;fontColor=#5F5E5A;" vertex="1" parent="1">
           <mxGeometry x="40" y="575" width="1100" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="9 System architecture" id="arch">
+    <mxGraphModel dx="1065" dy="889" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="1090" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="ar1" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" value="System architecture: protocols and standards" vertex="1">
+          <mxGeometry height="44" width="1160" x="40" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="ar2" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=15;fontColor=#5F5E5A;" value="Two doors, one set of rules. Solid boxes are built. Dashed boxes are planned." vertex="1">
+          <mxGeometry height="30" width="1160" x="40" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_buyer" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Buyer (chef)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="50" width="300" x="60" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_main" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Main user (manager)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="50" width="300" x="880" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_agent" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=13;" value="&lt;b&gt;Buyer&#39;s agent&lt;/b&gt;&lt;br&gt;Claude Code or any MCP client" vertex="1">
+          <mxGeometry height="70" width="300" x="60" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_any" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Any client&lt;/b&gt;&lt;br&gt;Scripts and other systems. No AI needed" vertex="1">
+          <mxGeometry height="70" width="280" x="516" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_web" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;fontSize=13;" value="&lt;b&gt;Valtuus web app&lt;/b&gt;&lt;br&gt;React. Approve, set limits, read the record" vertex="1">
+          <mxGeometry height="70" width="300" x="880" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_gw" parent="1" style="rounded=1;arcSize=3;whiteSpace=wrap;html=1;fillColor=#E1F5EE;strokeColor=#0F6E56;verticalAlign=top;align=left;spacingLeft=14;spacingTop=8;fontStyle=1;fontSize=15;fontColor=#04342C;" value="Valtuus gateway (FastAPI, Python 3.12)" vertex="1">
+          <mxGeometry height="300" width="1160" x="40" y="370" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_mcp" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;MCP door  /api/mcp&lt;/b&gt;&lt;br&gt;Streamable HTTP, JSON-RPC 2.0" vertex="1">
+          <mxGeometry height="60" width="460" x="70" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_rest" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;REST door  /api/v1&lt;/b&gt;&lt;br&gt;JSON over HTTPS. OpenAPI 3.1 at /api/openapi.json" vertex="1">
+          <mxGeometry height="60" width="570" x="600" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_srv" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Services, one set for both doors&lt;/b&gt;&lt;br&gt;Catalog search, offers, cart, checkout, approval, mandate, audit" vertex="1">
+          <mxGeometry height="64" width="1100" x="70" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_pol" parent="1" style="rounded=1;arcSize=6;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Policy engine: rules in code, no LLM&lt;/b&gt;&lt;br&gt;Automatic orders switch, order limit, daily limit. Every step writes an audit record" vertex="1">
+          <mxGeometry height="64" width="1100" x="70" y="584" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_pg" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;PostgreSQL 17&lt;/b&gt;&lt;br&gt;Mandates, offers, carts, orders, audit, products" vertex="1">
+          <mxGeometry height="80" width="320" x="60" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_file" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Valio Aimo product file&lt;/b&gt;&lt;br&gt;17,546 products with GS1 attributes (claims, allergens)" vertex="1">
+          <mxGeometry height="80" width="320" x="460" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_valio" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Valio Aimo API (mock)&lt;/b&gt;&lt;br&gt;POST /api/price and /api/availability, 1 to 1,000 ids per call" vertex="1">
+          <mxGeometry height="80" width="340" x="860" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_std" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F6E56;fontColor=#2C2C2A;fontSize=13;" value="&lt;b&gt;Shared standards:&lt;/b&gt; ISO 8601 times (Europe/Helsinki) · EUR as exact decimal strings · HTTPS with TLS by Caddy · Docker Compose, deployed by GitHub Actions" vertex="1">
+          <mxGeometry height="56" width="1160" x="40" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_p1" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;fontColor=#2C2C2A;fontSize=12;" value="&lt;b&gt;Planned: signed offers and orders&lt;/b&gt;&lt;br&gt;JWS (RFC 7515), EdDSA Ed25519 (RFC 8037), public keys at /.well-known/jwks.json (RFC 7517). Today: Not signed yet" vertex="1">
+          <mxGeometry height="84" width="373" x="40" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_p2" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;fontColor=#2C2C2A;fontSize=12;" value="&lt;b&gt;Planned: Valio Aimo account sign in&lt;/b&gt;&lt;br&gt;OpenID Connect. Today: one main user with a password" vertex="1">
+          <mxGeometry height="84" width="373" x="433" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_p3" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;fontColor=#2C2C2A;fontSize=12;" value="&lt;b&gt;Planned: AP2 and UCP mapping&lt;/b&gt;&lt;br&gt;Mandate, approval and order map to their ideas (page 3). Not compliant today" vertex="1">
+          <mxGeometry height="84" width="374" x="826" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e1" edge="1" parent="1" source="ar_buyer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;" target="ar_agent" value="Chat in plain words">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e2" edge="1" parent="1" source="ar_main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;" target="ar_web" value="Browser or phone">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e3" edge="1" parent="1" source="ar_agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;" target="ar_mcp" value="MCP">
+          <mxGeometry relative="1" x="-0.0455" y="5" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ar_e4" edge="1" parent="1" source="ar_any" style="rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.1;entryY=0;" target="ar_rest" value="REST API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e5" edge="1" parent="1" source="ar_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" target="ar_rest" value="REST API">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e6" edge="1" parent="1" source="ar_gw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;exitX=0.142;exitY=1;entryX=0.5;entryY=0;" target="ar_pg" value="SQL via psycopg 3&lt;br&gt;Alembic migrations">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e7" edge="1" parent="1" source="ar_gw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="ar_file" value="JSON file&lt;br&gt;loaded at startup">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ar_e8" edge="1" parent="1" source="ar_gw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#5F5E5A;strokeWidth=2;fontSize=12;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;exitX=0.875;exitY=1;entryX=0.5;entryY=0;" target="ar_valio" value="REST over HTTPS · X-API-Key&lt;br&gt;A 429 pauses all calls for 30 s">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="10 Architecture overview" id="arch2">
+    <mxGraphModel dx="1470" dy="1227" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1240" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="a2t" parent="1" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;fontSize=26;fontColor=#2C2C2A;fontStyle=1;" value="Architecture overview" vertex="1">
+          <mxGeometry height="44" width="1160" x="40" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_agent" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;" value="&lt;b&gt;Buyer&#39;s agent&lt;/b&gt;&lt;br&gt;MCP" vertex="1">
+          <mxGeometry height="80" width="500" x="80" y="116" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_web" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#EEEDFE;strokeColor=#534AB7;fontColor=#26215C;" value="&lt;b&gt;Web app (manager)&lt;/b&gt;&lt;br&gt;REST API" vertex="1">
+          <mxGeometry height="80" width="500" x="640" y="117" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_gw" parent="1" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=16;spacingTop=10;fontStyle=1;fontSize=17;fillColor=#E1F5EE;strokeColor=#0F6E56;fontColor=#04342C;" value="Valtuus gateway (FastAPI)" vertex="1">
+          <mxGeometry height="230" width="1080" x="80" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_doors" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;Two doors&lt;/b&gt;&lt;br&gt;MCP and REST" vertex="1">
+          <mxGeometry height="100" width="320" x="110" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_srv" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;Services&lt;/b&gt;&lt;br&gt;Offers, cart, order, audit" vertex="1">
+          <mxGeometry height="100" width="320" x="460" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_pol" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;Policy engine&lt;/b&gt;&lt;br&gt;Rules in code, no LLM" vertex="1">
+          <mxGeometry height="100" width="320" x="810" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_pg" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#F1EFE8;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;PostgreSQL 17&lt;/b&gt;&lt;br&gt;Orders, audit" vertex="1">
+          <mxGeometry height="100" width="260" x="80" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_va" parent="1" style="rounded=1;arcSize=4;whiteSpace=wrap;html=1;verticalAlign=top;align=left;spacingLeft=16;spacingTop=10;fontStyle=1;fontSize=17;fillColor=#FAECE7;strokeColor=#993C1D;fontColor=#4A1B0C;" value="Valio Aimo" vertex="1">
+          <mxGeometry height="190" width="780" x="380" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_file" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;Product file&lt;/b&gt;&lt;br&gt;17,546 GS1 products" vertex="1">
+          <mxGeometry height="100" width="340" x="410" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_api" parent="1" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fontSize=15;fillColor=#FFFFFF;strokeColor=#5F5E5A;fontColor=#2C2C2A;" value="&lt;b&gt;Price and stock API&lt;/b&gt;&lt;br&gt;X-API-Key, 1 to 1,000 ids" vertex="1">
+          <mxGeometry height="100" width="340" x="790" y="620" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_leg" parent="1" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5F5E5A;dashed=1;fontColor=#5F5E5A;fontSize=14;" value="Dashed: planned. Signed offers (JWS, Ed25519) are also planned." vertex="1">
+          <mxGeometry height="40" width="1080" x="80" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_e1" edge="1" parent="1" source="a2_agent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#5F5E5A;strokeWidth=2;fontSize=13;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;startArrow=block;startFill=1;exitX=0.5;exitY=1;entryX=0.231;entryY=0;" target="a2_gw" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_e2" edge="1" parent="1" source="a2_web" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#5F5E5A;strokeWidth=2;fontSize=13;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;startArrow=block;startFill=1;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" target="a2_gw" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_e3" edge="1" parent="1" source="a2_gw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#5F5E5A;strokeWidth=2;fontSize=13;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;startArrow=block;startFill=1;exitX=0.12;exitY=1;entryX=0.5;entryY=0;" target="a2_pg" value="SQL">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_e4" edge="1" parent="1" source="a2_file" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#5F5E5A;strokeWidth=2;fontSize=13;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;startArrow=none;exitX=0.5;exitY=0;entryX=0.463;entryY=1;" target="a2_gw" value="Read at startup">
+          <mxGeometry relative="1" x="0.3846" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="a2_e5" edge="1" parent="1" source="a2_gw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#5F5E5A;strokeWidth=2;fontSize=13;fontColor=#2C2C2A;labelBackgroundColor=#FFFFFF;startArrow=block;startFill=1;exitX=0.815;exitY=1;entryX=0.5;entryY=0;" target="a2_api" value="Each offer">
+          <mxGeometry relative="1" x="-0.3856" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
