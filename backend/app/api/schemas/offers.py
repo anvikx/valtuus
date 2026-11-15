@@ -141,12 +141,21 @@ class OfferLine(Reasons):
 class SplitLine(BaseModel):
     product_id: str = Field(description="Valio Aimo product code.")
     qty: int = Field(description="Sales units of this product.")
-    reason_codes: list[ReasonCode] = Field(description="Why the split uses this product.")
+    reason_codes: list[ReasonCode] = Field(
+        description="Why the split uses this product: PARTIAL_AVAILABILITY for all of a short "
+        "stock, SUBSTITUTE_OUTSIDE_PREFERENCE for a brand the buyer does not prefer.",
+    )
 
 
 class ProposedSplit(BaseModel):
-    lines: list[SplitLine] = Field(description="Products that together cover the quantity.")
-    unfilled_qty: int = Field(description="Quantity no product can deliver.")
+    lines: list[SplitLine] = Field(
+        description="Products that together cover the quantity, all for one delivery date. "
+        "Each line is whole sales units, so the total can exceed the request by part of a unit."
+    )
+    unfilled_qty: int = Field(
+        description="Quantity in the requested unit that no line can deliver, rounded up. "
+        "0: the split covers the request. Tell the buyer when it is over 0.",
+    )
 
 
 class RejectedProduct(BaseModel):
@@ -174,7 +183,8 @@ class OfferResponse(BaseModel):
         description=f"Offer lines, best rank first. At most {MAX_OFFER_LINES}."
     )
     proposed_split: ProposedSplit | None = Field(
-        description="Several products for a quantity one product cannot cover. null: not needed.",
+        description="Several products for one delivery date, when rank 1 cannot cover the "
+        "quantity. See `ProposedSplit`. null: rank 1 covers the request.",
     )
     rejected: list[RejectedProduct] = Field(
         description=f"Products with no offer line, and why. At most {MAX_REJECTED_SHOWN}."

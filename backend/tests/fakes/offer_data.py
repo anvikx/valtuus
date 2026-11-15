@@ -28,13 +28,15 @@ def product(
     sales_unit: str = "ST",
     content: ContentPerSalesUnit | None = ONE_LITRE,
     lot_size: Decimal | None = None,
+    brand: str = "Valio",
+    name: str | None = None,
 ) -> Product:
     return Product(
         product_id=product_id,
         gtin="6408430000012",
-        name=f"Milk {product_id}",
+        name=name or f"Milk {product_id}",
         names={},
-        brand="Valio",
+        brand=brand,
         category="10400",
         sales_unit=sales_unit,
         content_per_sales_unit=content,
