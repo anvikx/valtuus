@@ -8,12 +8,31 @@ from app.api.schemas.common import CartRevisionValue, PositiveSalesUnits, Reason
 from app.api.schemas.offers import SubstituteFor
 from app.domain.cart import CartDraft, CartLineInput
 from app.domain.enums import CartState, Decision, ReasonCode
+from app.domain.errors import NeedsClarificationError
 
 
 class CartLineRequest(RequestModel):
     offer_id: str = Field(description="Offer that holds the line.", examples=["o_1"])
     product_id: str = Field(description="Product code of an offer line.", examples=["464306"])
-    qty: PositiveSalesUnits = Field(description="Sales units.", examples=[1000])
+    # Optional in the schema only so a missing qty reaches the gateway and gets
+    # NEEDS_CLARIFICATION on both doors, not a generic schema error.
+    qty: PositiveSalesUnits | None = Field(
+        default=None,
+        description="Sales units. Required: a line without qty gets NEEDS_CLARIFICATION.",
+        examples=[1000],
+    )
+
+
+def _known_quantities(lines: list[CartLineRequest]) -> list[int]:
+    unknown = [(index, line) for index, line in enumerate(lines) if line.qty is None]
+    if not unknown:
+        return [line.qty for line in lines if line.qty is not None]
+
+    products = " and ".join(line.product_id for _, line in unknown)
+    raise NeedsClarificationError(
+        missing=tuple(f"lines[{index}].qty" for index, _ in unknown),
+        question=f"How many sales units of {products}?",
+    )
 
 
 class CartRequest(RequestModel):
@@ -37,10 +56,11 @@ class CartRequest(RequestModel):
     )
 
     def to_domain(self) -> CartDraft:
+        quantities = _known_quantities(self.lines)
         return CartDraft(
             lines=tuple(
-                CartLineInput(offer_id=line.offer_id, product_id=line.product_id, qty=line.qty)
-                for line in self.lines
+                CartLineInput(offer_id=line.offer_id, product_id=line.product_id, qty=qty)
+                for line, qty in zip(self.lines, quantities, strict=True)
             ),
             request_text=self.request_text,
             clarifications=tuple(self.clarifications),

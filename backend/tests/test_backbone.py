@@ -1,6 +1,7 @@
 """Pins the routes, auth and tools while the services are stubs, so each part builds behind them."""
 
 import dataclasses
+import json
 import os
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -324,6 +325,83 @@ def test_a_huge_cart_qty_is_a_validation_error(qty) -> None:
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["error"] == "VALIDATION_ERROR"
+
+
+_NO_QTY_LINES = [
+    [_CART["lines"][0], {"offer_id": "o_1", "product_id": "p_2"}],
+    [_CART["lines"][0], {"offer_id": "o_1", "product_id": "p_2", "qty": None}],
+]
+
+
+@pytest.mark.parametrize("lines", _NO_QTY_LINES)
+@pytest.mark.parametrize(
+    ("path", "extra"), [(_CARTS_PATH, {}), (_REVISIONS_PATH, {"base_revision": 1})]
+)
+def test_a_cart_line_with_no_qty_needs_clarification(lines, path, extra) -> None:
+    """A guess never becomes an order: the agent must ask the buyer how many, not pick a number."""
+    client = _client()
+
+    response = client.post(
+        path, headers={**_AUTH, **_IDEMPOTENCY}, json={**_CART, **extra, "lines": lines}
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    body = response.json()
+    assert body["error"] == "VALIDATION_ERROR"
+    assert body["reason_code"] == "NEEDS_CLARIFICATION"
+    assert body["missing"] == ["lines[1].qty"]
+    assert (
+        body["message"] == "The request is not clear. Ask the buyer: How many sales units of p_2?"
+    )
+    client.post("/api/v1/auth/login", json={"password": os.environ["MAIN_USER_PASSWORD"]})
+    assert client.get(_CARTS_PATH).json() == []
+
+
+def test_a_cart_with_no_qty_needs_clarification_on_mcp() -> None:
+    """Both doors answer alike, so an MCP agent also learns to ask the buyer."""
+    request = {**_CART, "lines": _NO_QTY_LINES[0]}
+
+    result = _mcp(
+        create_app(),
+        "tools/call",
+        {"name": "create_cart", "arguments": {"request": request, "idempotency_key": "k-1"}},
+    )
+
+    assert result["isError"]
+    # The MCP SDK puts "Error executing tool create_cart: " before the error body.
+    text = result["content"][0]["text"]
+    body = json.loads(text[text.index("{") :])
+    assert body["reason_code"] == "NEEDS_CLARIFICATION"
+    assert body["missing"] == ["lines[1].qty"]
+
+
+def test_every_line_with_no_qty_is_named() -> None:
+    """One question covers all gaps, so the buyer is not asked again for each line."""
+    lines = [
+        {"offer_id": "o_1", "product_id": "p_a"},
+        {**_CART["lines"][0], "qty": 1},
+        {"offer_id": "o_1", "product_id": "p_c"},
+    ]
+
+    response = _client().post(
+        _CARTS_PATH, headers={**_AUTH, **_IDEMPOTENCY}, json={**_CART, "lines": lines}
+    )
+
+    body = response.json()
+    assert body["missing"] == ["lines[0].qty", "lines[2].qty"]
+    assert body["message"].endswith("How many sales units of p_a and p_c?")
+
+
+def test_other_errors_keep_the_three_field_body() -> None:
+    """A wrong quantity is not a missing one: the agent fixes it without asking the buyer."""
+    lines = [{**_CART["lines"][0], "qty": 0}]
+
+    response = _client().post(
+        _CARTS_PATH, headers={**_AUTH, **_IDEMPOTENCY}, json={**_CART, "lines": lines}
+    )
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert set(response.json()) == {"error", "message", "next_step"}
 
 
 @pytest.mark.parametrize(("method", "path", "body"), _MAIN_USER_READS)

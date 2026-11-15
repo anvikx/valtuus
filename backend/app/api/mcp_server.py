@@ -50,8 +50,7 @@ def _error_body() -> Iterator[None]:
     try:
         yield
     except GatewayError as exc:
-        body = ErrorBody(error=exc.code, message=exc.message, next_step=exc.next_step)
-        raise ToolError(body.model_dump_json()) from exc
+        raise ToolError(ErrorBody.of(exc).model_dump_json(exclude_none=True)) from exc
 
 
 def create_mcp_server(services: Services, public_url: str) -> MCPServer:

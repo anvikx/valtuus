@@ -35,13 +35,13 @@ _NOT_IMPLEMENTED = {
 def error_response(body: ErrorBody) -> JSONResponse:
     status = _STATUS[body.error]
     headers = _CHALLENGE if status == HTTPStatus.UNAUTHORIZED else None
-    return JSONResponse(body.model_dump(mode="json"), status_code=status, headers=headers)
+    # The two optional fields stay out of every body that does not use them.
+    content = body.model_dump(mode="json", exclude_none=True)
+    return JSONResponse(content, status_code=status, headers=headers)
 
 
 async def _gateway_error(_: Request, exc: GatewayError) -> JSONResponse:
-    response = error_response(
-        ErrorBody(error=exc.code, message=exc.message, next_step=exc.next_step),
-    )
+    response = error_response(ErrorBody.of(exc))
     # RFC 9110 section 10.2.3: tells the agent when a retry can pass the Valio Aimo pause.
     if isinstance(exc, UpstreamRateLimitedError):
         response.headers["Retry-After"] = str(exc.retry_after)

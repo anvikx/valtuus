@@ -1,10 +1,14 @@
-from app.domain.enums import ErrorCode
+from app.domain.enums import ErrorCode, ReasonCode
+from app.domain.reason_text import reason_sentence
 
 
 class GatewayError(Exception):
     """A technical error that the door turns into an HTTP error body. Never a decision."""
 
     code: ErrorCode
+    # Set only when the agent must act on a reason, not only fix its call.
+    reason_code: ReasonCode | None = None
+    missing: tuple[str, ...] = ()
 
     def __init__(self, message: str, next_step: str) -> None:
         super().__init__(message)
@@ -45,3 +49,16 @@ class UpstreamRateLimitedError(UpstreamUnavailableError):
 
 class InvalidRequestError(GatewayError):
     code = ErrorCode.VALIDATION_ERROR
+
+
+class NeedsClarificationError(InvalidRequestError):
+    """The request lacks a fact only the buyer knows. No cart, so a guess never becomes an order."""
+
+    reason_code = ReasonCode.NEEDS_CLARIFICATION
+
+    def __init__(self, missing: tuple[str, ...], question: str) -> None:
+        super().__init__(
+            reason_sentence(ReasonCode.NEEDS_CLARIFICATION, question=question),
+            "Ask the buyer, then send the call again with the missing fields.",
+        )
+        self.missing = missing
