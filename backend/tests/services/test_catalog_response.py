@@ -179,7 +179,7 @@ def test_postgres_persists_one_search_with_the_response_facts(database):
     from tests.fakes.offer_data import NOW
 
     products = PostgresCatalog(database)
-    products.replace([item("1"), item("2", category="2")])
+    products.replace([item("1"), item("3"), item("4"), item("2", category="2")])
     mandates = PostgresMandateRepository(database)
     with database.transaction():
         mandates.add(replace(mandate(), required_attributes=()))
@@ -208,7 +208,7 @@ def test_postgres_persists_one_search_with_the_response_facts(database):
     assert rows[0]["request_id"] == result.request_id
     assert rows[0]["buyer_id"] == agent_key().buyer_id
     assert rows[0]["body"]["step"] == "SEARCH"
-    assert rows[0]["body"]["output_data"]["total_hits"] == result.total_hits == 2
+    assert rows[0]["body"]["output_data"]["total_hits"] == result.total_hits == 4
     assert rows[0]["body"]["output_data"]["hint"]["code"] == "READY"
 
 
@@ -305,7 +305,9 @@ def test_unrelated_exclusion_does_not_override_no_match_with_missing_fields():
 
 @pytest.mark.parametrize("category", [None, "2", "missing"])
 def test_in_list_tracks_the_returned_category(category):
-    catalog, _ = service(FakeCatalog(item("1", category="1"), item("2", category="2")))
+    # Category "1" leads clearly, so with no request the search lists it.
+    products = [item(pid, category="1") for pid in ("1", "3", "4")] + [item("2", category="2")]
+    catalog, _ = service(FakeCatalog(*products))
 
     result = catalog.search(agent_key(), query(category=category))
 
@@ -313,7 +315,7 @@ def test_in_list_tracks_the_returned_category(category):
     if category is None:
         assert result.hint_category == "1"
         assert flags == {"1": True, "2": False}
-        assert [candidate.product_id for candidate in result.candidates] == ["1"]
+        assert [candidate.product_id for candidate in result.candidates] == ["1", "3", "4"]
     elif category == "2":
         assert result.hint_category == "2"
         assert flags == {"2": True}

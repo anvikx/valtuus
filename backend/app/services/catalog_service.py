@@ -98,8 +98,8 @@ class CatalogService:
         hits, excluded = self._filter(query, mandate)
         categories = summarize_categories(hits, query.category, query.query)
         category = query.category
-        if category is None and categories:
-            category = categories[0].category
+        if category is None:
+            category = next((summary.category for summary in categories if summary.in_list), None)
         selected = sorted(
             ((product, match) for product, match in hits if product.category == category),
             key=lambda hit: (hit[1], hit[0].product_id),
@@ -134,6 +134,7 @@ class CatalogService:
                 eligible_excluded_count,
                 missing,
                 choices,
+                len(hits),
             ),
             hint_category=category,
             excluded=exclusions,

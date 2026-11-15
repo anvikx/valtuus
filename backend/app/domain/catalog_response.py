@@ -2,6 +2,7 @@
 
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.domain.catalog import CategorySummary, Product, SearchChoice, SearchHint, SearchQuery
 from app.domain.catalog_search import (
@@ -10,7 +11,11 @@ from app.domain.catalog_search import (
     category_key,
     is_fixed_phrase,
 )
-from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
+from app.domain.constants import (
+    CATEGORY_TIE_SHARE,
+    SEARCH_CATEGORY_COUNT,
+    SEARCH_CATEGORY_EXAMPLES,
+)
 from app.domain.enums import SearchHintCode
 
 HINT_CODE_DESCRIPTION = (
@@ -26,6 +31,10 @@ _HINT_SENTENCES = {
     SearchHintCode.ASK_CHOICES: (
         "Ask the buyer which choices they need, in one question. Search again with the chosen "
         "codes in required_attributes and the other codes in declined_attributes."
+    ),
+    SearchHintCode.ASK_CATEGORY: (
+        "The words fit more than one product type. Show the buyer the categories with their "
+        "example names and ask which one they mean. Search again with that category."
     ),
     SearchHintCode.GUARD_CUT: "The search is not complete. Add an attribute, a unit or more words.",
     SearchHintCode.READY: (
@@ -45,8 +54,12 @@ def search_hint(
     eligible_excluded_count: int,
     missing_fields: tuple[str, ...],
     choices: tuple[SearchChoice, ...],
+    total_hits: int,
 ) -> SearchHint:
-    if candidate_count == 0:
+    # Hits but no candidates: the top categories are too close, so the search listed none.
+    if candidate_count == 0 and total_hits:
+        code = SearchHintCode.ASK_CATEGORY
+    elif candidate_count == 0:
         code = SearchHintCode.EXCLUDED_ONLY if eligible_excluded_count else SearchHintCode.NO_MATCH
     elif missing_fields:
         code = SearchHintCode.MISSING_FIELDS
@@ -83,19 +96,45 @@ def _examples(products: Sequence[Product]) -> tuple[str, ...]:
     return tuple(names)[:SEARCH_CATEGORY_EXAMPLES]
 
 
-def _category_rank(
-    code: str,
-    hits: Sequence[tuple[Product, NameMatch]],
-    query: str,
-) -> tuple[bool, int, int, tuple[int, int | str]]:
-    # "milkshake" hits for "milk" and "ice cream" hits for "cream" are many but weak.
-    whole_word_hits = sum(not match.inside_word for _, match in hits)
-    return (
+@dataclass(frozen=True)
+class _CategoryRank:
+    code: str
+    is_fixed_phrase: bool
+    whole_word_hits: int
+    hits: int
+
+    def key(self) -> tuple[bool, int, int, tuple[int, int | str]]:
+        # "milkshake" hits for "milk" and "ice cream" hits for "cream" are many but weak.
+        return (self.is_fixed_phrase, -self.whole_word_hits, -self.hits, category_key(self.code))
+
+
+def _rank(code: str, hits: Sequence[tuple[Product, NameMatch]], query: str) -> _CategoryRank:
+    return _CategoryRank(
+        code,
         is_fixed_phrase([product for product, _ in hits], query),
-        -whole_word_hits,
-        -len(hits),
-        category_key(code),
+        sum(not match.inside_word for _, match in hits),
+        len(hits),
     )
+
+
+def _share(part: int, whole: int) -> float:
+    # Two categories with no whole word hits are equal on that count.
+    return part / whole if whole else 1.0
+
+
+def _clear_leader(ranks: Sequence[_CategoryRank]) -> str | None:
+    if len(ranks) < 2:
+        return ranks[0].code if ranks else None
+    leader, runner = ranks[0], ranks[1]
+    if leader.is_fixed_phrase != runner.is_fixed_phrase:
+        return leader.code
+
+    # Both counts must be close. "kerma" is one whole word hit in each category, 44 hits to 3.
+    share = min(
+        _share(runner.whole_word_hits, leader.whole_word_hits),
+        _share(runner.hits, leader.hits),
+    )
+    return None if share >= CATEGORY_TIE_SHARE else leader.code
 
 
 def summarize_categories(
@@ -106,16 +145,16 @@ def summarize_categories(
     grouped: dict[str, list[tuple[Product, NameMatch]]] = defaultdict(list)
     for hit in hits:
         grouped[hit[0].category].append(hit)
-    ordered = sorted(grouped, key=lambda code: _category_rank(code, grouped[code], query))
+    ranks = sorted((_rank(code, grouped[code], query) for code in grouped), key=_CategoryRank.key)
 
-    # With no requested category, the search lists the best ranked category.
-    listed = requested if requested is not None else next(iter(ordered), None)
+    # With no requested category, the search lists the best ranked category, or none if unclear.
+    listed = requested if requested is not None else _clear_leader(ranks)
     return tuple(
         CategorySummary(
-            code,
-            len(grouped[code]),
-            _examples([product for product, _ in grouped[code]]),
-            code == listed,
+            rank.code,
+            rank.hits,
+            _examples([product for product, _ in grouped[rank.code]]),
+            rank.code == listed,
         )
-        for code in ordered[:SEARCH_CATEGORY_COUNT]
+        for rank in ranks[:SEARCH_CATEGORY_COUNT]
     )

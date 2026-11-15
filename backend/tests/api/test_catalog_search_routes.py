@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.adapters.memory.repositories import InMemoryMandateRepository
 from app.adapters.product_store import ProductStore
-from app.domain.catalog import Allergens
+from app.domain.catalog import Allergens, Product
 from app.domain.enums import AllergenStatus, Decision
 from app.main import create_app
 from tests.adapters.samples import mandate
@@ -28,21 +28,33 @@ _FIELDS = {
 }
 
 
+def _products(expected: str) -> list[Product]:
+    # Category "1" leads clearly, so the search lists it without a question.
+    clear_leader = [item(pid, category="1") for pid in ("1", "3", "4")] + [item("2", category="2")]
+    return {
+        "NO_MATCH": [],
+        "EXCLUDED_ONLY": [item(allergens=Allergens(AllergenStatus.UNKNOWN, ()))],
+        "GUARD_CUT": [item(str(i)) for i in range(501)],
+        "ASK_CHOICES": [item("1", attributes=("FREE_FROM_LACTOSE",)), item("2")],
+        "ASK_CATEGORY": [item("1", category="1"), item("2", category="2")],
+    }.get(expected, clear_leader)
+
+
 @pytest.mark.parametrize(
     "expected",
-    ["READY", "NO_MATCH", "EXCLUDED_ONLY", "MISSING_FIELDS", "ASK_CHOICES", "GUARD_CUT"],
+    [
+        "READY",
+        "NO_MATCH",
+        "EXCLUDED_ONLY",
+        "MISSING_FIELDS",
+        "ASK_CHOICES",
+        "ASK_CATEGORY",
+        "GUARD_CUT",
+    ],
 )
 @pytest.mark.parametrize("mcp_url", ["/api/mcp", "/api/mcp/"])
 def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp_url):
-    products = [item("1", category="1"), item("2", category="2")]
-    if expected == "NO_MATCH":
-        products = []
-    elif expected == "EXCLUDED_ONLY":
-        products = [item(allergens=Allergens(AllergenStatus.UNKNOWN, ()))]
-    elif expected == "GUARD_CUT":
-        products = [item(str(i)) for i in range(501)]
-    elif expected == "ASK_CHOICES":
-        products = [item("1", attributes=("FREE_FROM_LACTOSE",)), item("2")]
+    products = _products(expected)
     policy = replace(mandate(), required_attributes=(), allergen_unknown_policy=Decision.DENY)
     monkeypatch.setattr(InMemoryMandateRepository, "latest", lambda self, buyer: policy)
     monkeypatch.setattr(ProductStore, "search_names", lambda self, query: products)
@@ -92,6 +104,8 @@ def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp
         assert flags == {"1": True, "2": False}
     elif expected in ("GUARD_CUT", "ASK_CHOICES"):
         assert flags == {"10400": True}
+    elif expected == "ASK_CATEGORY":
+        assert flags == {"1": False, "2": False}
     else:
         assert flags == {}
     if expected == "GUARD_CUT":
