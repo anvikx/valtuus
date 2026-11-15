@@ -160,3 +160,6 @@ class Offer:
     signature: str | None
     # None only on offers stored before the field existed.
     request_id: str | None = None
+    # Ranked lines and rejected products cut to keep the response small.
+    lines_not_shown: int = 0
+    rejected_not_shown: int = 0

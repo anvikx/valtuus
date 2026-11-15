@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reasons, RequestModel
 from app.domain.audit import REQUEST_ID_PATTERN
+from app.domain.constants import MAX_OFFER_LINES, MAX_REJECTED_SHOWN
 from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
 from app.domain.offer import OfferQuery
 
@@ -165,13 +166,22 @@ class OfferResponse(BaseModel):
         "until price_valid_to.",
     )
     requested: RequestedItem = Field(description="The request the offer answers.")
-    lines: list[OfferLine] = Field(description="Offer lines, best rank first.")
+    lines: list[OfferLine] = Field(
+        description=f"Offer lines, best rank first. At most {MAX_OFFER_LINES}."
+    )
     proposed_split: ProposedSplit | None = Field(
         description="Several products for a quantity one product cannot cover. null: not needed.",
     )
-    rejected: list[RejectedProduct] = Field(description="Products with no offer line, and why.")
+    rejected: list[RejectedProduct] = Field(
+        description=f"Products with no offer line, and why. At most {MAX_REJECTED_SHOWN}."
+    )
     signature: str | None = Field(
         description="Compact JWS (EdDSA) over this body without signature. Check it with the "
         "key in /.well-known/jwks.json. null: the gateway has no signing key.",
     )
     request_id: str | None = Field(description="Id of the buyer request the offer belongs to.")
+    lines_not_shown: int = Field(
+        description="Lower ranked lines that are not in `lines`. To see them, narrow the "
+        "search or send product_ids.",
+    )
+    rejected_not_shown: int = Field(description="Rejected products that are not in `rejected`.")

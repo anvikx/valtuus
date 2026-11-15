@@ -7,6 +7,10 @@ MAX_SEARCH_CANDIDATES = 40
 SEARCH_CATEGORY_COUNT = 8
 SEARCH_CATEGORY_EXAMPLES = 2
 OFFER_TTL_MINUTES = 15
+# Claude Code saves an MCP result over 50,000 characters to a file. A line is about 1,100
+# characters and a rejected product about 300, so the full offer stays near 40,000.
+MAX_OFFER_LINES = 30
+MAX_REJECTED_SHOWN = 20
 # A buyer chat with clarifying questions can take a while. Offers price live anyway.
 SEARCH_SET_TTL_MINUTES = 60
 DUPLICATE_WINDOW_MINUTES = 60
