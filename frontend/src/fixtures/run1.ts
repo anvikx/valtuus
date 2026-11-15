@@ -42,6 +42,8 @@ export const PENDING_CART: WireCart = {
       reason_codes: [],
       reason_sentences: [],
       substitute_for: null,
+      stock_model: 'STOCK',
+      available_qty: null,
     },
   ],
   total_ex_vat: '1010.00',
