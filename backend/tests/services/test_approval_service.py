@@ -1,6 +1,6 @@
 import dataclasses
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 
 import pytest
@@ -465,6 +465,54 @@ def _revise(world: _World) -> Cart:
     line = CartLineInput(offer_id="of_1", product_id="p_2", qty=3)
     draft = CartDraft(lines=(line,), request_text="make it 3", clarifications=())
     return world.cart_service.revise_cart(samples.agent_key(), world.cart.cart_id, 1, draft, "k-r1")
+
+
+def _race_approve_and_revise(world: _World) -> None:
+    """The main user taps approve while the agent sends a change. One wins, the other gets 409."""
+    barrier = threading.Barrier(2)
+    results: dict[str, Order | Cart | Exception] = {}
+
+    def run(name: str, action: Callable[[], Order | Cart]) -> None:
+        barrier.wait()
+        try:
+            results[name] = action()
+        # Kept, not raised: an error in a thread would not fail the test.
+        except Exception as error:
+            results[name] = error
+
+    threads = [
+        threading.Thread(target=run, args=("approve", world.approve)),
+        threading.Thread(target=run, args=("revise", lambda: _revise(world))),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    stored = world.carts.get(world.cart.cart_id)
+    order = world.orders.by_cart(world.cart.cart_id)
+    if isinstance(results["approve"], Order):
+        # The yes came first, so the change must not reopen an ordered cart.
+        assert isinstance(results["revise"], ConflictError)
+        assert order == results["approve"]
+        assert stored.revision == 1
+        return
+
+    # The change came first, so the yes was for lines that no longer exist.
+    assert isinstance(results["approve"], ConflictError)
+    assert isinstance(results["revise"], Cart)
+    assert order is None
+    assert stored.revision == 2
+
+
+def test_racing_approve_and_revise_let_one_win() -> None:
+    """An order of lines nobody approved, or a change lost after the order, must not happen."""
+    _race_approve_and_revise(_World())
+
+
+def test_postgres_racing_approve_and_revise_let_one_win(database: Database) -> None:
+    """Each call commits in its own transaction, so only the cart row lock keeps them apart."""
+    _race_approve_and_revise(_World(database=database))
 
 
 def test_withdrawn_cart_cannot_be_approved() -> None:
