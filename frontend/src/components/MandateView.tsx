@@ -12,6 +12,10 @@ export const POLICY_WORDS: Readonly<Record<AllergenPolicy, string>> = {
   order: 'Order the product',
 }
 
+export function autoOrderWords(isOn: boolean): string {
+  return isOn ? 'Yes, up to these totals' : 'No, you approve every cart'
+}
+
 const MUST_APPROVE = [
   'Larger orders',
   'Partial stock or stock that is not confirmed',
@@ -87,6 +91,7 @@ export function MandateView({ mandate, onEdit }: MandateViewProps): ReactElement
           </h2>
           <p className="muted">Totals ex VAT.</p>
           <dl className="mandate-rows">
+            <Row term="Orders by itself">{autoOrderWords(mandate.canAutoOrder)}</Row>
             <Row term="Per order">{money(mandate.maxOrder, CURRENCY)}</Row>
             <Row term="Per delivery day">{money(mandate.maxPerDay, CURRENCY)}</Row>
           </dl>

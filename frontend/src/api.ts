@@ -212,6 +212,7 @@ export interface WireMandate {
   readonly required_attributes: readonly string[]
   readonly forbidden_allergens: readonly string[]
   readonly allergen_unknown_policy: string
+  readonly can_auto_order: boolean
 }
 
 export interface WireMandateResponse {
@@ -233,6 +234,7 @@ export interface WireMandateUpdate {
   readonly required_attributes: readonly string[]
   readonly forbidden_allergens: readonly string[]
   readonly allergen_unknown_policy: string
+  readonly can_auto_order: boolean
 }
 
 interface HealthResponse {
@@ -361,6 +363,7 @@ export interface Mandate {
   readonly required: readonly string[]
   readonly forbidden: readonly string[]
   readonly unknownPolicy: AllergenPolicy
+  readonly canAutoOrder: boolean
 }
 
 export type MandateEdit = Omit<Mandate, 'version'>
@@ -602,6 +605,8 @@ function toMandate({ mandate }: WireMandateResponse): Mandate {
     forbidden: mandate.forbidden_allergens,
     // An unknown value must not read as permission to order.
     unknownPolicy: WIRE_POLICY_TO_POLICY[mandate.allergen_unknown_policy] ?? 'ask',
+    // A missing value must not read as permission to order alone.
+    canAutoOrder: mandate.can_auto_order === true,
   }
 }
 
@@ -768,6 +773,7 @@ export async function saveMandate(edit: MandateEdit): Promise<Mandate> {
     required_attributes: edit.required,
     forbidden_allergens: edit.forbidden,
     allergen_unknown_policy: POLICY_TO_WIRE_POLICY[edit.unknownPolicy],
+    can_auto_order: edit.canAutoOrder,
   }
   return toMandate((await call(HTTP_METHOD.put, '/mandate', update)) as WireMandateResponse)
 }

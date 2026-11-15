@@ -236,6 +236,21 @@ export function MandateForm({
     <form className="mandate-form" noValidate onSubmit={submit}>
       <fieldset className="mandate-group">
         <legend className="heading">What the agent may order alone</legend>
+        <label className="mandate-choice">
+          <input
+            aria-describedby="auto-order-hint"
+            checked={draft.canAutoOrder}
+            type="checkbox"
+            onChange={(event) => {
+              setDraft({ ...draft, canAutoOrder: event.target.checked })
+            }}
+          />
+          The agent may order by itself
+        </label>
+        <span className="muted" id="auto-order-hint">
+          Off: you approve every cart. On: a cart within the totals below is ordered with no
+          approval.
+        </span>
         <MoneyField
           error={orderError}
           hint={`Now ${initial.maxOrder} EUR. Up to this total the agent orders with no approval.`}
