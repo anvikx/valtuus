@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal
 
@@ -7,7 +7,7 @@ from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, VALID_ATTRIBUTES
 from app.domain.constants import CURRENCY
 from app.domain.enums import AuditStep, Decision
 from app.domain.errors import ConflictError, ForbiddenError, InvalidRequestError, NotFoundError
-from app.domain.mandate import ALLERGEN_DESCRIPTION, VALID_ALLERGENS, Mandate
+from app.domain.mandate import ALLERGEN_DESCRIPTION, VALID_ALLERGENS, Mandate, RankingWeights
 from app.domain.money import round_money
 from app.services.audit_service import AuditService
 from app.services.ports.clock import Clock
@@ -42,6 +42,7 @@ class MandateChanges:
     forbidden_allergens: tuple[str, ...] | None = None
     allergen_unknown_policy: Decision | None = None
     can_auto_order: bool | None = None
+    ranking_weights: RankingWeights | None = None
 
 
 class MandateService:
@@ -164,7 +165,8 @@ def _changed_fields(current: Mandate, changes: MandateChanges) -> dict[str, obje
     """Only the given values that differ, so a save with no change makes no version."""
     return {
         field: value
-        for field, value in asdict(changes).items()
+        # vars, not asdict: asdict would turn the weights into a dict.
+        for field, value in vars(changes).items()
         if value is not None and value != getattr(current, field)
     }
 
@@ -195,6 +197,14 @@ def _choice_sentences(mandate: Mandate) -> list[str]:
         allergens = ", ".join(mandate.forbidden_allergens)
         unknown = _UNKNOWN_ALLERGENS[mandate.allergen_unknown_policy]
         sentences.append(f"Forbidden allergens: {allergens}. {unknown}")
+
+    # Price only is the default, so it needs no sentence.
+    weights = mandate.ranking_weights
+    if weights.reliability or weights.co2:
+        sentences.append(
+            f"Ranking weights: price {weights.price:g}, reliability {weights.reliability:g}, "
+            f"CO2 {weights.co2:g}."
+        )
 
     return sentences
 

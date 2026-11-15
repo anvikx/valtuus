@@ -8,6 +8,7 @@ from app.domain.catalog import Allergens, ContentPerSalesUnit, Product
 from app.domain.constants import GATEWAY_TIMEZONE
 from app.domain.enums import AllergenStatus, AllergenType, StockModel, Unit
 from app.domain.errors import GatewayError
+from app.domain.mandate import RankingWeights
 from app.domain.offer import Availability, AvailabilitySnapshot, OfferQuery, Price
 
 MONDAY = date(2026, 11, 16)
@@ -153,3 +154,6 @@ class FakePriceSource:
         self.calls.append((route, tuple(product_ids), requested_date))
         if self._error is not None:
             raise self._error
+
+
+PRICE_ONLY = RankingWeights(price=1.0, reliability=0.0, co2=0.0)

@@ -16,6 +16,7 @@ from app.api.schemas.mandate import MandateResponse, MandateUpdateRequest
 from app.api.schemas.offers import OfferResponse
 from app.api.schemas.orders import OrderConfirmation
 from app.domain.enums import Unit
+from app.domain.mandate import RankingWeights
 
 _INTERPRETED = {
     "query": "milk",
@@ -349,3 +350,27 @@ def test_cart_action_requires_a_positive_integer_revision(model, revision):
 
     with pytest.raises(ValidationError):
         model.model_validate(body)
+
+
+def test_mandate_update_takes_ranking_weights() -> None:
+    """The main user turns on reliability and CO2 ranking with this field."""
+    body = {"ranking_weights": {"price": 0.5, "reliability": 0.3, "co2": 0.2}}
+
+    changes = MandateUpdateRequest.model_validate(body).to_domain()
+
+    assert changes.ranking_weights == RankingWeights(0.5, 0.3, 0.2)
+
+
+@pytest.mark.parametrize(
+    "weights",
+    [
+        pytest.param({"price": -0.1, "reliability": 1.0, "co2": 0.0}, id="negative"),
+        pytest.param({"price": 0.0, "reliability": 0.0, "co2": 0.0}, id="all-zero"),
+        pytest.param({"price": 1.0, "reliability": 0.0}, id="missing-weight"),
+        pytest.param({"price": "NaN", "reliability": 0.0, "co2": 0.0}, id="nan"),
+    ],
+)
+def test_mandate_update_refuses_bad_ranking_weights(weights: dict) -> None:
+    """A negative weight would rank the worst line first. All zero would rank by id alone."""
+    with pytest.raises(ValidationError, match="ranking_weights"):
+        MandateUpdateRequest.model_validate({"ranking_weights": weights})

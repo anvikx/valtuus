@@ -160,8 +160,8 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         search, or send product_ids to price chosen products. An old request_id expires: search
         again.
         Rank full on-time stock first, partial or unconfirmed next, and late products last.
-        Within each group, preferred brands come before price per requested unit. A brand
-        outside the mandate preference requires human approval.
+        Within each group, preferred brands come first, then the mandate weights for price,
+        reliability and CO2. A brand outside the mandate preference requires human approval.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
         include_substitutes=true when the buyer named an exact product: a rejected product

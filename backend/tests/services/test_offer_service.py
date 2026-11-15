@@ -27,6 +27,7 @@ from app.domain.errors import (
     UpstreamRateLimitedError,
     UpstreamUnavailableError,
 )
+from app.domain.mandate import RankingWeights
 from app.services.audit_service import AuditService
 from app.services.offer_service import OfferService
 from tests.adapters import samples
@@ -35,6 +36,7 @@ from tests.fakes.offer_data import (
     MILK_ID,
     MONDAY,
     NOW,
+    PRICE_ONLY,
     SOURCE_TIME,
     FakeCatalog,
     FakePriceSource,
@@ -47,6 +49,7 @@ from tests.fakes.offer_data import (
 _GUARD = 3
 _SIGNATURE = "header.payload.signature"
 _REQUEST_ID = "r_0123456789abcdef0123456789abcdef"
+_CHEAP_ID = "464307"
 
 
 class _Records:
@@ -75,6 +78,7 @@ class _World:
         now: datetime = NOW,
         *,
         products: tuple[Product, ...] | None = None,
+        weights: RankingWeights = PRICE_ONLY,
     ) -> None:
         self.source = source
         self.offers = InMemoryOfferRepository()
@@ -82,11 +86,18 @@ class _World:
         self.signer = _RecordingSigner()
         self.clock = FixedClock(now)
         self.mandates = InMemoryMandateRepository()
-        self.mandates.add(replace(samples.mandate(), preferred_brands=()))
+        self.mandates.add(replace(samples.mandate(), preferred_brands=(), ranking_weights=weights))
         catalog_products = (
             (product(), product("465039", sales_unit="KI")) if products is None else products
         )
         unit_of_work = InMemoryUnitOfWork()
+        audit = AuditService(
+            self.audit,
+            InMemoryCartRepository(),
+            self.offers,
+            self.clock,
+            unit_of_work,
+        )
         self.service = OfferService(
             FakeCatalog(*catalog_products),
             source,
@@ -94,13 +105,7 @@ class _World:
             self.signer,
             InMemorySearchSetRepository(),
             self.clock,
-            AuditService(
-                self.audit,
-                InMemoryCartRepository(),
-                self.offers,
-                self.clock,
-                unit_of_work,
-            ),
+            audit,
             unit_of_work,
             max(_GUARD, len(catalog_products)),
             self.mandates,
@@ -570,3 +575,27 @@ def test_a_requested_product_with_no_price_gives_no_difference() -> None:
     assert line.substitute_for.reason_code is ReasonCode.NO_PRICE
     assert line.substitute_for.price_difference_per_unit is None
     assert offer_response(offer).lines[0].substitute_for.price_difference_per_unit is None
+
+
+@pytest.mark.parametrize(
+    ("weights", "expected_first"),
+    [
+        (PRICE_ONLY, _CHEAP_ID),
+        (RankingWeights(price=0.0, reliability=1.0, co2=0.0), MILK_ID),
+    ],
+)
+def test_the_mandate_weights_decide_the_order(weights, expected_first) -> None:
+    """The buyer sets the weights in the mandate, so the offer must rank by them, not by 1/0/0."""
+    products = (
+        replace(product(), delivery_reliability=Decimal("0.99")),
+        replace(product(_CHEAP_ID), delivery_reliability=Decimal("0.50")),
+    )
+    source = FakePriceSource(
+        [price(), price(_CHEAP_ID, unit_price="0.90")],
+        [stock(), stock(_CHEAP_ID)],
+    )
+    world = _World(source, products=products, weights=weights)
+
+    offer = world.get_offers(MILK_ID, _CHEAP_ID)
+
+    assert offer.lines[0].product_id == expected_first

@@ -98,7 +98,7 @@ class OfferService:
         candidates, screened_out = _split(products, prices, snapshot, query, self._clock.now())
         # The first snapshot is the older one, so it stays the offer's source_time.
         substitutes = self._substitutes(products, prices, screened_out, query, issued_at)
-        ranked = rank_offer_lines(candidates, query, substitutes)
+        ranked = rank_offer_lines(candidates, query, mandate.ranking_weights, substitutes)
         rejected = missing + screened_out
         # Cut after the rank, so the lines shown are the best of all priced products.
         lines = ranked[:MAX_OFFER_LINES]
