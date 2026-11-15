@@ -4,7 +4,12 @@ from collections import defaultdict
 from collections.abc import Sequence
 
 from app.domain.catalog import CategorySummary, Product, SearchChoice, SearchHint, SearchQuery
-from app.domain.catalog_search import CHOICE_ATTRIBUTES, category_key
+from app.domain.catalog_search import (
+    CHOICE_ATTRIBUTES,
+    NameMatch,
+    category_key,
+    is_fixed_phrase,
+)
 from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
 from app.domain.enums import SearchHintCode
 
@@ -78,18 +83,39 @@ def _examples(products: Sequence[Product]) -> tuple[str, ...]:
     return tuple(names)[:SEARCH_CATEGORY_EXAMPLES]
 
 
-def summarize_categories(
-    products: Sequence[Product],
-    requested: str | None,
-) -> tuple[CategorySummary, ...]:
-    grouped: dict[str, list[Product]] = defaultdict(list)
-    for product in products:
-        grouped[product.category].append(product)
-    ordered = sorted(grouped, key=lambda code: (-len(grouped[code]), category_key(code)))
+def _category_rank(
+    code: str,
+    hits: Sequence[tuple[Product, NameMatch]],
+    query: str,
+) -> tuple[bool, int, int, tuple[int, int | str]]:
+    # "milkshake" hits for "milk" and "ice cream" hits for "cream" are many but weak.
+    whole_word_hits = sum(not match.inside_word for _, match in hits)
+    return (
+        is_fixed_phrase([product for product, _ in hits], query),
+        -whole_word_hits,
+        -len(hits),
+        category_key(code),
+    )
 
-    # With no requested category, the search lists the category with the most hits.
+
+def summarize_categories(
+    hits: Sequence[tuple[Product, NameMatch]],
+    requested: str | None,
+    query: str,
+) -> tuple[CategorySummary, ...]:
+    grouped: dict[str, list[tuple[Product, NameMatch]]] = defaultdict(list)
+    for hit in hits:
+        grouped[hit[0].category].append(hit)
+    ordered = sorted(grouped, key=lambda code: _category_rank(code, grouped[code], query))
+
+    # With no requested category, the search lists the best ranked category.
     listed = requested if requested is not None else next(iter(ordered), None)
     return tuple(
-        CategorySummary(code, len(grouped[code]), _examples(grouped[code]), code == listed)
+        CategorySummary(
+            code,
+            len(grouped[code]),
+            _examples([product for product, _ in grouped[code]]),
+            code == listed,
+        )
         for code in ordered[:SEARCH_CATEGORY_COUNT]
     )

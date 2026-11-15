@@ -6,6 +6,8 @@ MIN_QUERY_LETTERS = 3
 MAX_SEARCH_CANDIDATES = 40
 SEARCH_CATEGORY_COUNT = 8
 SEARCH_CATEGORY_EXAMPLES = 2
+# "ice cream" in nearly every name of a category says the buyer who typed "cream" wants another one.
+FIXED_PHRASE_SHARE = 0.9
 OFFER_TTL_MINUTES = 15
 # Claude Code saves an MCP result over 50,000 characters to a file. A line is about 1,100
 # characters and a rejected product about 300, so the full offer stays near 40,000.

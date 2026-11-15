@@ -2,10 +2,12 @@
 
 import re
 import unicodedata
+from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from app.domain.catalog import Product, SearchQuery
-from app.domain.constants import MAX_QUERY_WORDS, MIN_QUERY_LETTERS
+from app.domain.constants import FIXED_PHRASE_SHARE, MAX_QUERY_WORDS, MIN_QUERY_LETTERS
 from app.domain.enums import SearchMatch, Unit
 from app.domain.errors import InvalidRequestError
 
@@ -58,6 +60,8 @@ CHOICE_ATTRIBUTES = (
 ATTRIBUTE_DESCRIPTION = "Valid attribute codes: " + ", ".join(VALID_ATTRIBUTES) + "."
 QUERY_RULE = f"1 to {MAX_QUERY_WORDS} words, each with at least {MIN_QUERY_LETTERS} letters"
 _NEGATIONS = ("free", "fri", "ton", "vapaa")
+# A neighbor word of a phrase has letters only, so "cream 1 l" makes no phrase.
+_PHRASE_WORD = r"[^\W\d_]{2,}"
 
 
 def normalize_name(name: str) -> str:
@@ -136,3 +140,28 @@ def fits_search(product: Product, unit: Unit | None) -> bool:
 
 def category_key(category: str) -> tuple[int, int | str]:
     return (0, int(category)) if category.isdecimal() else (1, category)
+
+
+def is_fixed_phrase(products: Sequence[Product], query: str) -> bool:
+    """True when nearly all names hold the query inside one longer phrase, as "ice cream"."""
+    words = " ".join(normalize_name(query).split())
+    pattern = re.compile(
+        rf"(?:\b({_PHRASE_WORD})\s+)?\b{re.escape(words)}\b(?:\s+({_PHRASE_WORD})\b)?"
+    )
+    phrases: Counter[str] = Counter()
+    for product in products:
+        phrases.update(_phrases(product, pattern, words))
+    return max(phrases.values(), default=0) >= FIXED_PHRASE_SHARE * len(products)
+
+
+def _phrases(product: Product, pattern: re.Pattern[str], words: str) -> set[str]:
+    # A set, so a product counts once when its en, fi and sv names repeat a phrase.
+    found: set[str] = set()
+    for name in product.names.values():
+        for match in pattern.finditer(normalize_name(name)):
+            before, after = match.groups()
+            if before:
+                found.add(f"{before} {words}")
+            if after:
+                found.add(f"{words} {after}")
+    return found

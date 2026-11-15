@@ -110,6 +110,37 @@ def test_category_selection_and_stable_match_order():
     assert records.records[0].buyer_id == agent_key().buyer_id
 
 
+def test_a_category_of_a_longer_phrase_is_not_the_default():
+    """Every ice cream name says "cream", but a buyer who asks for cream wants cream."""
+    products = [
+        item("1", "Vanilla ice cream 5 l", category="41800"),
+        item("2", "Chocolate ice cream 5 l", category="41800"),
+        item("3", "Strawberry ice cream 5 l", category="41800"),
+        item("4", "Whipping cream 1 l", category="10401"),
+        item("5", "Cooking cream 1 l", category="10401"),
+    ]
+    catalog, _ = service(FakeCatalog(*products))
+
+    result = catalog.search(agent_key(), query("cream"))
+
+    assert result.hint_category == "10401"
+    assert [c.category for c in result.categories] == ["10401", "41800"]
+
+
+def test_whole_word_hits_pick_the_default_category():
+    """A name that only holds the query inside a longer word is a weak hit."""
+    products = [
+        item("1", "Milkshake strawberry", category="22700"),
+        item("2", "Milkshake vanilla", category="22700"),
+        item("3", "Milkshake chocolate", category="22700"),
+        item("4", "Milk 1 l", category="10400"),
+        item("5", "Milk 10 l", category="10400"),
+    ]
+    catalog, _ = service(FakeCatalog(*products))
+
+    assert catalog.search(agent_key(), query()).hint_category == "10400"
+
+
 def test_numeric_category_tie_break_and_no_match():
     catalog, records = service(FakeCatalog(item("1", category="10"), item("2", category="2")))
 
