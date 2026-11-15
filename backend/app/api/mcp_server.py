@@ -20,7 +20,12 @@ from app.api.results import (
     search_response,
 )
 from app.api.schemas.audit import AuditResponse
-from app.api.schemas.carts import CartDetailsResponse, CartRequest, CartResponse
+from app.api.schemas.carts import (
+    CartDetailsResponse,
+    CartRequest,
+    CartResponse,
+    RevisionRequest,
+)
 from app.api.schemas.catalog import SearchRequest, SearchResponse
 from app.api.schemas.common import CartRevisionValue, ErrorBody, IdempotencyKeyValue
 from app.api.schemas.mandate import MandateResponse
@@ -51,6 +56,44 @@ def _error_body() -> Iterator[None]:
         yield
     except GatewayError as exc:
         raise ToolError(ErrorBody.of(exc).model_dump_json(exclude_none=True)) from exc
+
+
+def _add_cart_change_tools(server: MCPServer, services: Services, public_url: str) -> None:
+    @server.tool()
+    def revise_cart(
+        cart_id: str,
+        request: RevisionRequest,
+        idempotency_key: IdempotencyKeyValue,
+        ctx: Context,
+    ) -> CartResponse:
+        """Replace all lines of an AUTO or PENDING_APPROVAL cart. The policy runs again, so the
+        result can be AUTO, PENDING_APPROVAL or DENIED.
+
+        Send base_revision from your last get_cart. On a 409, follow next_step: for a closed
+        cart or a changed revision, read get_cart and send the change on the current revision.
+        PENDING_APPROVAL: give the buyer approve_url in this reply.
+        """
+        with _error_body():
+            agent = _agent(ctx, AgentScope.CART)
+            cart = services.carts.revise_cart(
+                agent,
+                cart_id,
+                request.base_revision,
+                request.to_domain(),
+                idempotency_key,
+            )
+            return cart_response(cart, public_url)
+
+    @server.tool()
+    def withdraw_cart(cart_id: str, ctx: Context) -> CartResponse:
+        """Withdraw an AUTO or PENDING_APPROVAL cart that the buyer no longer wants.
+
+        WITHDRAWN is final. The main user can no longer approve it. Other states return 409,
+        so after a lost reply read get_cart: WITHDRAWN means the first call worked.
+        """
+        with _error_body():
+            agent = _agent(ctx, AgentScope.CART)
+            return cart_response(services.carts.withdraw_cart(agent, cart_id), public_url)
 
 
 def create_mcp_server(services: Services, public_url: str) -> MCPServer:
@@ -124,6 +167,8 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
             return cart_details_response(
                 services.carts.get_cart_details(agent.buyer_id, cart_id), public_url
             )
+
+    _add_cart_change_tools(server, services, public_url)
 
     @server.tool()
     def checkout(

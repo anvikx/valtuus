@@ -59,6 +59,8 @@ _AGENT_TOOLS = {
     "get_offers",
     "create_cart",
     "get_cart",
+    "revise_cart",
+    "withdraw_cart",
     "checkout",
     "get_order",
     "get_mandate",
@@ -601,6 +603,35 @@ def test_mcp_cart_with_empty_idempotency_key_is_refused() -> None:
 
     assert result["isError"] is True
     assert "idempotency_key" in result["content"][0]["text"]
+
+
+@pytest.mark.parametrize(
+    ("tool", "arguments"),
+    [
+        (
+            "revise_cart",
+            {
+                "cart_id": "c_1",
+                "request": {**_CART, "base_revision": 1},
+                "idempotency_key": "k-1",
+            },
+        ),
+        ("withdraw_cart", {"cart_id": "c_1"}),
+    ],
+)
+def test_mcp_cart_change_without_scope_is_forbidden(
+    tool: str,
+    arguments: dict[str, object],
+    agent_keys: InMemoryAgentKeyRepository,
+) -> None:
+    """A key without the cart scope must not change or end a cart through MCP either."""
+    app = create_app(agent_keys=agent_keys)
+    _strip_scopes(agent_keys)
+
+    result = _mcp(app, "tools/call", {"name": tool, "arguments": arguments})
+
+    assert result["isError"] is True
+    assert '"error":"FORBIDDEN"' in result["content"][0]["text"]
 
 
 def _order(order_id: str, cart_id: str) -> Order:
