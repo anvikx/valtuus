@@ -71,6 +71,9 @@ export function DecisionPanel({
         <TrustMark />
       </div>
       <div className="actions">
+        {cart.isInsideLimits ? (
+          <p className="muted">This order is now inside the agent's limits.</p>
+        ) : null}
         <button
           className="button button-primary"
           type="button"

@@ -6,6 +6,7 @@
 //   c_ordered        ORDERED
 //   c_no_approval    ORDERED by the agent's checkout, no approver (the limit raise)
 //   c_answers        waiting, with the buyer's answers and other automatic orders that day
+//   c_inside_limits  waiting, but a limit raise means the agent could now order it alone
 //   c_rejected       REJECTED
 //   c_expired        EXPIRED
 //   c_denied         DENIED: a rule forbids the order
@@ -68,6 +69,7 @@ const CONFLICT_ID = 'c_conflict'
 const APPROVE_FAILS_ID = 'c_approve_fails'
 const UNAVAILABLE_ID = 'c_unavailable'
 const ANSWERS_ID = 'c_answers'
+const INSIDE_LIMITS_ID = 'c_inside_limits'
 const REVISED_ID = 'c_revised'
 const STALE_ID = 'c_revised_stale'
 const AGENT_UPDATER = 'AGENT'
@@ -105,6 +107,10 @@ const CART_EXTRAS: Readonly<Record<string, Partial<WireCart>>> = {
     clarifications: ['Order it even if it is over the limit?', 'Yes, order it.'],
     delivery_day_total_ex_vat: '1415.00',
   },
+  [INSIDE_LIMITS_ID]: {
+    current_decision: 'AUTO',
+    current_reason_codes: [],
+  },
   [REVISED_ID]: REVISED_EXTRAS,
   [STALE_ID]: REVISED_EXTRAS,
 }
@@ -114,6 +120,7 @@ const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   c_ordered: 'ordered',
   c_no_approval: 'agentOrdered',
   [ANSWERS_ID]: 'waiting',
+  [INSIDE_LIMITS_ID]: 'waiting',
   c_rejected: 'rejected',
   c_expired: 'expired',
   c_denied: 'denied',

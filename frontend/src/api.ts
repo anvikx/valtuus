@@ -316,6 +316,8 @@ export interface Cart {
   readonly decidedBy: string | null
   readonly decidedAt: string | null
   readonly rejectReason: string | null
+  // The rules changed while the cart waited, and the agent could now order it alone.
+  readonly isInsideLimits: boolean
 }
 
 export interface OrderConfirmation {
@@ -499,6 +501,8 @@ function toUpdate(wire: WireCartVersion | null | undefined): CartUpdate | null {
   }
 }
 
+const WIRE_AUTO_DECISION = 'AUTO'
+
 function toCart(wire: WireCart): Cart {
   return {
     id: wire.cart_id,
@@ -518,6 +522,7 @@ function toCart(wire: WireCart): Cart {
     decidedBy: wire.decided_by,
     decidedAt: wire.decided_at,
     rejectReason: wire.reject_reason,
+    isInsideLimits: wire.current_decision === WIRE_AUTO_DECISION,
   }
 }
 
