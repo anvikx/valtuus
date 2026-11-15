@@ -14,6 +14,7 @@ What is not real in the prototype.
 * A stock out is detected at request time, not by a background watcher (tier 3).
 * Terminal stock 999999 = amount not known, and a date is not valid after closingTime: both are in the API documentation. For Stock products the amount is a known number (documentation). The value 9999999999 is used as a number, and the UI shows "In stock" for it. We do not claim "unlimited".
 * An "equivalent" is only a substitution pair from Valio Aimo's product data. A product from the same category with the same claims is a "suggested alternative". Both need the same known allergen data and a person's sign off.
+* Equivalent pairs (checked 15 Nov, 250 pairs): 82 have known allergen data that is equal in full (contains, may contain, free from), and only these are offered. 75 pairs differ in sales unit (464306 is a 1 l bottle, its equivalent 465039 a 5 l box), so the price difference is per L, KG or piece, not per sales unit. Suggested alternatives are not built.
 * A deputy approver, a monthly budget and a stock out after the order are not built.
 * Demo clock: when DEMO_NOW is set, the gateway uses that time, gives it to the agent, and shows it on every page.
 * UHT has no structured attribute in the product data (checked 14 Nov, 17,546 products). The attribute UHT is derived from the product name: the whole word "UHT", any case, in any of the 3 language names. The label warmTemperature is not used, because it is wrong for 7 of 17 UHT milk products.

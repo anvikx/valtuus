@@ -39,7 +39,9 @@ class OfferRequest(RequestModel):
     )
     include_substitutes: bool = Field(
         default=False,
-        description="true: also offer substitutes for products that cannot be delivered.",
+        description="true: a product that cannot be offered also gets its equivalents: "
+        "substitutes Valio Aimo's data names, with the same known allergens. They rank after "
+        "the requested lines and carry substitute_for.",
     )
     request_id: str | None = Field(
         default=None,
@@ -87,8 +89,10 @@ class SubstituteFor(BaseModel):
     )
     reason_code: ReasonCode = Field(description="Why the original product is not offered.")
     reason_sentence: str = Field(description="The reason in one sentence.")
-    price_difference_per_unit: Decimal = Field(
-        description="Substitute price minus original price per sales unit, EUR ex VAT.",
+    price_difference_per_unit: Decimal | None = Field(
+        description="Substitute comparison_price minus the original's, per comparison_price.per "
+        "(L, KG or PCS), EUR ex VAT. Negative: cheaper. null: the original has no price or no "
+        "size, so the difference is not known.",
     )
 
 

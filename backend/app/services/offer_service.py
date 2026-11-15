@@ -1,5 +1,5 @@
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime, time, timedelta
 from uuid import uuid4
 
@@ -25,9 +25,11 @@ from app.domain.offer import (
     Price,
     RejectedProduct,
     RequestedItem,
+    SubstituteFor,
 )
 from app.domain.ranking import rank_offer_lines
 from app.domain.screening import reject, screen
+from app.domain.substitutes import is_equivalent, substitute_for
 from app.domain.units import json_number
 from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
@@ -40,8 +42,18 @@ from app.services.ports.unit_of_work import UnitOfWork
 ISSUER = "Valio Aimo (mock)"
 
 
+@dataclass(frozen=True)
+class _Equivalent:
+    substitute: Product
+    requested: Product
+    rejected: RejectedProduct
+
+
 class OfferService:
-    """One price call and one stock call per offer, then reject rules, ranking and split."""
+    """One price call and one stock call per offer, then reject rules, ranking and split.
+
+    With include_substitutes, one more of each for the equivalents of rejected products.
+    """
 
     def __init__(
         self,
@@ -84,7 +96,9 @@ class OfferService:
         prices, snapshot = self._live_data(products, query, issued_at)
         # A deadline may pass while the upstream answers; screen against the time after it.
         candidates, screened_out = _split(products, prices, snapshot, query, self._clock.now())
-        ranked = rank_offer_lines(candidates, query)
+        # The first snapshot is the older one, so it stays the offer's source_time.
+        substitutes = self._substitutes(products, prices, screened_out, query, issued_at)
+        ranked = rank_offer_lines(candidates, query, substitutes)
         rejected = missing + screened_out
         # Cut after the rank, so the lines shown are the best of all priced products.
         lines = ranked[:MAX_OFFER_LINES]
@@ -178,6 +192,51 @@ class OfferService:
             self._prices.availability(ids, requested_date),
         )
 
+    def _substitutes(
+        self,
+        requested: Sequence[Product],
+        prices: Mapping[str, Price],
+        screened_out: Sequence[RejectedProduct],
+        query: OfferQuery,
+        issued_at: datetime,
+    ) -> list[tuple[Candidate, SubstituteFor]]:
+        if not query.include_substitutes:
+            return []
+
+        wanted = self._equivalents(requested, screened_out)
+        if not wanted:
+            return []
+
+        products = [item.substitute for item in wanted.values()]
+        live_prices, snapshot = self._live_data(products, query, issued_at)
+        # A substitute that fails the reject rules is dropped: the agent asked for the original.
+        candidates, _ = _split(products, live_prices, snapshot, query, self._clock.now())
+        return [
+            (candidate, _marked(wanted[candidate.product.product_id], prices, candidate, query))
+            for candidate in candidates
+        ]
+
+    def _equivalents(
+        self,
+        requested: Sequence[Product],
+        screened_out: Sequence[RejectedProduct],
+    ) -> dict[str, _Equivalent]:
+        by_id = {product.product_id: product for product in requested}
+        wanted: dict[str, _Equivalent] = {}
+        for rejected in screened_out:
+            original = by_id[rejected.product_id]
+            # A requested id is already its own line, and the first rejected product wins a
+            # substitute that two of them share.
+            fresh = (
+                sid for sid in original.substitute_ids if sid not in by_id and sid not in wanted
+            )
+            for substitute in filter(None, map(self._catalog.get, fresh)):
+                if is_equivalent(original, substitute):
+                    wanted[substitute.product_id] = _Equivalent(substitute, original, rejected)
+        # ponytail: a product names at most 5 substitutes, so the guard caps the upstream ids
+        # and cuts the last equivalents. Batch the Valio calls if more must be priced.
+        return dict(list(wanted.items())[: self._candidate_guard])
+
     def _signed(self, offer: Offer) -> Offer:
         # The payload is the response body without its signature, built once. buyer_id is
         # stored, not sent, so a buyer agent can check the signature on what it got.
@@ -257,6 +316,22 @@ def _split(
 
         candidates.append(result)
     return candidates, tuple(rejected)
+
+
+def _marked(
+    equivalent: _Equivalent,
+    prices: Mapping[str, Price],
+    candidate: Candidate,
+    query: OfferQuery,
+) -> SubstituteFor:
+    requested = equivalent.requested
+    return substitute_for(
+        requested,
+        prices.get(requested.product_id),
+        equivalent.rejected,
+        candidate,
+        query,
+    )
 
 
 def _valid_until(issued_at: datetime, lines: Sequence[OfferLine]) -> datetime:

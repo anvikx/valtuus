@@ -5,8 +5,8 @@ from decimal import Decimal
 import pytest
 
 from app.domain.catalog import ContentPerSalesUnit
-from app.domain.enums import OfferTier, ReasonCode, StockModel, Unit
-from app.domain.offer import Candidate, ComparisonPrice
+from app.domain.enums import OfferTier, ReasonCode, StockModel, SubstituteBasis, Unit
+from app.domain.offer import Candidate, ComparisonPrice, SubstituteFor
 from app.domain.ranking import rank_offer_lines
 from tests.fakes.offer_data import MILK_ID, MONDAY, price, product, query, stock
 
@@ -264,3 +264,23 @@ def test_unconfirmed_stock_marker_does_not_outrank_confirmed_stock():
     assert [line.product_id for line in lines] == ["confirmed", "unknown"]
     assert lines[1].available_qty is None
     assert lines[1].reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)
+
+
+def test_a_substitute_ranks_after_every_requested_line() -> None:
+    """A substitute always needs a person, so a cheaper one must not lead a deliverable line."""
+    requested = _candidate("late", "1.20", available_date=MONDAY + timedelta(days=1))
+    cheaper = _candidate("swap", "0.50")
+    marked = SubstituteFor(
+        product_id="gone",
+        name="Milk gone",
+        basis=SubstituteBasis.VALIO_PAIR,
+        reason_code=ReasonCode.NOT_AVAILABLE,
+        reason_sentence="Valio Aimo cannot deliver this product.",
+        price_difference_per_unit=Decimal("-0.51"),
+    )
+
+    lines = rank_offer_lines([requested], query(), [(cheaper, marked)])
+
+    assert [(line.product_id, line.rank) for line in lines] == [("late", 1), ("swap", 2)]
+    assert lines[0].substitute_for is None
+    assert lines[1].substitute_for == marked

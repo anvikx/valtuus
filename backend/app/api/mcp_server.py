@@ -164,6 +164,9 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         outside the mandate preference requires human approval.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
+        include_substitutes=true when the buyer named an exact product: a rejected product
+        gets its equivalents as extra lines with substitute_for. A cart with one always waits
+        for the main user. Tell the buyer both names, the reason and the price difference.
         NOT_FOUND: if the buyer has no mandate, ask the buyer to set a mandate; if the search
         is missing or expired, search again and send its request_id.
         VALIDATION_ERROR: send product_ids or a search request_id; send fewer ids if over the
