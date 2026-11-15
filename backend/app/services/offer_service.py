@@ -6,7 +6,13 @@ from uuid import uuid4
 from app.domain.agent_key import AgentKey
 from app.domain.audit import new_request_id
 from app.domain.catalog import Product
-from app.domain.constants import GATEWAY_TIMEZONE, OFFER_TTL_MINUTES, SEARCH_SET_TTL_MINUTES
+from app.domain.constants import (
+    GATEWAY_TIMEZONE,
+    MAX_OFFER_LINES,
+    MAX_REJECTED_SHOWN,
+    OFFER_TTL_MINUTES,
+    SEARCH_SET_TTL_MINUTES,
+)
 from app.domain.enums import AuditStep, ReasonCode
 from app.domain.errors import InvalidRequestError, NotFoundError
 from app.domain.offer import (
@@ -75,8 +81,11 @@ class OfferService:
         # No Valio call inside the transaction: a slow answer would hold the database lock.
         prices, snapshot = self._live_data(products, query, issued_at)
         # A deadline may pass while the upstream answers; screen against the time after it.
-        candidates, rejected = _split(products, prices, snapshot, query, self._clock.now())
-        lines = rank_offer_lines(candidates, query)
+        candidates, screened_out = _split(products, prices, snapshot, query, self._clock.now())
+        ranked = rank_offer_lines(candidates, query)
+        rejected = missing + screened_out
+        # Cut after the rank, so the lines shown are the best of all priced products.
+        lines = ranked[:MAX_OFFER_LINES]
         offer = self._signed(
             Offer(
                 offer_id=f"o_{uuid4().hex}",
@@ -88,14 +97,16 @@ class OfferService:
                 requested=RequestedItem(query.quantity, query.unit, query.deliver_by),
                 lines=lines,
                 proposed_split=None,
-                rejected=missing + rejected,
+                rejected=rejected[:MAX_REJECTED_SHOWN],
                 signature=None,
                 request_id=query.request_id or new_request_id(),
+                lines_not_shown=len(ranked) - len(lines),
+                rejected_not_shown=max(len(rejected) - MAX_REJECTED_SHOWN, 0),
             )
         )
         with self._unit_of_work.transaction():
             self._offers.add(offer)
-            self._record(agent, query, offer)
+            self._record(agent, query, offer, rejected)
         return offer
 
     def _search_set_ids(self, agent: AgentKey, query: OfferQuery) -> tuple[str, ...]:
@@ -183,11 +194,18 @@ class OfferService:
         body["requested"]["quantity"] = None if quantity is None else json_number(quantity)
         return replace(offer, signature=self._signer.sign(body))
 
-    def _record(self, agent: AgentKey, query: OfferQuery, offer: Offer) -> None:
+    def _record(
+        self,
+        agent: AgentKey,
+        query: OfferQuery,
+        offer: Offer,
+        rejected: Sequence[RejectedProduct],
+    ) -> None:
+        # rejected is the full list: the offer shows only the first ones.
         self._audit.record(
             AuditStep.OFFER,
             agent.agent_id,
-            _offer_sentence(offer),
+            _offer_sentence(offer, rejected),
             request_id=offer.request_id,
             buyer_id=offer.buyer_id,
             input_data={
@@ -200,20 +218,21 @@ class OfferService:
             output_data={
                 "offer_id": offer.offer_id,
                 "lines": [line.product_id for line in offer.lines],
-                "rejected": {item.product_id: item.reason_code for item in offer.rejected},
+                "lines_not_shown": offer.lines_not_shown,
+                "rejected": {item.product_id: item.reason_code for item in rejected},
             },
         )
 
 
-def _offer_sentence(offer: Offer) -> str:
+def _offer_sentence(offer: Offer, rejected: Sequence[RejectedProduct]) -> str:
     """For example: The gateway offered 3 products and rejected 3: Order deadline passed."""
     count = len(offer.lines)
     offered = f"The gateway offered {count} product{'' if count == 1 else 's'}"
-    if not offer.rejected:
+    if not rejected:
         return f"{offered}."
 
-    reasons = " ".join(dict.fromkeys(item.reason_sentence for item in offer.rejected))
-    return f"{offered} and rejected {len(offer.rejected)}: {reasons}"
+    reasons = " ".join(dict.fromkeys(item.reason_sentence for item in rejected))
+    return f"{offered} and rejected {len(rejected)}: {reasons}"
 
 
 def _split(

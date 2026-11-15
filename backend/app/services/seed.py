@@ -1,12 +1,17 @@
 import dataclasses
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from app.domain.agent_key import AgentKey, User, hash_agent_key
+from app.domain.constants import CURRENCY, GATEWAY_TIMEZONE
 from app.domain.enums import AgentKeyStatus, AgentScope, Decision, UserRole
 from app.domain.mandate import Mandate, RankingWeights
+from app.domain.order import Order, OrderLine
+from app.services.offer_service import ISSUER
 from app.services.ports.repositories import (
     AgentKeyRepository,
     MandateRepository,
+    OrderRepository,
     UserRepository,
 )
 from app.services.ports.unit_of_work import UnitOfWork
@@ -16,6 +21,17 @@ DEMO_AGENT_ID = "claude-code"
 DEMO_MAIN_USER_ID = "hotel-1-main"
 _DEMO_AUTO_LIMIT = Decimal("500.00")
 
+# Approved past orders of the demo milk, so run 2 is a known product on a fresh store.
+_HISTORY_PRODUCT_ID = "464306"
+_HISTORY_GTIN = "6408430000487"
+_HISTORY_NAME = "Valio Hyvä suomalainen Arki® Eila® semi skimmed milk drink 1 l lactose free"
+_HISTORY_UNIT_PRICE = Decimal("1.01")
+_HISTORY_QTY = 200
+# Mondays. Each order is placed on the Thursday before.
+_HISTORY_DELIVERY_DATES = (date(2026, 10, 26), date(2026, 11, 2), date(2026, 11, 9))
+_HISTORY_LEAD = timedelta(days=4)
+_HISTORY_PLACED_TIME = time(10, 0)
+
 
 def seed_demo(
     mandates: MandateRepository,
@@ -23,8 +39,9 @@ def seed_demo(
     users: UserRepository,
     unit_of_work: UnitOfWork,
     agent_key: str,
+    orders: OrderRepository,
 ) -> None:
-    """Version 1 of the hotel 1 mandate, its agent and its main user.
+    """Version 1 of the hotel 1 mandate, its agent, its main user and its order history.
 
     Runs on every start. It adds only what is missing, so a restart on a lasting store
     keeps a newer mandate and does not make a revoked key active again.
@@ -48,6 +65,8 @@ def seed_demo(
                 ),
             )
 
+        _seed_history(orders)
+
 
 def _demo_mandate() -> Mandate:
     return Mandate(
@@ -61,6 +80,45 @@ def _demo_mandate() -> Mandate:
         allergen_unknown_policy=Decision.HUMAN,
         preferred_brands=(),
         ranking_weights=RankingWeights(price=1.0, reliability=0.0, co2=0.0),
+    )
+
+
+def _seed_history(orders: OrderRepository) -> None:
+    # Fixed ids, so a restart finds the orders and does not add them a second time.
+    for number, delivery_date in enumerate(_HISTORY_DELIVERY_DATES, start=1):
+        order_id = f"ord_seed_{number}"
+        if orders.get(order_id) is None:
+            orders.add(_history_order(order_id, f"c_seed_{number}", delivery_date))
+
+
+def _history_order(order_id: str, cart_id: str, delivery_date: date) -> Order:
+    total = _HISTORY_UNIT_PRICE * _HISTORY_QTY
+    placed_on = delivery_date - _HISTORY_LEAD
+    return Order(
+        order_id=order_id,
+        cart_id=cart_id,
+        buyer_id=DEMO_BUYER_ID,
+        lines=(
+            OrderLine(
+                product_id=_HISTORY_PRODUCT_ID,
+                gtin=_HISTORY_GTIN,
+                name=_HISTORY_NAME,
+                qty=_HISTORY_QTY,
+                unit_price=_HISTORY_UNIT_PRICE,
+                line_total=total,
+                delivery_date=delivery_date,
+                substitute_for=None,
+            ),
+        ),
+        total_ex_vat=total,
+        currency=CURRENCY,
+        placed_at=datetime.combine(placed_on, _HISTORY_PLACED_TIME, GATEWAY_TIMEZONE),
+        placed_by=f"{DEMO_AGENT_ID} (agent)",
+        approved_by=DEMO_MAIN_USER_ID,
+        offer_ids=(),
+        mandate_version=1,
+        issuer=ISSUER,
+        signature=None,
     )
 
 

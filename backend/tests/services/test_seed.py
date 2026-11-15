@@ -1,20 +1,29 @@
 import dataclasses
+from datetime import UTC, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
 from app.adapters.memory.repositories import (
     InMemoryAgentKeyRepository,
     InMemoryMandateRepository,
+    InMemoryOrderRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
 )
 from app.domain.agent_key import hash_agent_key
 from app.domain.enums import AgentKeyStatus, AgentScope, UserRole
+from app.domain.policy.baseline import build_baseline
+from app.domain.policy.check import PolicyContext
+from app.domain.policy.checks.envelope import KnownProduct, Quantity
 from app.services.seed import DEMO_BUYER_ID, DEMO_MAIN_USER_ID, seed_demo
 
 _KEY = "test-agent-key-0123456789"
 _NEW_KEY = "test-agent-key-rotated-9876"
+_DEMO_MILK_ID = "464306"
+# Run 2 asks for 20 L of 464306, sold per 1 l pack.
+_RUN_2_QTY = 20
 
 
 def _seeded() -> tuple[
@@ -27,7 +36,7 @@ def _seeded() -> tuple[
         InMemoryAgentKeyRepository(),
         InMemoryUserRepository(),
     )
-    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=_KEY)
+    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=_KEY, orders=InMemoryOrderRepository())
     return repos
 
 
@@ -36,7 +45,7 @@ def _reseed(
     agent_key: str = _KEY,
 ) -> None:
     """The same seed a restart runs on a store that kept its data."""
-    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=agent_key)
+    seed_demo(*repos, InMemoryUnitOfWork(), agent_key=agent_key, orders=InMemoryOrderRepository())
 
 
 def _status(agent_keys: InMemoryAgentKeyRepository, key: str) -> AgentKeyStatus:
@@ -87,6 +96,7 @@ def test_seed_refuses_an_empty_agent_key() -> None:
             InMemoryUserRepository(),
             InMemoryUnitOfWork(),
             agent_key="",
+            orders=InMemoryOrderRepository(),
         )
 
 
@@ -152,3 +162,55 @@ def test_new_agent_key_revokes_the_old_one() -> None:
 
     assert _status(agent_keys, _KEY) is AgentKeyStatus.REVOKED
     assert _status(agent_keys, _NEW_KEY) is AgentKeyStatus.ACTIVE
+
+
+def _seed_with_orders(orders: InMemoryOrderRepository) -> InMemoryMandateRepository:
+    mandates = InMemoryMandateRepository()
+    seed_demo(
+        mandates,
+        InMemoryAgentKeyRepository(),
+        InMemoryUserRepository(),
+        InMemoryUnitOfWork(),
+        agent_key=_KEY,
+        orders=orders,
+    )
+    return mandates
+
+
+def test_seed_lets_run_2_pass_the_envelope_on_a_fresh_store() -> None:
+    """Run 2 (20 L) must be AUTO without an approved run 1 first, as the demo shows it."""
+    orders = InMemoryOrderRepository()
+    mandates = _seed_with_orders(orders)
+    context = PolicyContext(
+        mandate=mandates.latest(DEMO_BUYER_ID),
+        day_orders=(),
+        recent_rejects=(),
+        now=datetime.now(UTC),
+        baseline=build_baseline(orders.list_confirmed(DEMO_BUYER_ID)),
+    )
+    run_2 = SimpleNamespace(product_id=_DEMO_MILK_ID, name="milk", qty=_RUN_2_QTY)
+
+    results = [*KnownProduct().evaluate([run_2], context), *Quantity().evaluate([run_2], context)]
+
+    assert results == []
+
+
+def test_seed_history_is_approved_by_the_main_user() -> None:
+    """Only orders a person approved may widen what the agent can repeat alone."""
+    orders = InMemoryOrderRepository()
+    _seed_with_orders(orders)
+
+    confirmed = orders.list_confirmed(DEMO_BUYER_ID)
+
+    assert len(confirmed) == 3
+    assert {order.approved_by for order in confirmed} == {DEMO_MAIN_USER_ID}
+
+
+def test_reseed_adds_no_second_history() -> None:
+    """A restart must not double the history, or the baseline would count each order twice."""
+    orders = InMemoryOrderRepository()
+    _seed_with_orders(orders)
+
+    _seed_with_orders(orders)
+
+    assert len(orders.list_confirmed(DEMO_BUYER_ID)) == 3

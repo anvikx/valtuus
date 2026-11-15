@@ -13,7 +13,12 @@ from app.adapters.memory.repositories import (
     InMemorySearchSetRepository,
     InMemoryUnitOfWork,
 )
-from app.domain.constants import MAX_SEARCH_CANDIDATES, SEARCH_SET_TTL_MINUTES
+from app.domain.constants import (
+    MAX_OFFER_LINES,
+    MAX_REJECTED_SHOWN,
+    MAX_SEARCH_CANDIDATES,
+    SEARCH_SET_TTL_MINUTES,
+)
 from app.domain.errors import InvalidRequestError, NotFoundError
 from app.services.audit_service import AuditService
 from app.services.offer_service import OfferService
@@ -40,13 +45,15 @@ def _catalog() -> FakeCatalog:
     return FakeCatalog(*(item(pid) for pid in _IDS))
 
 
-def _offers(catalog, search_sets, clock) -> OfferService:
+# The last id in the sort order is the cheapest, so the preview cannot show it.
+_PRICES = [price(pid, "2.00") for pid in _IDS[:-1]] + [price(_CHEAPEST, "1.00")]
+
+
+def _offers(catalog, search_sets, clock, prices=_PRICES, sink=None) -> OfferService:
     uow = InMemoryUnitOfWork()
     offers = InMemoryOfferRepository()
     mandates = InMemoryMandateRepository()
     mandates.add(mandate())
-    # The last id in the sort order is the cheapest, so the preview cannot show it.
-    prices = [price(pid, "2.00") for pid in _IDS[:-1]] + [price(_CHEAPEST, "1.00")]
     return OfferService(
         catalog,
         FakePriceSource(prices, [stock(pid) for pid in _IDS]),
@@ -54,7 +61,7 @@ def _offers(catalog, search_sets, clock) -> OfferService:
         _NullSigner(),
         search_sets,
         clock,
-        AuditService(_Sink(), InMemoryCartRepository(), offers, clock, uow),
+        AuditService(sink or _Sink(), InMemoryCartRepository(), offers, clock, uow),
         uow,
         500,
         mandates,
@@ -62,8 +69,11 @@ def _offers(catalog, search_sets, clock) -> OfferService:
 
 
 class _Sink:
+    def __init__(self) -> None:
+        self.records = []
+
     def append(self, record) -> None:
-        pass
+        self.records.append(record)
 
 
 class _NullSigner:
@@ -114,9 +124,35 @@ def test_offers_by_request_id_price_a_product_outside_the_preview():
 
     offer = offers.get_offers(agent_key(), _by_request(result.request_id))
 
-    assert len(offer.lines) == _COUNT
     assert offer.lines[0].product_id == _CHEAPEST
     assert offer.request_id == result.request_id
+
+
+def test_offers_show_only_the_best_lines_and_count_the_rest():
+    """A full category is too big for an MCP client. The rank compares every line first."""
+    catalog, search_sets, _ = _search()
+    result = catalog.search(agent_key(), query())
+    offers = _offers(_catalog(), search_sets, FixedClock(NOW))
+
+    offer = offers.get_offers(agent_key(), _by_request(result.request_id))
+
+    assert len(offer.lines) == MAX_OFFER_LINES
+    assert offer.lines_not_shown == _COUNT - MAX_OFFER_LINES
+    assert offer.lines[0].product_id == _CHEAPEST
+
+
+def test_offers_cut_the_rejected_list_but_audit_every_rejection():
+    """The agent needs the reasons, not each product. The audit trail keeps each product."""
+    catalog, search_sets, _ = _search()
+    result = catalog.search(agent_key(), query())
+    sink = _Sink()
+    offers = _offers(_catalog(), search_sets, FixedClock(NOW), prices=[], sink=sink)
+
+    offer = offers.get_offers(agent_key(), _by_request(result.request_id))
+
+    assert len(offer.rejected) == MAX_REJECTED_SHOWN
+    assert offer.rejected_not_shown == _COUNT - MAX_REJECTED_SHOWN
+    assert len(sink.records[0].output_data["rejected"]) == _COUNT
 
 
 def test_another_buyers_request_id_is_not_found():

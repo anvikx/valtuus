@@ -116,6 +116,8 @@ _OFFER = {
     ],
     "signature": None,
     "request_id": "r_0123456789abcdef0123456789abcdef",
+    "lines_not_shown": 0,
+    "rejected_not_shown": 0,
 }
 
 _CART = {
