@@ -6,7 +6,7 @@ from app.domain.catalog import Allergens, Product
 from app.domain.enums import AllergenStatus, AllergenType, SubstituteBasis
 from app.domain.money import round_money
 from app.domain.offer import Candidate, OfferQuery, Price, RejectedProduct, SubstituteFor
-from app.domain.units import fits_request, price_per_unit
+from app.domain.units import comparison_unit, fits_request, price_per_unit
 
 
 def is_equivalent(requested: Product, substitute: Product) -> bool:
@@ -42,6 +42,7 @@ def substitute_for(
         reason_code=rejected.reason_code,
         reason_sentence=rejected.reason_sentence,
         price_difference_per_unit=_difference(requested, requested_price, substitute, query),
+        per=comparison_unit(query.unit),
     )
 
 

@@ -78,6 +78,8 @@ class SubstituteFor:
     reason_sentence: str
     # Per comparison unit (L, KG or PCS). None: the requested product has no price or size.
     price_difference_per_unit: Decimal | None
+    # Unit of the difference. None only on substitutes stored before this field existed.
+    per: Unit | None = None
 
 
 @dataclass(frozen=True)

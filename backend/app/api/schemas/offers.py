@@ -94,6 +94,9 @@ class SubstituteFor(BaseModel):
         "(L, KG or PCS), EUR ex VAT. Negative: cheaper. null: the original has no price or no "
         "size, so the difference is not known.",
     )
+    per: Unit | None = Field(
+        description="Unit of price_difference_per_unit: L, KG or PCS. null: not known.",
+    )
 
 
 class OfferLine(Reasons):
