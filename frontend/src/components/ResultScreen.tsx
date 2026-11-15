@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 
 import type { Cart, CartLine, CartUpdate } from '../api.ts'
 import { formatCount, formatDate } from '../format.ts'
-import { FlowSteps, type StopTone } from './FlowSteps.tsx'
+import type { StopTone } from './FlowSteps.tsx'
 import { Icon, type IconName } from './Icon.tsx'
 
 export type ResultTone = 'done' | StopTone
@@ -55,12 +55,6 @@ function SummaryRows({
         <div className="summary-row">
           <dt>Delivery</dt>
           <dd>{deliveryNote === undefined ? delivery : `${delivery}, ${deliveryNote}`}</dd>
-        </div>
-      )}
-      {cart.orderId === null ? null : (
-        <div className="summary-row">
-          <dt>Order</dt>
-          <dd>{cart.orderId}</dd>
         </div>
       )}
     </dl>
@@ -147,7 +141,6 @@ export function ResultScreen({
 
   return (
     <>
-      <FlowSteps currentPhase={null} stopTone={tone === 'done' ? undefined : tone} />
       <section className="result-head">
         <span className={`result-badge result-badge-${tone}`}>
           <Icon name={icon} />
