@@ -43,7 +43,12 @@ interface PageData {
 type LoadState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'failed' }
-  | { readonly kind: 'ready'; readonly data: PageData }
+  | {
+      readonly kind: 'ready'
+      readonly data: PageData
+      // The waiting page the user was reading when a silent check found the cart closed.
+      readonly held: PageData | null
+    }
 
 // The session comes first, so a signed out user never gets a cart request. The audit only
 // adds the agent name and the timeline: the page still works without it.
@@ -62,9 +67,9 @@ interface ShownCart {
   readonly status: CartStatus | null
 }
 
-// 'keep' leaves the page on screen when the load fails, so a silent reload shows nothing.
-type LoadFailure = 'show' | 'keep'
-type Reload = (onFailure?: LoadFailure) => Promise<void>
+// A 'silent' load keeps the page on screen when it fails, so the user sees nothing.
+type LoadSource = 'user' | 'silent'
+type Reload = (source?: LoadSource) => Promise<void>
 
 // Like the audit, a failed check must not hide the order. The mark says it was not checked.
 function checkOrder(cart: Cart): Promise<OrderTrust | null> {
@@ -85,9 +90,21 @@ function checkOffers(cart: Cart): Promise<OfferTrust | null> {
   return getOfferTrust(lines).catch(() => UNCHECKED)
 }
 
+// Rule 4 for a closed cart: when a silent check finds it closed, the waiting page stays behind
+// the bar, with a typed reject reason. A load the user started shows the new state at once.
+function heldPage(previous: LoadState, next: PageData, source: LoadSource): PageData | null {
+  const isClosedBySomeoneElse = source === 'silent' && next.cart.status !== 'waiting'
+  if (!isClosedBySomeoneElse || previous.kind !== 'ready') {
+    return null
+  }
+
+  return previous.data.cart.status === 'waiting' ? previous.data : null
+}
+
 // Rule 5: check silently while the tab is visible, and reload only when the revision or the
 // state differs from the screen. The reload never swaps a waiting cart under a finger: a new
-// revision shows the update bar first. A closed cart is final, so it is not checked.
+// revision or a closed state shows the update bar first. A closed cart is final, so it is not
+// checked.
 function useSilentCheck(shown: ShownCart, isBusy: RefObject<boolean>, reload: Reload): void {
   const { cartId, revision, status } = shown
 
@@ -107,7 +124,7 @@ function useSilentCheck(shown: ShownCart, isBusy: RefObject<boolean>, reload: Re
         // A decision that started during the call reloads by itself.
         const isChanged = cart.revision !== revision || cart.status !== status
         if (isChanged && !isBusy.current) {
-          await reload('keep')
+          await reload('silent')
         }
       } catch (error: unknown) {
         // A failed check shows nothing. The next one tries again.
@@ -191,7 +208,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   // the state, so a slower, older load never puts a decided cart back as waiting.
   const lastLoad = useRef(0)
   const load: Reload = useCallback(
-    (onFailure = 'show') => {
+    (source = 'user') => {
       lastLoad.current += 1
       const loadId = lastLoad.current
       const isLatest = (): boolean => loadId === lastLoad.current
@@ -199,7 +216,11 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
       return loadPage(cartId).then(
         (data) => {
           if (isLatest()) {
-            setState({ kind: 'ready', data })
+            setState((previous) => ({
+              kind: 'ready',
+              data,
+              held: heldPage(previous, data, source),
+            }))
           }
         },
         (error: unknown) => {
@@ -208,7 +229,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
             return
           }
 
-          if (isLatest() && onFailure === 'show') {
+          if (isLatest() && source === 'user') {
             setState({ kind: 'failed' })
           }
         },
@@ -307,15 +328,18 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
     )
   }
 
-  const { session, cart: latest, audit, trust, offerTrust } = state.data
+  const { held } = state
+  const isClosePending = held !== null
+  const { session, cart: latest, audit, trust, offerTrust } = held ?? state.data
   const { update } = latest
   // Only a waiting cart holds the old version back. A decided cart shows what was decided, even
   // after a reload resets reviewedRevision.
-  const isReviewPending =
+  const isUpdatePending =
     latest.status === 'waiting' && update !== null && reviewedRevision !== latest.revision
+  const isReviewPending = isUpdatePending || isClosePending
   // Until Review, the user keeps the version they were reading. A decision names that version.
   const cart =
-    update !== null && isReviewPending
+    update !== null && isUpdatePending
       ? {
           ...latest,
           lines: update.previousLines,
@@ -357,8 +381,17 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
   return (
     <main className="approval">
       <div className="approval-main">
-        {isReviewPending ? (
+        {isClosePending ? (
           <UpdateBar
+            kind="closed"
+            onReview={() => {
+              setState({ ...state, held: null })
+            }}
+          />
+        ) : null}
+        {isUpdatePending && !isClosePending ? (
+          <UpdateBar
+            kind="revised"
             ref={reviewButton}
             onReview={() => {
               setShouldFocusReview(false)
@@ -371,7 +404,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
           buyerId={session.buyerId}
           agentName={audit?.agentName ?? null}
           trust={offerTrust ?? UNCHECKED}
-          update={isReviewPending ? undefined : (update ?? undefined)}
+          update={isUpdatePending ? undefined : (update ?? undefined)}
         />
         {timeline}
       </div>
@@ -402,7 +435,7 @@ export function ApprovalPage({ cartId }: ApprovalPageProps): ReactElement {
           isBusy={isBusy}
           trust={offerTrust ?? UNCHECKED}
           isReviewPending={isReviewPending}
-          update={isReviewPending ? undefined : (update ?? undefined)}
+          update={isUpdatePending ? undefined : (update ?? undefined)}
           onApprove={() => void decide(() => approveCart(cartId, latest.revision))}
           onReject={(reason) => void decide(() => rejectCart(cartId, latest.revision, reason))}
           onChange={(change: CartChange) => void decide(() => sendChange(latest.revision, change))}

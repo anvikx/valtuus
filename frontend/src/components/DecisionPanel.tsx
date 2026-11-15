@@ -109,8 +109,9 @@ export function DecisionPanel({
       </div>
 
       <ChangeSheet
-        // The sheet copies the lines on mount, and the lines change when Review shows the update.
-        key={`${cart.revision}-${isReviewPending}`}
+        // The sheet copies the lines on mount, and the lines change when Review shows the update
+        // (update is set from then on). A cart closed behind the bar keeps the lines and the draft.
+        key={`${cart.revision}-${update === undefined}`}
         ref={changeSheet}
         cart={cart}
         isBusy={isBusy}
