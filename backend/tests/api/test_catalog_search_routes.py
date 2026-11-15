@@ -94,6 +94,9 @@ def test_rest_and_mcp_match_and_write_one_search_each(monkeypatch, expected, mcp
         assert flags == {"10400": True}
     else:
         assert flags == {}
+    if expected == "GUARD_CUT":
+        assert len(body["candidates"]) == 40
+        assert body["total_hits"] == body["categories"][0]["hits"] == 501
     if expected == "ASK_CHOICES":
         assert body["choices"] == [{"attribute": "FREE_FROM_LACTOSE", "hits": 1}]
     assert body.pop("request_id") == records.records[0].request_id
