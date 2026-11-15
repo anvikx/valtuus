@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 
-import type { Cart, CartLine, CartUpdate } from '../api.ts'
+import type { Cart, CartLine, CartUpdate, LineStock } from '../api.ts'
 import { formatCount, formatDate } from '../format.ts'
 import type { StopTone } from './FlowSteps.tsx'
 import { Icon, type IconName } from './Icon.tsx'
@@ -63,6 +63,17 @@ function SummaryRows({
 
 // The old quantity struck through, then the new one. The struck text says "was" for a screen
 // reader, which does not announce strikethrough.
+function stockWords(stock: LineStock): string {
+  switch (stock.kind) {
+    case 'in-stock':
+      return 'In stock'
+    case 'unconfirmed':
+      return 'Stock not confirmed'
+    case 'short':
+      return `Only ${formatCount(stock.available)} in stock`
+  }
+}
+
 function Quantity({ line, before }: { line: CartLine; before?: CartLine }): ReactElement {
   if (before === undefined || before.qty === line.qty) {
     return <>{formatCount(line.qty)}</>
@@ -111,6 +122,7 @@ export function OrderLines({ cart, update }: OrderLinesProps): ReactElement {
               <p className="muted">
                 <Quantity line={line} before={before} /> × {unitPrice} ex VAT
               </p>
+              <p className="muted">{stockWords(line.stock)}</p>
             </li>
           )
         })}

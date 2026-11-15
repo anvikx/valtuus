@@ -25,6 +25,9 @@ const COFFEE: WireCartLine = {
   qty: 10,
   unit_price: '5.50',
   line_total: '55.00',
+  stock_model: 'TERMINAL',
+  reason_codes: ['STOCK_UNCONFIRMED'],
+  reason_sentences: ['Valio Aimo does not confirm the stock of this product.'],
 }
 
 export interface LineChange {

@@ -112,6 +112,8 @@ export interface WireCartLine {
   readonly reason_codes: readonly string[]
   readonly reason_sentences: readonly string[]
   readonly substitute_for: unknown
+  readonly stock_model: string | null
+  readonly available_qty: number | null
 }
 
 // The version the user last saw, kept while an update waits for Review.
@@ -274,6 +276,13 @@ export interface UnderstoodRequest {
   readonly deliverBy: string | null
 }
 
+// Rule 10 words for a line. A null count is never "unlimited". 'short': fewer than qty, which a
+// DENIED cart can show.
+export type LineStock =
+  | { readonly kind: 'in-stock' }
+  | { readonly kind: 'unconfirmed' }
+  | { readonly kind: 'short'; readonly available: number }
+
 export interface CartLine {
   // The signed offer that holds the line's price.
   readonly offerId: string
@@ -283,6 +292,7 @@ export interface CartLine {
   readonly unitPrice: string
   readonly lineTotal: string
   readonly deliveryDate: string
+  readonly stock: LineStock
 }
 
 export interface CartUpdate {
@@ -485,6 +495,23 @@ function toUnderstood(wire: WireInterpretedRequest | null): UnderstoodRequest | 
   }
 }
 
+const WIRE_STOCK_MODEL = 'STOCK'
+const WIRE_STOCK_UNCONFIRMED = 'STOCK_UNCONFIRMED'
+
+// A STOCK line with a null count is either "in stock" or the unconfirmed marker. The backend
+// keeps that difference only as the line's STOCK_UNCONFIRMED reason.
+function toLineStock({ stock_model, reason_codes, available_qty, qty }: WireCartLine): LineStock {
+  if (stock_model !== WIRE_STOCK_MODEL || reason_codes.includes(WIRE_STOCK_UNCONFIRMED)) {
+    return { kind: 'unconfirmed' }
+  }
+
+  if (available_qty !== null && available_qty < qty) {
+    return { kind: 'short', available: available_qty }
+  }
+
+  return { kind: 'in-stock' }
+}
+
 function toCartLine(wire: WireCartLine): CartLine {
   return {
     offerId: wire.offer_id,
@@ -494,6 +521,7 @@ function toCartLine(wire: WireCartLine): CartLine {
     unitPrice: wire.unit_price,
     lineTotal: wire.line_total,
     deliveryDate: wire.delivery_date,
+    stock: toLineStock(wire),
   }
 }
 
