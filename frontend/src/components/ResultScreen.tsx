@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactElement, type ReactNode } from 'react'
 
 import type { Cart, CartLine, CartUpdate } from '../api.ts'
-import { formatCount, formatDate } from '../format.ts'
+import { formatCount, formatDate, formatPriceDifference } from '../format.ts'
 import type { StopTone } from './FlowSteps.tsx'
 import { Icon, type IconName } from './Icon.tsx'
 
@@ -77,6 +77,25 @@ function Quantity({ line, before }: { line: CartLine; before?: CartLine }): Reac
   )
 }
 
+// A substitute must be seen without a tap: the approver says yes to a product the agent did
+// not first ask for.
+function Substitute({ line, currency }: { line: CartLine; currency: string }): ReactElement | null {
+  const { substitute } = line
+  if (substitute === null) {
+    return null
+  }
+
+  return (
+    <div className="substitute-note">
+      <p>
+        <strong>In place of {substitute.originalName}</strong>
+      </p>
+      <p>{substitute.reason}</p>
+      <p>{formatPriceDifference(substitute.priceDifference, currency, substitute.unit)}</p>
+    </div>
+  )
+}
+
 function removedNames(cart: Cart, update: CartUpdate): string[] {
   const keptIds = new Set(cart.lines.map((line) => line.productId))
   return update.previousLines
@@ -111,6 +130,7 @@ export function OrderLines({ cart, update }: OrderLinesProps): ReactElement {
               <p className="muted">
                 <Quantity line={line} before={before} /> × {unitPrice} ex VAT
               </p>
+              <Substitute line={line} currency={cart.currency} />
             </li>
           )
         })}

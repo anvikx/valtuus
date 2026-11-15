@@ -156,6 +156,11 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         Send request_id from search_products, so the audit trail shows the search.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
+        include_substitutes=true: a requested product that is rejected or arrives after
+        deliver_by gets its Valio Aimo substitute pair as an extra line, when the allergen data of
+        both products is known and equal. A substitute line has substitute_for (the original,
+        the reason and price_difference_per_unit) and ranks after every requested product. Show
+        it to the buyer with both names. A cart line from it always needs the main user.
         UPSTREAM_UNAVAILABLE: follow next_step and wait the stated seconds before retrying.
         """
         with _error_body():

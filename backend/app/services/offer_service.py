@@ -21,6 +21,7 @@ from app.domain.offer import (
 )
 from app.domain.ranking import rank_offer_lines
 from app.domain.screening import reject, screen
+from app.domain.substitutes import SubstitutePair, select_substitutes, substitute_pairs
 from app.domain.units import json_number
 from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
@@ -68,10 +69,17 @@ class OfferService:
         issued_at = self._clock.now()
         products, missing = self._products(product_ids)
         # No Valio call inside the transaction: a slow answer would hold the database lock.
-        prices, snapshot = self._live_data(products, query, issued_at)
+        pairs = self._pairs(products, query)
+        # Substitutes ride in the same two calls. Which originals need one is known only
+        # after screening, so every safe pair is fetched.
+        fetched = _with_substitutes(products, pairs)
+        prices, snapshot = self._live_data(fetched, query, issued_at)
         # A deadline may pass while the upstream answers; screen against the time after it.
-        candidates, rejected = _split(products, prices, snapshot, query, self._clock.now())
-        lines = rank_offer_lines(candidates, query)
+        now = self._clock.now()
+        screened = _screen_all(products, prices, snapshot, query, now)
+        candidates, rejected = _split(screened)
+        substitutes = select_substitutes(pairs, screened, prices, snapshot, query, now)
+        lines = rank_offer_lines([*candidates, *substitutes], query)
         offer = self._signed(
             Offer(
                 offer_id=f"o_{uuid4().hex}",
@@ -115,6 +123,12 @@ class OfferService:
             if product is None
         )
         return products, missing
+
+    def _pairs(self, products: Sequence[Product], query: OfferQuery) -> tuple[SubstitutePair, ...]:
+        if not query.include_substitutes:
+            return ()
+
+        return substitute_pairs(products, self._catalog.get)
 
     def _live_data(
         self,
@@ -168,6 +182,11 @@ class OfferService:
                 "offer_id": offer.offer_id,
                 "lines": [line.product_id for line in offer.lines],
                 "rejected": {item.product_id: item.reason_code for item in offer.rejected},
+                "substitutes": {
+                    line.product_id: line.substitute_for.product_id
+                    for line in offer.lines
+                    if line.substitute_for is not None
+                },
             },
         )
 
@@ -183,24 +202,39 @@ def _offer_sentence(offer: Offer) -> str:
     return f"{offered} and rejected {len(offer.rejected)}: {reasons}"
 
 
-def _split(
+def _with_substitutes(
+    products: Sequence[Product],
+    pairs: Sequence[SubstitutePair],
+) -> tuple[Product, ...]:
+    extra = {pair.substitute.product_id: pair.substitute for pair in pairs}
+    return (*products, *extra.values())
+
+
+def _screen_all(
     products: Sequence[Product],
     prices: Mapping[str, Price],
     snapshot: AvailabilitySnapshot,
     query: OfferQuery,
     now: datetime,
-) -> tuple[list[Candidate], tuple[RejectedProduct, ...]]:
-    candidates: list[Candidate] = []
-    rejected: list[RejectedProduct] = []
-    for product in products:
-        pid = product.product_id
-        result = screen(product, prices.get(pid), snapshot.items.get(pid), query, now)
-        if isinstance(result, RejectedProduct):
-            rejected.append(result)
-            continue
+) -> dict[str, Candidate | RejectedProduct]:
+    return {
+        product.product_id: screen(
+            product,
+            prices.get(product.product_id),
+            snapshot.items.get(product.product_id),
+            query,
+            now,
+        )
+        for product in products
+    }
 
-        candidates.append(result)
-    return candidates, tuple(rejected)
+
+def _split(
+    screened: Mapping[str, Candidate | RejectedProduct],
+) -> tuple[list[Candidate], tuple[RejectedProduct, ...]]:
+    candidates = [item for item in screened.values() if isinstance(item, Candidate)]
+    rejected = tuple(item for item in screened.values() if isinstance(item, RejectedProduct))
+    return candidates, rejected
 
 
 def _valid_until(issued_at: datetime, lines: Sequence[OfferLine]) -> datetime:

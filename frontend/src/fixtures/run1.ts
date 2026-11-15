@@ -61,6 +61,42 @@ export const PENDING_CART: WireCart = {
   previous_version: null,
 }
 
+// A cart line from a Valio pair substitute: the requested milk could not be delivered.
+export const SUBSTITUTE_EXTRAS: Partial<WireCart> = {
+  reason_codes: ['SUBSTITUTE_FOR_REQUESTED'],
+  reason_sentences: [
+    '12 x Arla Whole milk drink 1 L UHT lactose free replaces the requested ' +
+      'Valio whole milk 1 l lactose free UHT.',
+  ],
+  current_reason_codes: ['SUBSTITUTE_FOR_REQUESTED'],
+  lines: [
+    {
+      offer_id: 'o_demo',
+      product_id: '464768',
+      name: '12 x Arla Whole milk drink 1 L UHT lactose free',
+      qty: 1000,
+      unit_price: '1.21',
+      line_total: '1210.00',
+      delivery_date: '2026-11-16',
+      closing_time: '2026-11-15T17:00:00',
+      decision: 'HUMAN',
+      reason_codes: ['SUBSTITUTE_FOR_REQUESTED'],
+      reason_sentences: [],
+      substitute_for: {
+        product_id: '464073',
+        name: 'Valio whole milk 1 l lactose free UHT',
+        basis: 'VALIO_PAIR',
+        reason_code: 'NOT_AVAILABLE',
+        reason_sentence: 'Valio Aimo cannot deliver this product.',
+        price_difference_per_unit: '0.20',
+        per: 'L',
+      },
+    },
+  ],
+  total_ex_vat: '1210.00',
+  delivery_day_total_ex_vat: '1210.00',
+}
+
 export const ORDER_CONFIRMATION: WireOrderConfirmation = {
   order_id: 'ord_demo',
   cart_id: 'c_demo',

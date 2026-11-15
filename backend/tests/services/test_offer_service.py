@@ -401,3 +401,63 @@ def test_a_cutoff_crossed_during_the_upstream_call_is_rejected(monkeypatch) -> N
     (rejected,) = offer.rejected
     assert rejected.reason_code is ReasonCode.CUTOFF_PASSED
     assert rejected.closing_time == CLOSING
+
+
+_MILK_UHT = "464073"
+_MILK_ARLA = "464768"
+
+
+def _substitute_world() -> _World:
+    """464073 has no stock line, so it is rejected. Its Valio pair 464768 can be delivered."""
+    original = replace(product(_MILK_UHT), substitute_ids=(_MILK_ARLA,))
+    source = FakePriceSource(
+        [price(_MILK_UHT, "1.00"), price(_MILK_ARLA, "1.20")],
+        [stock(_MILK_ARLA)],
+    )
+    return _World(source, products=(original, product(_MILK_ARLA)))
+
+
+def _with_substitutes(**fields):
+    return replace(query(_MILK_UHT, **fields), include_substitutes=True)
+
+
+def test_a_substitute_rides_in_the_same_two_upstream_calls() -> None:
+    """The mock blocks a burst with a 429, so a substitute must not cost a third call."""
+    world = _substitute_world()
+
+    world.service.get_offers(samples.agent_key(), _with_substitutes())
+
+    assert world.source.calls == [
+        ("prices", (_MILK_UHT, _MILK_ARLA), MONDAY),
+        ("availability", (_MILK_UHT, _MILK_ARLA), MONDAY),
+    ]
+
+
+def test_the_stored_and_signed_offer_carry_the_substitute() -> None:
+    """The cart copies substitute_for from the stored line, and the signature must cover it."""
+    world = _substitute_world()
+
+    offer = world.service.get_offers(samples.agent_key(), _with_substitutes())
+
+    (line,) = offer.lines
+    assert line.product_id == _MILK_ARLA
+    assert line.substitute_for.product_id == _MILK_UHT
+    assert line.substitute_for.price_difference_per_unit == Decimal("0.20")
+    assert [item.product_id for item in offer.rejected] == [_MILK_UHT]
+    assert world.offers.get(offer.offer_id).lines[0].substitute_for == line.substitute_for
+    (payload,) = world.signer.payloads
+    assert payload["lines"][0]["substitute_for"]["product_id"] == _MILK_UHT
+    (record,) = world.audit.records
+    assert record.output_data["substitutes"] == {_MILK_ARLA: _MILK_UHT}
+
+
+def test_without_include_substitutes_there_is_no_substitute_and_no_extra_fetch() -> None:
+    """The agent did not ask. A line it never requested would go to the approver."""
+    world = _substitute_world()
+
+    offer = world.get_offers(_MILK_UHT)
+
+    assert offer.lines == ()
+    assert world.source.calls[0][1] == (_MILK_UHT,)
+    (record,) = world.audit.records
+    assert record.output_data["substitutes"] == {}

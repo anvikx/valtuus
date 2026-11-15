@@ -164,3 +164,21 @@ export const ALLERGEN_WORDS: Readonly<Record<string, string>> = {
 export function formatAllergen(code: string): string {
   return ALLERGEN_WORDS[code] ?? code
 }
+
+const NO_DIFFERENCE = 'Price difference unknown'
+
+/** "0.12" gives "+0.12 EUR per L". null gives "Price difference unknown". */
+export function formatPriceDifference(
+  difference: string | null,
+  currency: string,
+  unit: string | null,
+): string {
+  if (difference === null) {
+    return NO_DIFFERENCE
+  }
+
+  // The backend sends the sign itself for a negative value. A positive one gets "+" here.
+  const signed =
+    difference.startsWith('-') || Number(difference) === 0 ? difference : `+${difference}`
+  return `${signed} ${currency} per ${unit ?? 'unit'}`
+}

@@ -23,7 +23,10 @@ class _Group(IntEnum):
 
 
 def rank_offer_lines(candidates: Iterable[Candidate], query: OfferQuery) -> tuple[OfferLine, ...]:
-    """Equal keys fall back to product_id, so the same data always gives the same order."""
+    """Substitutes rank after every requested product, so rank 1 is one the agent asked for.
+
+    Equal keys fall back to product_id, so the same data always gives the same order.
+    """
     scored = sorted(_scored(candidate, query) for candidate in candidates)
     return tuple(
         replace(line, rank=rank, tier=_TIERS[rank - 1] if rank <= len(_TIERS) else None)
@@ -31,7 +34,10 @@ def rank_offer_lines(candidates: Iterable[Candidate], query: OfferQuery) -> tupl
     )
 
 
-def _scored(candidate: Candidate, query: OfferQuery) -> tuple[_Group, Decimal, str, OfferLine]:
+def _scored(
+    candidate: Candidate,
+    query: OfferQuery,
+) -> tuple[bool, _Group, Decimal, str, OfferLine]:
     product, price, availability = candidate.product, candidate.price, candidate.availability
     _require_screened(availability)
 
@@ -65,11 +71,12 @@ def _scored(candidate: Candidate, query: OfferQuery) -> tuple[_Group, Decimal, s
         closing_time=availability.closing_time,
         line_total=line_total(needed, price.unit_price),
         max_auto_qty=None,
-        substitute_for=None,
+        substitute_for=candidate.substitute_for,
         reason_codes=codes,
         reason_sentences=sentences,
     )
-    return _group(codes), per_unit, product.product_id, line
+    is_substitute = candidate.substitute_for is not None
+    return is_substitute, _group(codes), per_unit, product.product_id, line
 
 
 def _require_screened(availability: Availability) -> None:
@@ -112,17 +119,24 @@ def _reasons(
         sentence = reason_sentence(code, available_qty=available_qty, needed_qty=needed)
         reasons.append((code, sentence))
 
-    # No deliver_by asks for the earliest date, so nothing can be late.
-    if query.deliver_by is not None and availability.available_date > query.deliver_by:
-        code = ReasonCode.DELIVERY_AFTER_DEADLINE
-        sentence = reason_sentence(
-            code,
-            available_date=day_text(availability.available_date),
-            deliver_by=day_text(query.deliver_by),
-        )
-        reasons.append((code, sentence))
+    late_sentence = delivery_late_sentence(availability, query)
+    if late_sentence is not None:
+        reasons.append((ReasonCode.DELIVERY_AFTER_DEADLINE, late_sentence))
 
     return tuple(code for code, _ in reasons), tuple(sentence for _, sentence in reasons)
+
+
+def delivery_late_sentence(availability: Availability, query: OfferQuery) -> str | None:
+    """The reason sentence when the first delivery is after deliver_by, else None."""
+    # No deliver_by asks for the earliest date, so nothing can be late.
+    if query.deliver_by is None or availability.available_date <= query.deliver_by:
+        return None
+
+    return reason_sentence(
+        ReasonCode.DELIVERY_AFTER_DEADLINE,
+        available_date=day_text(availability.available_date),
+        deliver_by=day_text(query.deliver_by),
+    )
 
 
 def _group(codes: tuple[ReasonCode, ...]) -> _Group:

@@ -99,6 +99,17 @@ export interface WireInterpretedRequest {
   readonly preferred_brands: readonly string[]
 }
 
+// price_difference_per_unit is a money string, or null when the original has no price or size.
+export interface WireSubstituteFor {
+  readonly product_id: string
+  readonly name: string
+  readonly basis: string
+  readonly reason_code: string
+  readonly reason_sentence: string
+  readonly price_difference_per_unit: string | null
+  readonly per: string
+}
+
 export interface WireCartLine {
   readonly offer_id: string
   readonly product_id: string
@@ -111,7 +122,7 @@ export interface WireCartLine {
   readonly decision: string
   readonly reason_codes: readonly string[]
   readonly reason_sentences: readonly string[]
-  readonly substitute_for: unknown
+  readonly substitute_for: WireSubstituteFor | null
 }
 
 // The version the user last saw, kept while an update waits for Review.
@@ -163,7 +174,7 @@ export interface WireOrderLine {
   readonly unit_price: string
   readonly line_total: string
   readonly delivery_date: string
-  readonly substitute_for: unknown
+  readonly substitute_for: WireSubstituteFor | null
 }
 
 export interface WireOrderConfirmation {
@@ -274,6 +285,16 @@ export interface UnderstoodRequest {
   readonly deliverBy: string | null
 }
 
+// What a line replaces. priceDifference is per comparison unit (L, KG or pcs), ex VAT, signed
+// in the backend's string form. null: the gateway could not compute it.
+export interface SubstituteInfo {
+  readonly originalName: string
+  readonly reason: string
+  readonly priceDifference: string | null
+  // The comparison unit the difference is per, from the cart's request.
+  readonly unit: string | null
+}
+
 export interface CartLine {
   // The signed offer that holds the line's price.
   readonly offerId: string
@@ -283,6 +304,8 @@ export interface CartLine {
   readonly unitPrice: string
   readonly lineTotal: string
   readonly deliveryDate: string
+  // null: the agent asked for this product.
+  readonly substitute: SubstituteInfo | null
 }
 
 export interface CartUpdate {
@@ -485,6 +508,19 @@ function toUnderstood(wire: WireInterpretedRequest | null): UnderstoodRequest | 
   }
 }
 
+function toSubstitute(wire: WireSubstituteFor | null): SubstituteInfo | null {
+  if (wire === null) {
+    return null
+  }
+
+  return {
+    originalName: wire.name,
+    reason: wire.reason_sentence,
+    priceDifference: wire.price_difference_per_unit,
+    unit: UNIT_LABEL[wire.per] ?? wire.per,
+  }
+}
+
 function toCartLine(wire: WireCartLine): CartLine {
   return {
     offerId: wire.offer_id,
@@ -494,6 +530,7 @@ function toCartLine(wire: WireCartLine): CartLine {
     unitPrice: wire.unit_price,
     lineTotal: wire.line_total,
     deliveryDate: wire.delivery_date,
+    substitute: toSubstitute(wire.substitute_for),
   }
 }
 

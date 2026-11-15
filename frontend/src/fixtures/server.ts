@@ -14,6 +14,7 @@
 //   c_conflict       waiting; approve and reject answer 409, and the cart is then EXPIRED
 //   c_approve_fails  waiting; approve answers 503
 //   c_unavailable    every read answers 503
+//   c_substitute     waiting, one line is a substitute for a product that cannot be delivered
 //   c_revised        waiting, revision 2: the agent changed the milk and added coffee
 //   c_revised_stale  like c_revised, but approve and reject answer 409 and a revision 3 shows
 //
@@ -31,6 +32,7 @@ import type {
 import {
   ORDER_CONFIRMATION,
   PENDING_CART,
+  SUBSTITUTE_EXTRAS,
   agentOrderedCart,
   agentOrderedRecords,
   cartWithId,
@@ -70,6 +72,7 @@ const APPROVE_FAILS_ID = 'c_approve_fails'
 const UNAVAILABLE_ID = 'c_unavailable'
 const ANSWERS_ID = 'c_answers'
 const INSIDE_LIMITS_ID = 'c_inside_limits'
+const SUBSTITUTE_ID = 'c_substitute'
 const REVISED_ID = 'c_revised'
 const STALE_ID = 'c_revised_stale'
 const AGENT_UPDATER = 'AGENT'
@@ -112,6 +115,7 @@ const CART_EXTRAS: Readonly<Record<string, Partial<WireCart>>> = {
     current_decision: 'AUTO',
     current_reason_codes: [],
   },
+  [SUBSTITUTE_ID]: SUBSTITUTE_EXTRAS,
   [REVISED_ID]: REVISED_EXTRAS,
   [STALE_ID]: REVISED_EXTRAS,
 }
@@ -128,6 +132,7 @@ const START_OUTCOME: Readonly<Record<string, Outcome>> = {
   c_withdrawn: 'withdrawn',
   [CONFLICT_ID]: 'waiting',
   [APPROVE_FAILS_ID]: 'waiting',
+  [SUBSTITUTE_ID]: 'waiting',
   [REVISED_ID]: 'waiting',
   [STALE_ID]: 'waiting',
 }

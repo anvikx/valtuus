@@ -76,7 +76,10 @@ class SubstituteFor:
     basis: SubstituteBasis
     reason_code: ReasonCode
     reason_sentence: str
-    price_difference_per_unit: Decimal
+    # Per comparison unit (L, KG or PCS), EUR ex VAT. None: the original has no price or size.
+    price_difference_per_unit: Decimal | None
+    # The unit is on the substitute, not read from the cart, so the page cannot label it wrong.
+    per: Unit
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,7 @@ class Candidate:
     product: Product
     price: Price
     availability: Availability
+    substitute_for: SubstituteFor | None = None
 
 
 @dataclass(frozen=True)

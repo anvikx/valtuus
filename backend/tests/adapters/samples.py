@@ -49,6 +49,7 @@ _SUBSTITUTE = SubstituteFor(
     reason_code=ReasonCode.SUBSTITUTE_FOR_REQUESTED,
     reason_sentence="The requested milk is sold out.",
     price_difference_per_unit=SMALL_MONEY,
+    per=Unit.L,
 )
 
 

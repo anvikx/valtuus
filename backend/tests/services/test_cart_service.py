@@ -31,13 +31,16 @@ from app.domain.enums import (
     ReasonCode,
     RevisionAuthor,
     StockModel,
+    SubstituteBasis,
+    Unit,
 )
 from app.domain.errors import ConflictError, GatewayError, InvalidRequestError, NotFoundError
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
-from app.domain.offer import Offer, OfferLine
+from app.domain.offer import Offer, OfferLine, SubstituteFor
 from app.domain.order import Order
 from app.domain.policy.check import CheckResult, PolicyCheck, PolicyContext
+from app.domain.policy.checks.product_rules import Substitute
 from app.domain.policy.duplicate_order import DuplicateOrder
 from app.domain.policy.engine import PolicyEngine
 from app.domain.policy.order_limit import OrderLimit
@@ -233,6 +236,28 @@ def test_over_the_limit_waits_for_the_main_user() -> None:
     assert cart.reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
     assert cart.reason_sentences == ("1,010.00 EUR is over the 500.00 EUR limit.",)
     assert cart.current_reason_codes == (ReasonCode.OVER_AUTO_LIMIT,)
+
+
+def test_a_substitute_line_waits_for_the_main_user_inside_the_limits() -> None:
+    """The agent asked for another product. Only a person may say yes to the swap."""
+    origin = SubstituteFor(
+        product_id="464073",
+        name="Valio whole milk 1 l lactose free UHT",
+        basis=SubstituteBasis.VALIO_PAIR,
+        reason_code=ReasonCode.NOT_AVAILABLE,
+        reason_sentence="Valio Aimo cannot deliver this product.",
+        price_difference_per_unit=Decimal("0.20"),
+        per=Unit.L,
+    )
+    world = _World(extra_check=Substitute())
+    world.offers.add(_offer("o_1", _line(substitute_for=origin)))
+
+    cart = world.create(_buy(100))
+
+    assert cart.total_ex_vat == Decimal("101.00")
+    assert cart.state is CartState.PENDING_APPROVAL
+    assert cart.reason_codes == (ReasonCode.SUBSTITUTE_FOR_REQUESTED,)
+    assert cart.lines[0].substitute_for == origin
 
 
 def test_partial_stock_waits_for_the_main_user() -> None:
