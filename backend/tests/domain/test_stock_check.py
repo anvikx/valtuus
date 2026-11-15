@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -95,3 +96,30 @@ def test_stock_decides_who_orders_the_line(line: PricedLine, expected: list[Chec
     results = StockCheck().evaluate((line,), _CONTEXT)
 
     assert results == expected
+
+
+@pytest.mark.parametrize("product_id", [_PRODUCT_ID, "another-product"])
+def test_stored_offer_stock_warning_applies_only_to_its_own_line(product_id):
+    """A null count alone cannot distinguish the unconfirmed marker from the in-stock marker."""
+    line = _line(20)
+    offer = samples.offer()
+    warned = replace(
+        offer.lines[0],
+        product_id=product_id,
+        stock_model=StockModel.STOCK,
+        available_qty=None,
+        reason_codes=(ReasonCode.STOCK_UNCONFIRMED,),
+        reason_sentences=("Valio Aimo does not confirm the stock of this product.",),
+    )
+    context = replace(_CONTEXT, offers={line.offer_id: replace(offer, lines=(warned,))})
+
+    results = StockCheck().evaluate((line,), context)
+
+    if product_id != _PRODUCT_ID:
+        assert results == []
+        return
+
+    (result,) = results
+    assert result.decision is Decision.HUMAN
+    assert result.reason_code is ReasonCode.STOCK_UNCONFIRMED
+    assert result.line_id == _PRODUCT_ID

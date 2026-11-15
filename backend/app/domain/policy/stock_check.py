@@ -10,11 +10,24 @@ class StockCheck:
     """A partial or unconfirmed quantity goes to a person. More than the stock is refused."""
 
     def evaluate(self, lines: Sequence[PricedLine], context: PolicyContext) -> list[CheckResult]:
-        return [result for line in lines if (result := _stock_result(line)) is not None]
+        return [result for line in lines if (result := _stock_result(line, context)) is not None]
 
 
-def _stock_result(line: PricedLine) -> CheckResult | None:
-    if line.stock_model is not StockModel.STOCK:
+def _offer_unconfirmed(line: PricedLine, context: PolicyContext) -> bool:
+    offer = context.offers.get(line.offer_id)
+    if offer is None:
+        return False
+
+    # Both an unconfirmed marker and an "in stock" marker have a null count. The stored
+    # offer reason retains the distinction when policy reruns on the cart.
+    return any(
+        item.product_id == line.product_id and ReasonCode.STOCK_UNCONFIRMED in item.reason_codes
+        for item in offer.lines
+    )
+
+
+def _stock_result(line: PricedLine, context: PolicyContext) -> CheckResult | None:
+    if line.stock_model is not StockModel.STOCK or _offer_unconfirmed(line, context):
         return _result(line, Decision.HUMAN, ReasonCode.STOCK_UNCONFIRMED)
 
     # None: Valio Aimo confirms stock but sent no amount, which counts as in stock.

@@ -90,15 +90,23 @@ def test_unconfirmed_stock_is_group_b_with_no_count(model, amount) -> None:
     assert lines[1].available_qty is None
 
 
-@pytest.mark.parametrize("amount", [_UNKNOWN_STOCK_MARKER, 1_000_000, 666_666_666, 9_999_999_999])
-def test_stock_at_or_above_the_marker_is_in_stock_with_no_count(amount) -> None:
+@pytest.mark.parametrize(
+    ("amount", "reasons"),
+    [
+        (_UNKNOWN_STOCK_MARKER, (ReasonCode.STOCK_UNCONFIRMED,)),
+        (1_000_000, ()),
+        (666_666_666, ()),
+        (9_999_999_999, ()),
+    ],
+)
+def test_unknown_stock_amounts_are_not_compared_with_the_need(amount, reasons) -> None:
     """Unknown amounts must never be compared with the requested quantity (D35)."""
     (line,) = rank_offer_lines(
         [_candidate(amount=amount)],
         query(quantity=str(amount + 1)),
     )
 
-    assert line.reason_codes == ()
+    assert line.reason_codes == reasons
     assert line.available_qty is None
 
 
@@ -165,3 +173,14 @@ def test_a_product_that_was_not_screened_cannot_be_ranked() -> None:
 
     with pytest.raises(ValueError, match="does not fit"):
         rank_offer_lines([kilos], query(unit=Unit.L))
+
+
+def test_unconfirmed_stock_marker_does_not_outrank_confirmed_stock():
+    unknown = _candidate("unknown", "0.50", amount=_UNKNOWN_STOCK_MARKER)
+    confirmed = _candidate("confirmed", "1.01", amount=2000)
+
+    lines = rank_offer_lines([unknown, confirmed], query())
+
+    assert [line.product_id for line in lines] == ["confirmed", "unknown"]
+    assert lines[1].available_qty is None
+    assert lines[1].reason_codes == (ReasonCode.STOCK_UNCONFIRMED,)

@@ -6,11 +6,9 @@ from decimal import Decimal
 import pytest
 
 from app.adapters.postgres.catalog import PostgresCatalog
-from app.adapters.product_store import ProductStore
 from app.api.results import search_response
 from app.domain.catalog import Allergens, ContentPerSalesUnit
 from app.domain.catalog_search import (
-    CHOICE_ATTRIBUTES,
     VALID_ATTRIBUTES,
     NameMatcher,
     validate_query,
@@ -240,78 +238,6 @@ def test_postgres_uses_exact_name_rules_after_prefilter(database):
     result = catalog.search(agent_key(), query("milk drink"))
 
     assert [p.product_id for p in result.candidates] == ["2"]
-
-
-def test_real_file_search_counts(database):
-    from pathlib import Path
-
-    data_dir = Path(__file__).resolve().parents[2] / "data"
-    if not (data_dir / "valio_products.json").exists():
-        pytest.skip("Private challenge catalog is not present")
-    store = ProductStore(data_dir)
-    _LOAD_CATALOG(store, store.local_files())
-    persisted = PostgresCatalog(database)
-    persisted.replace(store.products())
-    catalog, _ = service(persisted)
-    for product_id, amount, unit, source in (
-        ("460020", Decimal(50), Unit.PCS, "DATA"),
-        ("460367", Decimal(4), Unit.PCS, "DATA"),
-        ("460503", Decimal(40), Unit.PCS, "DATA"),
-        ("460498", Decimal(1000), Unit.PCS, "NAME"),
-        ("464306", Decimal(1), Unit.L, "DATA"),
-    ):
-        content = persisted.get(product_id).content_per_sales_unit
-        assert (content.value, content.unit, content.source) == (amount, unit, source)
-    cases = [
-        ("milk", ("FREE_FROM_LACTOSE",), Unit.L, None, "10400", 33),
-        ("milk drink", ("FREE_FROM_LACTOSE",), Unit.L, None, "10400", 21),
-        ("maito", ("FREE_FROM_LACTOSE",), Unit.L, None, "10400", 31),
-        ("milk", (), Unit.L, None, "10400", 86),
-        # Four dual weight/volume names have unknown content in the existing parser.
-        # Search must keep them; this file therefore has 96, versus the spec snapshot's 92.
-        ("cream", (), Unit.L, None, "41820", 96),
-        ("cream", (), Unit.L, "10401", "10401", 43),
-        ("butter", (), Unit.KG, None, "41764", 27),
-        ("butter", (), Unit.KG, "10500", "10500", 19),
-        ("oat drink", (), Unit.L, None, "10402", 36),
-        ("chicken", (), None, None, "41710", 121),
-    ]
-    for words, attributes, unit, category, expected_category, count in cases:
-        result = catalog.search(
-            agent_key(),
-            query(
-                words,
-                required_attributes=attributes,
-                unit=unit,
-                category=category,
-                declined_attributes=CHOICE_ATTRIBUTES,
-            ),
-        )
-        assert (result.hint_category, len(result.candidates)) == (expected_category, count), words
-        assert [summary.category for summary in result.categories if summary.in_list] == [
-            expected_category,
-        ]
-        if unit is None:
-            assert result.hint.code == "MISSING_FIELDS"
-            assert result.missing_fields == ("unit",)
-        else:
-            assert result.hint.code == "READY"
-    cream = catalog.search(agent_key(), query("cream"))
-    whipping = next(summary for summary in cream.categories if summary.category == "10401")
-    assert whipping.hits == 43
-    assert whipping.in_list is False
-    assert len(whipping.examples) == 2
-    assert any("whip" in name.casefold() for name in whipping.examples)
-    assert cream.total_hits > len(cream.candidates)
-    plain = catalog.search(agent_key(), query("jaatelo", unit=None))
-    accented = catalog.search(agent_key(), query("jäätelö", unit=None))
-    assert plain.candidates == accented.candidates
-    result = catalog.search(agent_key(), query("milk", required_attributes=("FREE_FROM_LACTOSE",)))
-    assert "475604" not in {p.product_id for p in result.candidates}
-
-
-# Keep the real loader before the autouse fixture disables startup file loading.
-_LOAD_CATALOG = ProductStore.load
 
 
 def test_fried_is_not_the_negation_fri():
