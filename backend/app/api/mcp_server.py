@@ -154,6 +154,8 @@ def create_mcp_server(services: Services, public_url: str) -> MCPServer:
         """Live price and stock for chosen products, ranked by the mandate.
 
         Send request_id from search_products, so the audit trail shows the search.
+        On-time products prioritize the mandate's preferred brands, then stock and price.
+        A brand outside the mandate's preference requires human approval.
         Rejected products include a reason: expired cutoff, unavailable, no price, or no size
         for L/KG. PCS needs no size. Stock amounts >= 999999 mean unknown; 0 is unavailable.
         UPSTREAM_UNAVAILABLE: follow next_step and wait the stated seconds before retrying.

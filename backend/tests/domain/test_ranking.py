@@ -140,6 +140,37 @@ def test_equal_prices_rank_by_product_id() -> None:
     assert [line.product_id for line in lines] == ["a", "b"]
 
 
+@pytest.mark.parametrize("amount", [384, 2000])
+@pytest.mark.parametrize("brand", ["Arla", "ARLA"])
+def test_preferred_brand_comes_first(amount, brand):
+    """A cheaper alternative must not displace the buyer's preferred brand."""
+    preferred = replace(
+        _candidate("arla", "1.50", amount=amount),
+        product=replace(product("arla"), brand=brand),
+    )
+
+    lines = rank_offer_lines(
+        [_candidate("valio", "1.01"), preferred],
+        replace(query(), preferred_brands=("Arla",)),
+    )
+
+    assert [line.product_id for line in lines] == ["arla", "valio"]
+
+
+def test_on_time_beats_late_preference():
+    preferred = replace(
+        _candidate("arla", available_date=MONDAY + timedelta(days=1)),
+        product=replace(product("arla"), brand="Arla"),
+    )
+
+    lines = rank_offer_lines(
+        [preferred, _candidate("valio")],
+        replace(query(), preferred_brands=("Arla",)),
+    )
+
+    assert [line.product_id for line in lines] == ["valio", "arla"]
+
+
 def test_a_box_ranks_on_its_price_per_litre() -> None:
     """A 6 x 1 l box at 6.00 costs 1.00 per litre, so it beats a 1 l pack at 1.01."""
     box = replace(

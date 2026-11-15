@@ -26,7 +26,7 @@ from app.services.audit_service import AuditService
 from app.services.ports.catalog import ProductCatalog
 from app.services.ports.clock import Clock
 from app.services.ports.price_source import PriceSource
-from app.services.ports.repositories import OfferRepository
+from app.services.ports.repositories import MandateRepository, OfferRepository
 from app.services.ports.signer import Signer
 from app.services.ports.unit_of_work import UnitOfWork
 
@@ -46,6 +46,7 @@ class OfferService:
         audit: AuditService,
         unit_of_work: UnitOfWork,
         candidate_guard: int,
+        mandates: MandateRepository,
     ) -> None:
         self._catalog = catalog
         self._prices = prices
@@ -55,6 +56,7 @@ class OfferService:
         self._audit = audit
         self._unit_of_work = unit_of_work
         self._candidate_guard = candidate_guard
+        self._mandates = mandates
 
     def get_offers(self, agent: AgentKey, query: OfferQuery) -> Offer:
         """Raises UpstreamUnavailableError (and its rate limited kind) before anything is stored."""
@@ -65,6 +67,7 @@ class OfferService:
                 "Send fewer product ids.",
             )
 
+        query = self._with_preferences(agent.buyer_id, query)
         issued_at = self._clock.now()
         products, missing = self._products(product_ids)
         # No Valio call inside the transaction: a slow answer would hold the database lock.
@@ -101,6 +104,13 @@ class OfferService:
             raise NotFoundError(f"Offer {offer_id} was not found.", "Check the offer id.")
 
         return offer
+
+    def _with_preferences(self, buyer_id: str, query: OfferQuery) -> OfferQuery:
+        with self._unit_of_work.transaction():
+            mandate = self._mandates.latest(buyer_id)
+        if mandate is None:
+            raise NotFoundError("The buyer has no mandate.", "Ask the buyer to set a mandate.")
+        return replace(query, preferred_brands=mandate.preferred_brands or query.preferred_brands)
 
     def _products(
         self,
@@ -163,6 +173,7 @@ class OfferService:
                 "quantity": None if query.quantity is None else str(query.quantity),
                 "unit": query.unit,
                 "deliver_by": None if query.deliver_by is None else query.deliver_by.isoformat(),
+                "preferred_brands": list(query.preferred_brands),
             },
             output_data={
                 "offer_id": offer.offer_id,

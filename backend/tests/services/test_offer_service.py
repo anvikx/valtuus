@@ -9,6 +9,7 @@ from pydantic_core import to_jsonable_python
 from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
     InMemoryCartRepository,
+    InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryUnitOfWork,
 )
@@ -79,6 +80,8 @@ class _World:
         self.audit = _Records()
         self.signer = _RecordingSigner()
         self.clock = FixedClock(now)
+        self.mandates = InMemoryMandateRepository()
+        self.mandates.add(replace(samples.mandate(), preferred_brands=()))
         catalog_products = (
             (product(), product("465039", sales_unit="KI")) if products is None else products
         )
@@ -98,6 +101,7 @@ class _World:
             ),
             unit_of_work,
             max(_GUARD, len(catalog_products)),
+            self.mandates,
         )
 
     def get_offers(self, *product_ids: str, **fields):
@@ -123,6 +127,59 @@ def test_run_1_is_stored_as_returned_with_one_audit_record() -> None:
     (record,) = world.audit.records
     assert record.step is AuditStep.OFFER
     assert record.output_data["offer_id"] == offer.offer_id
+
+
+def test_offer_uses_current_mandate_brand():
+    arla = replace(product("469363"), brand="Arla")
+    world = _World(
+        FakePriceSource([price(), price("469363", "1.50")], [stock(), stock("469363", amount=384)]),
+        products=(product(), arla),
+    )
+    world.mandates.add(
+        replace(world.mandates.latest(samples.BUYER_ID), version=2, preferred_brands=("Arla",))
+    )
+    request = replace(query(MILK_ID, "469363"), preferred_brands=("Valio",))
+
+    offer = world.service.get_offers(samples.agent_key(), request)
+
+    assert offer.lines[0].brand == "Arla"
+    assert world.audit.records[0].input_data["preferred_brands"] == ["Arla"]
+    assert world.offers.get(offer.offer_id).lines == offer.lines
+    payload = world.signer.payloads[0]
+    expected = offer_response(offer).model_dump(mode="json")
+    del expected["signature"]
+    assert to_jsonable_python(payload) == expected
+    assert OFFER_CODEC.validate_json(OFFER_CODEC.dump_json(offer)) == offer
+
+    world.mandates.add(
+        replace(world.mandates.latest(samples.BUYER_ID), version=3, preferred_brands=())
+    )
+    next_offer = world.service.get_offers(samples.agent_key(), query(MILK_ID, "469363"))
+
+    assert next_offer.lines[0].brand == "Valio"
+
+
+def test_request_brand_applies_without_mandate_preference():
+    world = _World(
+        FakePriceSource([price(), price("arla", "1.50")], [stock(), stock("arla")]),
+        products=(product(), replace(product("arla"), brand="Arla")),
+    )
+
+    offer = world.service.get_offers(
+        samples.agent_key(), replace(query(MILK_ID, "arla"), preferred_brands=("Arla",))
+    )
+
+    assert offer.lines[0].brand == "Arla"
+
+
+def test_offer_cannot_use_another_buyers_mandate():
+    world = _run_1()
+
+    with pytest.raises(NotFoundError, match="no mandate"):
+        world.service.get_offers(samples.agent_key(buyer_id="other-buyer"), query())
+
+    assert world.source.calls == []
+    assert world.audit.records == []
 
 
 def test_a_stored_offer_is_read_back_with_its_signature() -> None:

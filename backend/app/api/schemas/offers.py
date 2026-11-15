@@ -32,7 +32,7 @@ class OfferRequest(RequestModel):
     deliver_by: date | None = Field(default=None, description="Latest delivery date.")
     preferred_brands: list[str] = Field(
         default_factory=list,
-        description="Brands the buyer prefers.",
+        description="Brands to prioritize. The mandate's preferred brands take precedence.",
     )
     include_substitutes: bool = Field(
         default=False,
@@ -82,7 +82,9 @@ class SubstituteFor(BaseModel):
 
 
 class OfferLine(Reasons):
-    rank: int = Field(description="1 is the best line by the mandate's ranking.")
+    rank: int = Field(
+        description="1 is best: on-time delivery, preferred brand, stock, then price."
+    )
     tier: OfferTier | None = Field(description="Ranking tier of the line.")
     product_id: str = Field(description="Valio Aimo product code.")
     gtin: str | None = Field(description="GTIN of the unit that is ordered. null: no data.")

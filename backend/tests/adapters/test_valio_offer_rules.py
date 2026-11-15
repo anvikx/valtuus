@@ -13,6 +13,7 @@ from pydantic import SecretStr
 from app.adapters.clock import FixedClock
 from app.adapters.memory.repositories import (
     InMemoryCartRepository,
+    InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryUnitOfWork,
 )
@@ -122,6 +123,8 @@ class _World:
             self.clock,
         )
         unit_of_work = InMemoryUnitOfWork()
+        mandates = InMemoryMandateRepository()
+        mandates.add(samples.mandate())
         audit = AuditService(
             self.audit,
             InMemoryCartRepository(),
@@ -138,6 +141,7 @@ class _World:
             audit,
             unit_of_work,
             len(_IDS),
+            mandates,
         )
 
     def get_offers(self):

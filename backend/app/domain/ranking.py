@@ -1,4 +1,4 @@
-"""Tier 1 ranking: delivery group first, then the price per requested unit, lowest first."""
+"""Rank on-time products by preferred brand, stock group and price per requested unit."""
 
 from collections.abc import Iterable
 from dataclasses import replace
@@ -31,7 +31,10 @@ def rank_offer_lines(candidates: Iterable[Candidate], query: OfferQuery) -> tupl
     )
 
 
-def _scored(candidate: Candidate, query: OfferQuery) -> tuple[_Group, Decimal, str, OfferLine]:
+def _scored(
+    candidate: Candidate,
+    query: OfferQuery,
+) -> tuple[bool, bool, _Group, Decimal, str, OfferLine]:
     product, price, availability = candidate.product, candidate.price, candidate.availability
     _require_screened(availability)
 
@@ -69,7 +72,12 @@ def _scored(candidate: Candidate, query: OfferQuery) -> tuple[_Group, Decimal, s
         reason_codes=codes,
         reason_sentences=sentences,
     )
-    return _group(codes), per_unit, product.product_id, line
+    group = _group(codes)
+    preferred = {brand.casefold() for brand in query.preferred_brands}
+    outside_preference = bool(preferred) and (product.brand or "").casefold() not in preferred
+    # Preferred brands keep priority even with partial stock. An on-time alternative
+    # still comes before a late preference.
+    return group is _Group.LATE, outside_preference, group, per_unit, product.product_id, line
 
 
 def _require_screened(availability: Availability) -> None:
