@@ -154,6 +154,10 @@ export function ResultScreen({
       <SummaryRows cart={cart} deliveryNote={deliveryNote} />
       <OrderLines cart={cart} />
       {children}
+      {/* Nothing is left to decide here, so the next step is the inbox. */}
+      <a className="result-back" href="/inbox">
+        Back to approvals
+      </a>
     </>
   )
 }
