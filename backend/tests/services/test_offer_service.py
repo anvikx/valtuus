@@ -134,7 +134,9 @@ def test_run_1_is_stored_as_returned_with_one_audit_record() -> None:
 def test_offer_uses_current_mandate_brand():
     arla = replace(product("469363"), brand="Arla")
     world = _World(
-        FakePriceSource([price(), price("469363", "1.50")], [stock(), stock("469363", amount=384)]),
+        FakePriceSource(
+            [price(), price("469363", "1.50")], [stock(), stock("469363", amount=2000)]
+        ),
         products=(product(), arla),
     )
     world.mandates.add(

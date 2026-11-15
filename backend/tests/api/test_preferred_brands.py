@@ -20,7 +20,7 @@ _REQUEST = "1,000 litres of lactose free milk by Monday"
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, request):
     products = {
         MILK_ID: replace(product(), names={"en": "Milk"}, attributes=("FREE_FROM_LACTOSE",)),
         _ARLA_ID: replace(
@@ -32,7 +32,7 @@ def client(monkeypatch):
     }
     source = FakePriceSource(
         [price(), price(_ARLA_ID, "1.50")],
-        [stock(), stock(_ARLA_ID, amount=384)],
+        [stock(), stock(_ARLA_ID, amount=getattr(request, "param", 2000))],
     )
     monkeypatch.setattr(ProductStore, "get", lambda self, pid: products.get(pid))
     monkeypatch.setattr(ProductStore, "search_names", lambda self, query: tuple(products.values()))
@@ -96,9 +96,7 @@ def _call(client, transport, tool, request, *, key=None):
     return response.json()
 
 
-@pytest.mark.parametrize("transport", ["rest", "mcp"])
-def test_mandate_brand_has_priority(client, transport):
-    """The permissions-page preference outranks a cheaper brand without requesting UHT."""
+def _milk_offers(client, transport):
     search = _call(
         client,
         transport,
@@ -112,7 +110,7 @@ def test_mandate_brand_has_priority(client, transport):
         },
     )
     assert search["hint"]["code"] == "READY"
-    offer = _call(
+    return _call(
         client,
         transport,
         "get_offers",
@@ -124,6 +122,12 @@ def test_mandate_brand_has_priority(client, transport):
             "deliver_by": "2026-11-16",
         },
     )
+
+
+@pytest.mark.parametrize("transport", ["rest", "mcp"])
+def test_mandate_brand_has_priority(client, transport):
+    """Among stocked products the permissions-page preference outranks a cheaper brand."""
+    offer = _milk_offers(client, transport)
 
     assert [line["brand"] for line in offer["lines"]] == ["Arla", "Valio"]
     assert offer["lines"][0]["unit_price"] == "1.50"
@@ -159,6 +163,45 @@ def test_mandate_brand_has_priority(client, transport):
         json={"revision": cart["revision"]},
     )
     assert checkout.status_code == HTTPStatus.CONFLICT
+
+
+@pytest.mark.parametrize("client", [384], indirect=True)
+@pytest.mark.parametrize("transport", ["rest", "mcp"])
+def test_rank_one_cart_is_not_denied(client, transport):
+    """Rule 18's normal path takes full-stock Valio when preferred Arla only has 384 L."""
+    offer = _milk_offers(client, transport)
+    best, partial = offer["lines"]
+    assert best["product_id"] == MILK_ID
+    assert best["rank"] == 1
+    assert best["tier"] == "BEST"
+    assert partial["product_id"] == _ARLA_ID
+    assert partial["available_qty"] == 384
+    assert partial["sales_units_needed"] == 1000
+
+    cart = _call(
+        client,
+        transport,
+        "create_cart",
+        {
+            "lines": [
+                {
+                    "offer_id": offer["offer_id"],
+                    "product_id": best["product_id"],
+                    "qty": best["sales_units_needed"],
+                }
+            ],
+            "request_text": _REQUEST,
+        },
+        key="rank-one-cart",
+    )
+
+    assert cart["state"] == "PENDING_APPROVAL"
+    assert cart["decision"] == "HUMAN"
+    assert cart["lines"][0]["qty"] == 1000
+    assert "SUBSTITUTE_OUTSIDE_PREFERENCE" in cart["reason_codes"]
+    assert "PARTIAL_AVAILABILITY" not in cart["reason_codes"]
+    assert cart["approve_url"]
+    assert cart["order_id"] is None
 
 
 def test_empty_list_clears_preference(client):

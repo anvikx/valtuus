@@ -92,9 +92,7 @@ class SubstituteFor(BaseModel):
 
 
 class OfferLine(Reasons):
-    rank: int = Field(
-        description="1 is best: on-time delivery, preferred brand, stock, then price."
-    )
+    rank: int = Field(description="1 is best: delivery/stock group, preferred brand, then price.")
     tier: OfferTier | None = Field(description="Ranking tier of the line.")
     product_id: str = Field(description="Valio Aimo product code.")
     gtin: str | None = Field(description="GTIN of the unit that is ordered. null: no data.")
