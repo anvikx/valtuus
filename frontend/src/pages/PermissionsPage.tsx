@@ -10,7 +10,7 @@ import {
 } from '../api.ts'
 import { AgentList } from '../components/AgentList.tsx'
 import { MandateForm } from '../components/MandateForm.tsx'
-import { MandateView, POLICY_WORDS } from '../components/MandateView.tsx'
+import { MandateView, POLICY_WORDS, autoOrderWords } from '../components/MandateView.tsx'
 import { money } from '../components/ResultScreen.tsx'
 import { formatAllergen, formatAttribute } from '../format.ts'
 import { isSignedOut, redirectToLogin } from '../session.ts'
@@ -63,6 +63,10 @@ function listOrNone(values: readonly string[]): string {
 // Sentences for the fields that differ. Money shows as sent.
 function changesBetween(before: Mandate, after: Mandate): string[] {
   const changes: string[] = []
+  if (before.canAutoOrder !== after.canAutoOrder) {
+    changes.push(`Orders by itself: ${autoOrderWords(after.canAutoOrder)}.`)
+  }
+
   if (before.maxOrder !== after.maxOrder) {
     changes.push(
       `Per order: from ${money(before.maxOrder, CURRENCY)} to ${money(after.maxOrder, CURRENCY)}.`,

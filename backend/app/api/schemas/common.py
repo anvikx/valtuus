@@ -11,6 +11,7 @@ Quantity = Annotated[Decimal, PlainSerializer(json_number, when_used="json")]
 _MAX_QUANTITY = 1_000_000
 PositiveQuantity = Annotated[Quantity, Field(gt=0, le=_MAX_QUANTITY)]
 PositiveSalesUnits = Annotated[int, Field(gt=0, le=_MAX_QUANTITY)]
+CartRevisionValue = Annotated[int, Field(ge=1, strict=True)]
 # One type for both doors: an empty key would match every retry and replay a wrong result.
 IdempotencyKeyValue = Annotated[str, StringConstraints(min_length=1)]
 

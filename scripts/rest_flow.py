@@ -257,10 +257,11 @@ def _cart(gateway: Gateway, run: Run, offer: Json) -> Json:
     return cart
 
 
-def _approve(gateway: Gateway, cart_id: str, password: str) -> str:
+def _approve(gateway: Gateway, cart: Json, password: str) -> str:
     """The main user approves by REST. The agent then reads the cart, as it does by polling."""
     gateway.main_user("POST", "/auth/login", {"password": password})
-    gateway.main_user("POST", f"/carts/{cart_id}/approve")
+    cart_id = cart["cart_id"]
+    gateway.main_user("POST", f"/carts/{cart_id}/approve", {"revision": cart["revision"]})
     print("  approved by the main user")
     cart = gateway.agent("GET", f"/carts/{cart_id}")
     if cart["state"] != STATE_ORDERED:
@@ -279,9 +280,13 @@ def _allow_auto_orders(gateway: Gateway, password: str) -> None:
 
 def _place(gateway: Gateway, cart: Json, password: str) -> str:
     if cart["state"] == STATE_AUTO:
-        return gateway.agent("POST", f"/carts/{cart['cart_id']}/checkout")["order_id"]
+        return gateway.agent(
+            "POST",
+            f"/carts/{cart['cart_id']}/checkout",
+            {"revision": cart["revision"]},
+        )["order_id"]
 
-    return _approve(gateway, cart["cart_id"], password)
+    return _approve(gateway, cart, password)
 
 
 def run_flow(gateway: Gateway, run: Run, password: str) -> None:

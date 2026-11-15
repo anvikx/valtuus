@@ -4,7 +4,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.schemas.catalog import InterpretedRequest
-from app.api.schemas.common import PositiveSalesUnits, Reasons, RequestModel
+from app.api.schemas.common import CartRevisionValue, PositiveSalesUnits, Reasons, RequestModel
 from app.api.schemas.offers import SubstituteFor
 from app.domain.cart import CartDraft, CartLineInput
 from app.domain.enums import CartState, Decision, ReasonCode
@@ -67,8 +67,18 @@ class RevisionRequest(CartRequest):
     )
 
 
-class RejectRequest(RequestModel):
-    model_config = ConfigDict(json_schema_extra={"examples": [{"reason": "Too expensive."}]})
+class CartActionRequest(RequestModel):
+    model_config = ConfigDict(json_schema_extra={"examples": [{"revision": 1}]})
+
+    revision: CartRevisionValue = Field(
+        description="Revision you reviewed. A different current revision returns 409.",
+    )
+
+
+class RejectRequest(CartActionRequest):
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"revision": 1, "reason": "Too expensive."}]},
+    )
 
     reason: str = Field(min_length=1, description="Why the main user rejects the cart.")
 
