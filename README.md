@@ -103,7 +103,7 @@ Make the 4 calls in this order. REST paths are relative to the base URL.
 * **DENY:** stop. `reason_sentences` tell the buyer why.
 * **Retries:** `create_cart` and `checkout` need an idempotency key (the `Idempotency-Key`
   header on REST, the `idempotency_key` argument on MCP). Send the same key again on a retry.
-* **Errors:** every error has the body `{error, message, next_step}`. Follow `next_step`.
+* **Errors:** every error has the body `{error, message, next_step}`. Follow `next_step`. A cart line with no `qty` also gets `reason_code: NEEDS_CLARIFICATION` and `missing`: ask the buyer, do not guess.
 
 ## Status
 
