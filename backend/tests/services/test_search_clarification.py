@@ -22,7 +22,7 @@ def configured_guard(monkeypatch):
     return Settings(_env_file=None).candidate_guard
 
 
-def _assert_one_search(records, result):
+def _assert_one_search(records, result, offer_set_size=None):
     (record,) = records.records
     assert record.step is AuditStep.SEARCH
     assert record.phase == "LOOKUP"
@@ -32,8 +32,11 @@ def _assert_one_search(records, result):
     assert record.cart_id is None
     assert record.decision is None
     assert record.input_data == asdict(result.understood)
+    if offer_set_size is None:
+        offer_set_size = len(result.candidates)
     assert record.output_data == {
         "candidate_ids": [candidate.product_id for candidate in result.candidates],
+        "offer_set_size": offer_set_size,
         "hint_category": result.hint_category,
         "total_hits": result.total_hits,
         "hint": asdict(result.hint),
@@ -49,19 +52,22 @@ def test_search_caps_candidates(hits, configured_guard):
 
     result = catalog.search(agent_key(), query())
 
-    _assert_one_search(records, result)
+    _assert_one_search(records, result, offer_set_size=hits)
     assert result.total_hits == result.categories[0].hits == hits
     assert [candidate.product_id for candidate in result.candidates] == [
         product.product_id for product in products[:_MAX_CANDIDATES]
     ]
-    expected = SearchHintCode.GUARD_CUT if hits > _MAX_CANDIDATES else SearchHintCode.READY
-    assert result.hint.code is expected
+    # The stored set holds all hits (under the guard), so a cut preview hides nothing from offers.
+    assert result.hint.code is SearchHintCode.READY
     assert result.hint.sentence
 
 
 @pytest.mark.parametrize("guard", [1, 20, 40, 41, 500])
 def test_search_guard_keeps_hard_cap(guard):
-    """Configuration can narrow the preview, but cannot expand it beyond 40 candidates."""
+    """Configuration can narrow the preview, but cannot expand it beyond 40 candidates.
+
+    Only a guard below the hit count cuts the stored set, so only it is GUARD_CUT.
+    """
     catalog, records = service(
         FakeCatalog(*(item(f"milk-{index:03}") for index in range(41))),
         candidate_guard=guard,
@@ -69,10 +75,11 @@ def test_search_guard_keeps_hard_cap(guard):
 
     result = catalog.search(agent_key(), query())
 
-    _assert_one_search(records, result)
+    _assert_one_search(records, result, offer_set_size=min(guard, 41))
     assert len(result.candidates) == min(guard, _MAX_CANDIDATES)
     assert result.total_hits == result.categories[0].hits == 41
-    assert result.hint.code is SearchHintCode.GUARD_CUT
+    expected = SearchHintCode.GUARD_CUT if guard < 41 else SearchHintCode.READY
+    assert result.hint.code is expected
 
 
 @pytest.mark.parametrize("hits", [3, 41])
@@ -86,7 +93,7 @@ def test_vague_milk_search_only_informs(hits, configured_guard):
 
     result = catalog.search(agent_key(), request)
 
-    _assert_one_search(records, result)
+    _assert_one_search(records, result, offer_set_size=hits)
     assert result.understood == request
     assert result.missing_fields == _MISSING_FIELDS
     assert result.hint.code is SearchHintCode.MISSING_FIELDS

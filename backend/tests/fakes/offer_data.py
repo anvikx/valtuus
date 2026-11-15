@@ -98,6 +98,16 @@ def query(
     )
 
 
+class MovableClock:
+    """A clock a test moves forward, so an expiry needs no sleep."""
+
+    def __init__(self, at: datetime) -> None:
+        self.at = at
+
+    def now(self) -> datetime:
+        return self.at
+
+
 class FakeCatalog:
     def __init__(self, *products: Product) -> None:
         self._by_id = {item.product_id: item for item in products}

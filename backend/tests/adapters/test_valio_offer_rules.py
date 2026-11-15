@@ -15,6 +15,7 @@ from app.adapters.memory.repositories import (
     InMemoryCartRepository,
     InMemoryMandateRepository,
     InMemoryOfferRepository,
+    InMemorySearchSetRepository,
     InMemoryUnitOfWork,
 )
 from app.adapters.signer import NullSigner
@@ -137,6 +138,7 @@ class _World:
             client,
             self.offers,
             NullSigner(),
+            InMemorySearchSetRepository(),
             self.clock,
             audit,
             unit_of_work,

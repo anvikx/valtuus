@@ -7,6 +7,7 @@ from datetime import date, datetime
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
 from app.domain.cart import Cart, CartRevision
+from app.domain.catalog import SearchSet
 from app.domain.enums import AgentKeyStatus
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
@@ -85,6 +86,17 @@ class InMemoryOfferRepository:
 
     def add(self, offer: Offer) -> None:
         self._by_id[offer.offer_id] = offer
+
+
+class InMemorySearchSetRepository:
+    def __init__(self) -> None:
+        self._by_id: dict[str, SearchSet] = {}
+
+    def get(self, request_id: str) -> SearchSet | None:
+        return self._by_id.get(request_id)
+
+    def add(self, search_set: SearchSet) -> None:
+        self._by_id[search_set.request_id] = search_set
 
 
 class InMemoryCartRepository:

@@ -11,6 +11,10 @@ const QUICK_REASONS = ['Wrong product', 'Wrong quantity', 'Too expensive', 'Not 
 const REASON_FIELD_ID = 'reject-reason'
 const REASON_ERROR_ID = 'reject-reason-error'
 
+// TODO: show Change again when the backend has the changes route (tracker R.8 and R.10).
+// Until then a save gets a 404, so the button is hidden.
+const IS_CHANGE_SHOWN = false
+
 interface DecisionPanelProps {
   readonly cart: Cart
   readonly isBusy: boolean
@@ -87,15 +91,17 @@ export function DecisionPanel({
             : `Approve order (${cart.total} ${cart.currency} ex VAT)`}
         </button>
         <div className="actions-secondary">
-          <button
-            className="button button-change"
-            type="button"
-            disabled={isLocked}
-            aria-haspopup="dialog"
-            onClick={() => changeSheet.current?.showModal()}
-          >
-            Change
-          </button>
+          {IS_CHANGE_SHOWN ? (
+            <button
+              className="button button-change"
+              type="button"
+              disabled={isLocked}
+              aria-haspopup="dialog"
+              onClick={() => changeSheet.current?.showModal()}
+            >
+              Change
+            </button>
+          ) : null}
           <button
             className="button button-text"
             type="button"
@@ -108,14 +114,17 @@ export function DecisionPanel({
         </div>
       </div>
 
-      <ChangeSheet
-        // The sheet copies the lines on mount, and the lines change when Review shows the update.
-        key={`${cart.revision}-${isReviewPending}`}
-        ref={changeSheet}
-        cart={cart}
-        isBusy={isBusy}
-        onSave={onChange}
-      />
+      {IS_CHANGE_SHOWN ? (
+        <ChangeSheet
+          // The sheet copies the lines on mount, and the lines change when Review shows the update
+          // (update is set from then on). A cart closed behind the bar keeps the lines and the draft.
+          key={`${cart.revision}-${update === undefined}`}
+          ref={changeSheet}
+          cart={cart}
+          isBusy={isBusy}
+          onSave={onChange}
+        />
+      ) : null}
 
       <dialog
         className="sheet"

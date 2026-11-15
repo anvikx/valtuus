@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reasons, RequestModel
 from app.domain.audit import REQUEST_ID_PATTERN
@@ -14,7 +14,8 @@ class OfferRequest(RequestModel):
         json_schema_extra={
             "examples": [
                 {
-                    "product_ids": ["464306"],
+                    "product_ids": [],
+                    "request_id": "r_0123456789abcdef0123456789abcdef",
                     "quantity": 1000,
                     "unit": "L",
                     "deliver_by": "2026-11-16",
@@ -24,8 +25,9 @@ class OfferRequest(RequestModel):
     )
 
     product_ids: list[str] = Field(
-        min_length=1,
-        description="Product codes from search_products. Send all candidates.",
+        default_factory=list,
+        description="Product codes to price. Leave empty to price every candidate of the "
+        "search in request_id.",
     )
     quantity: PositiveQuantity | None = Field(default=None, description="Quantity, in `unit`.")
     unit: Unit | None = Field(default=None, description="Unit of `quantity`.")
@@ -42,8 +44,16 @@ class OfferRequest(RequestModel):
         default=None,
         pattern=REQUEST_ID_PATTERN,
         description="request_id from search_products, so the audit trail links the search "
-        "to the cart. null: the gateway starts a new request.",
+        "to the cart. With empty product_ids it also selects the stored candidate set to "
+        "price. null: the gateway starts a new request.",
     )
+
+    @model_validator(mode="after")
+    def _needs_something_to_price(self) -> "OfferRequest":
+        if not self.product_ids and self.request_id is None:
+            raise ValueError("Send product_ids or the request_id of a search.")
+
+        return self
 
     def to_domain(self) -> OfferQuery:
         return OfferQuery(

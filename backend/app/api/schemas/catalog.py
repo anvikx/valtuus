@@ -7,7 +7,11 @@ from app.api.schemas.common import Allergens, PositiveQuantity, Quantity, Reques
 from app.domain.catalog import SearchQuery
 from app.domain.catalog_response import HINT_CODE_DESCRIPTION
 from app.domain.catalog_search import ATTRIBUTE_DESCRIPTION, QUERY_RULE, VALID_ATTRIBUTES
-from app.domain.constants import SEARCH_CATEGORY_COUNT, SEARCH_CATEGORY_EXAMPLES
+from app.domain.constants import (
+    MAX_SEARCH_CANDIDATES,
+    SEARCH_CATEGORY_COUNT,
+    SEARCH_CATEGORY_EXAMPLES,
+)
 from app.domain.enums import ReasonCode, SearchHintCode, SearchMatch, Unit
 
 # The schema lists the codes, but validate_query rejects a wrong one. A pydantic enum would make
@@ -156,7 +160,11 @@ class SearchResponse(BaseModel):
         description="Normalized request and effective attributes."
     )
     candidates: list[SearchCandidate] = Field(
-        description="Every hit in hint_category, subject to the safety guard. No price or stock.",
+        description=(
+            f"A preview of hint_category: at most {MAX_SEARCH_CANDIDATES} hits, best match first. "
+            "No price or stock. get_offers with the request_id and no product_ids prices every "
+            "hit, subject to the safety guard."
+        ),
     )
     total_hits: int = Field(
         description="All filtered hits across categories, before the safety guard."

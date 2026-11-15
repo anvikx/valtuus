@@ -15,7 +15,7 @@ check-be:
 	cd backend && uv run ruff check . && uv run ruff format --check . && uv run pytest
 
 check-fe:
-	cd frontend && npm run typecheck && npm run lint && npm run format:check && npm run build
+	cd frontend && npm run typecheck && npm run lint && npm run format:check && npm test && npm run build
 
 check-infra:
 	$(LINT_RUN) $(LINT_IMAGE)

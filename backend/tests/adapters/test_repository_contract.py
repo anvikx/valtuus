@@ -16,6 +16,7 @@ from app.adapters.memory.repositories import (
     InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryOrderRepository,
+    InMemorySearchSetRepository,
     InMemorySessionRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
@@ -29,11 +30,13 @@ from app.adapters.postgres.repositories import (
     PostgresMandateRepository,
     PostgresOfferRepository,
     PostgresOrderRepository,
+    PostgresSearchSetRepository,
     PostgresSessionRepository,
     PostgresUserRepository,
 )
 from app.domain.agent_key import User
 from app.domain.cart import CartRevision, CartVersion, LineChange
+from app.domain.catalog import SearchSet
 from app.domain.enums import AgentKeyStatus, CartState, RevisionAuthor, UserRole
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.policy.engine import PolicyEngine
@@ -50,6 +53,7 @@ from app.services.ports.repositories import (
     MandateRepository,
     OfferRepository,
     OrderRepository,
+    SearchSetRepository,
     SessionRepository,
     UserRepository,
 )
@@ -64,6 +68,7 @@ class _Store:
     agent_keys: AgentKeyRepository
     users: UserRepository
     offers: OfferRepository
+    search_sets: SearchSetRepository
     carts: CartRepository
     revisions: CartRevisionRepository
     orders: OrderRepository
@@ -79,6 +84,7 @@ def _memory_store() -> _Store:
         agent_keys=InMemoryAgentKeyRepository(),
         users=InMemoryUserRepository(),
         offers=InMemoryOfferRepository(),
+        search_sets=InMemorySearchSetRepository(),
         carts=InMemoryCartRepository(),
         revisions=InMemoryCartRevisionRepository(),
         orders=InMemoryOrderRepository(),
@@ -96,6 +102,7 @@ def _postgres_store(request: pytest.FixtureRequest) -> _Store:
         agent_keys=PostgresAgentKeyRepository(database),
         users=PostgresUserRepository(database),
         offers=PostgresOfferRepository(database),
+        search_sets=PostgresSearchSetRepository(database),
         carts=PostgresCartRepository(database),
         revisions=PostgresCartRevisionRepository(database),
         orders=PostgresOrderRepository(database),
@@ -483,3 +490,14 @@ def test_cart_details_reads_stored_revisions_without_writing(store: _Store, delt
     assert store.carts.get(first.cart_id) == second
     assert len(store.revisions.for_cart(first.cart_id)) == 2
     assert store.audit.for_cart(first.cart_id) == []
+
+
+def test_search_set_round_trip_keeps_the_order(store: _Store) -> None:
+    """The offer ranks the ids as stored, so a restart must not reorder or drop any."""
+    search_set = SearchSet("r_1", samples.BUYER_ID, ("9", "1", "5"), samples.NOW)
+
+    with store.unit_of_work.transaction():
+        store.search_sets.add(search_set)
+
+    assert store.search_sets.get("r_1") == search_set
+    assert store.search_sets.get("r_missing") is None

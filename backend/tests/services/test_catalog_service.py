@@ -219,7 +219,8 @@ def test_complete_category_and_safety_guard():
     result = catalog.search(agent_key(), query())
     assert len(result.candidates) == 40
     assert result.total_hits == 121
-    assert result.hint.code == "GUARD_CUT"
+    # The preview is cut, but offers still see all 121, so nothing is hidden from them.
+    assert result.hint.code == "READY"
 
 
 def test_postgres_uses_exact_name_rules_after_prefilter(database):

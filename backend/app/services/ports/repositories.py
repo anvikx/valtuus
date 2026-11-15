@@ -5,6 +5,7 @@ from typing import Protocol
 from app.domain.agent_key import AgentKey, User
 from app.domain.audit import AuditRecord
 from app.domain.cart import Cart, CartRevision
+from app.domain.catalog import SearchSet
 from app.domain.idempotency import IdempotencyRecord
 from app.domain.mandate import Mandate
 from app.domain.offer import Offer
@@ -64,6 +65,12 @@ class OfferRepository(Protocol):
     def get(self, offer_id: str) -> Offer | None: ...
 
     def add(self, offer: Offer) -> None: ...
+
+
+class SearchSetRepository(Protocol):
+    def get(self, request_id: str) -> SearchSet | None: ...
+
+    def add(self, search_set: SearchSet) -> None: ...
 
 
 class CartRepository(Protocol):

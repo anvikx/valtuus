@@ -21,6 +21,7 @@ from app.adapters.memory.repositories import (
     InMemoryMandateRepository,
     InMemoryOfferRepository,
     InMemoryOrderRepository,
+    InMemorySearchSetRepository,
     InMemorySessionRepository,
     InMemoryUnitOfWork,
     InMemoryUserRepository,
@@ -36,6 +37,7 @@ from app.adapters.postgres.repositories import (
     PostgresMandateRepository,
     PostgresOfferRepository,
     PostgresOrderRepository,
+    PostgresSearchSetRepository,
     PostgresSessionRepository,
     PostgresUserRepository,
 )
@@ -82,6 +84,7 @@ from app.services.ports.repositories import (
     MandateRepository,
     OfferRepository,
     OrderRepository,
+    SearchSetRepository,
     SessionRepository,
     UserRepository,
 )
@@ -131,6 +134,7 @@ class _Store:
     agent_keys: AgentKeyRepository
     users: UserRepository
     offers: OfferRepository
+    search_sets: SearchSetRepository
     carts: CartRepository
     revisions: CartRevisionRepository
     orders: OrderRepository
@@ -148,6 +152,7 @@ def _memory_store() -> _Store:
         agent_keys=InMemoryAgentKeyRepository(),
         users=InMemoryUserRepository(),
         offers=InMemoryOfferRepository(),
+        search_sets=InMemorySearchSetRepository(),
         carts=InMemoryCartRepository(),
         revisions=InMemoryCartRevisionRepository(),
         orders=InMemoryOrderRepository(),
@@ -168,6 +173,7 @@ def _postgres_store(settings: Settings) -> _Store:
         agent_keys=PostgresAgentKeyRepository(database),
         users=PostgresUserRepository(database),
         offers=PostgresOfferRepository(database),
+        search_sets=PostgresSearchSetRepository(database),
         carts=PostgresCartRepository(database),
         revisions=PostgresCartRevisionRepository(database),
         orders=PostgresOrderRepository(database),
@@ -274,8 +280,10 @@ def _build_services(
         catalog=CatalogService(
             catalog_store,
             store.mandates,
+            store.search_sets,
             audit_service,
             store.unit_of_work,
+            clock,
             settings.candidate_guard,
         ),
         offers=OfferService(
@@ -283,6 +291,7 @@ def _build_services(
             valio,
             store.offers,
             signer,
+            store.search_sets,
             clock,
             audit_service,
             store.unit_of_work,
