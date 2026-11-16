@@ -1,84 +1,111 @@
 # Valtuus
 
-Valtuus lets an outside purchasing agent buy from Valio Aimo without touching the webshop or the
-backend. It runs on the Valio Aimo side, in front of those systems, and the agent sees only what
-its key allows. Valio Aimo owns the interface, so no outside platform gets to define it.
+A trust gateway that lets AI purchasing agents order from a food wholesaler. The agent asks, code
+decides, and a person approves when the rules say so. Every price is signed and every step is
+logged.
 
-The agent proposes an order and code decides what happens to it. Anything over the limit waits
-for a person. Every step is logged.
+Built at Junction 2026 for the Valio Aimo "Trusted Trade Agents" challenge.
 
-Built for the Valio Aimo "Trusted Trade Agents" challenge at Junction 2026.
-Live: https://junction.anvik.fi
+## The problem
 
-## Core
+Professional kitchens are starting to let AI agents do their purchasing. A wholesaler that accepts
+those orders has to answer three questions:
 
-**1. Product, price and availability lookup**
+1. How does the agent find the right product at a price it can rely on?
+2. What may the agent order alone, and what needs a person?
+3. After the fact, how do both sides prove who decided what, and why?
 
-* The agent searches 17,546 products by name and by GS1 attributes such as claims and allergens.
-* For the products it picks, it gets offers from the mock price and availability APIs, each with
-  price, available quantity, delivery date and order deadline.
-* The gateway applies the trading rules: sales units, lot sizes, order deadlines and stock that
-  nobody has confirmed.
+Valtuus answers them with a gateway on the seller side. The agent never touches the webshop or the
+backend, and it sees only what its key allows.
 
-**2. From offer to order**
+## At a glance
 
-* Each offer has a fixed price and an expiry time.
-* The agent builds a cart from offer lines. Checkout places the order at the price stored in the
-  offer, so the buyer pays what the agent was quoted.
-* An Idempotency-Key header stops duplicate orders.
+| What                                     | How much                         |
+| ---------------------------------------- | -------------------------------- |
+| Pull requests merged during the event    | 123                              |
+| Automated tests                          | 1,395 backend, 14 frontend       |
+| Products the agent can search            | 17,546                           |
+| Agent tools over MCP                     | 12, plus the same flow over REST |
+| Reason codes, each with a plain sentence | 32                               |
+| Language model calls in a decision       | 0                                |
 
-**3. Permission and human approval**
+## The demo, as a story
 
-* The kitchen manager sets the mandate: automatic orders on or off, a limit per order, and a
-  daily limit per delivery date.
-* Each cart gets AUTO, HUMAN or DENY, with a reason code such as OVER_AUTO_LIMIT, CUTOFF_PASSED or
-  STOCK_UNCONFIRMED.
-* HUMAN sends the manager an approval link. They approve or reject it on their phone.
-* If the buyer changes the order, the cart gets a new revision, and an approval for the old
-  revision stops working.
-* The rules are tested code. The agent can't change them or talk its way around them.
+A hotel kitchen manager talks to a Claude Code agent that runs our purchasing skill.
 
-## Insight problems
-
-**Guardrails model.** Orders over the spend threshold or the daily limit go to a person, and so
-do orders with unknown stock. Small orders inside the limit go through on their own.
-
-**Audit trail.** Every step and every refusal gets a plain language record of who did it, when
-and why. The buyer and Valio Aimo read the same record.
-
-**Trust protocol.** Every price, stock level and date in an offer comes from Valio Aimo, and the
-order uses that offer. Valio Aimo signs each offer and each order confirmation with JWS and
-Ed25519 and publishes the keys in a public JWKS. An agent can check a claim itself, so nobody has
-to check it by hand.
-
-## Demo (example request from the brief)
-
-1. "1,000 litres of lactose free milk for Tuesday." The agent gets ranked offers and a reason for
-   each product it rejects. The total is over the limit, so the manager approves and the order is
-   confirmed.
-2. "20 litres." That fits inside the limit, so the agent orders on its own.
-3. "Valio Eila for Monday." The order deadline has passed. The agent refuses and says what can
+1. **"1,000 litres of lactose free milk for Tuesday."** The agent searches, gets ranked offers
+   with a reason for each product it rejects, and builds a cart. The total is over the auto limit,
+   so the manager gets an approval link, approves on the phone, and a signed order comes back.
+2. **"20 litres."** The same milk, inside the limit and inside the usual quantity. The agent orders
+   alone, with no person involved.
+3. **"Valio Eila for Monday."** The order deadline has passed. The agent refuses and says what can
    still arrive.
-4. "800 litres." Over the limit again. The manager raises the limit, and checkout goes through
-   under mandate version 2.
+4. **"800 litres."** Over the limit again. The manager raises the limit, and checkout goes through
+   under mandate version 2. The audit shows which version allowed it.
 
-## Open standards
+## What we built
 
-* AI agents connect over MCP at `/api/mcp`. Other systems use REST at `/api/v1`, described in
-  OpenAPI 3.1. Both go through the same rules.
-* JSON-RPC 2.0, ISO 8601 times and EUR amounts as exact decimals.
-* Our mandate, approval and order model is close to AP2 and UCP, but we don't claim compliance.
+**Agent interface**
 
-## Stack
+* MCP server at `/api/mcp` for AI agents and a REST API at `/api/v1` for other systems. Both call
+  the same services, so the rules cannot differ between them.
+* A per agent key with scopes. An agent key can never approve, reject or change the rules.
+* `wait_for_decision` holds the call until a person decides, so the agent needs no timer.
+* Errors always have the shape `{error, message, next_step}`, and the agent follows `next_step`.
+  A line with no quantity gets `NEEDS_CLARIFICATION`, so the agent asks instead of guessing.
+* A `valio-purchasing` skill that teaches Claude Code the flow.
 
-Python, FastAPI, PostgreSQL 17, React 19, TypeScript, Caddy, Docker Compose and GitHub Actions,
-with 760 automated tests. The buyer agent is Claude Code running our `valio-purchasing` skill.
+**Catalog and offers**
 
-## Next
+* Search over 17,546 products by name, category and GS1 attributes (claims, allergens). When the
+  top categories are close, the gateway asks the buyer instead of guessing.
+* Offers from the Valio Aimo price and stock APIs, with retry, backoff and a cache. Each offer has
+  a fixed price, an expiry time, the stock at a stated time and the order deadline.
+* Trading rules: sales units, lot sizes, sales blocks, passed deadlines and stock that nobody has
+  confirmed.
+* Ranking by stock first, then the buyer's preferred brands, then the buyer's own weights for
+  price, delivery reliability and CO2. Missing data shows as "no data", never as 0.
+* Substitutes for rejected products, offered only when the allergen data matches in full. A cart
+  with a substitute always waits for a person.
+* A proposed split when one product is short on stock.
 
-* Delivery reliability and sustainability labels on each offer.
-* Substitution ranking within the Valio Aimo range.
-* Customer sign in with OpenID Connect.
+**Decisions**
+
+* A policy engine of small, pure checks. Each cart gets AUTO, HUMAN or DENY with reason codes.
+* The mandate: automatic orders on or off, a limit per order, a daily limit per delivery date,
+  required attributes and forbidden allergens. Every change makes a new version.
+* A confirmed envelope: the agent orders alone only products that a person approved before, in a
+  usual quantity. A new product or an unusual quantity goes to a person.
+* A line that repeats a recent order waits for a person, and a cart the manager rejected before
+  is denied.
+
+**Human approval**
+
+* An approval page made for phones: the request, each line with its stock, price and offer facts,
+  and why the cart waits.
+* Cart revisions on the same link. An approval of an old revision gets 409 and places no order.
+* An "Agent permissions" page: the automatic order switch, the limits, the agent list with last
+  use, and revoke. A revoked key gets 401 at once.
+
+**Trust and audit**
+
+* Offers and order confirmations are signed with Ed25519 (JWS). The keys are public at
+  `/.well-known/jwks.json`, and `POST /api/v1/verify` checks a signed document. The UI shows the
+  result as a trust mark.
+* The agent cannot send a price, a stock value or a date. The gateway reads them from its own
+  signed offer, so the buyer pays what the agent was quoted.
+* An audit record in plain language for every step and every refusal: who, when, why and under
+  which mandate version. The buyer and the seller read the same record.
+* Idempotency keys on cart creation and checkout, so a retry never makes a second order.
+
+**Engineering**
+
+* Clean architecture: `domain` <- `services` <- `adapters` and `api`, with the direction pinned by
+  tests.
+* PostgreSQL with Alembic migrations, plus in-memory adapters for fast tests.
+* Money as exact decimals, never floats.
+* Every merge to `main` runs lint, tests and type checks, builds images and deploys to one VM.
+  An unhealthy deploy rolls back to the last good image.
 
 ## How it works
 
@@ -167,23 +194,24 @@ Make the 4 calls in this order. REST paths are relative to the base URL.
   header on REST, the `idempotency_key` argument on MCP). Send the same key again on a retry.
 * **Errors:** every error has the body `{error, message, next_step}`. Follow `next_step`. A cart line with no `qty` also gets `reason_code: NEEDS_CLARIFICATION` and `missing`: ask the buyer, do not guess.
 
-## Status
+## Stack
 
-| Part                                                     | State   |
-| -------------------------------------------------------- | ------- |
-| Project skeleton, CI/CD with auto deploy and rollback    | Built   |
-| Health endpoint `GET /api/health`                        | Built   |
-| UHT attribute derived from product names                 | Built   |
-| Offers, carts, policy engine                             | Built   |
-| REST API, MCP tools, open OpenAPI file, main user login  | Built   |
-| Product search                                           | Built   |
-| Checkout, orders, approve and reject                     | Built   |
-| Cart revisions, withdraw, wait for decision              | Built   |
-| Approval page, "Agent permissions" page, audit timeline  | Built   |
-| Signed offers and order confirmations                    | Built   |
+Python 3.12, FastAPI, MCP, PostgreSQL 17, React 19, TypeScript, Caddy, Docker Compose and GitHub
+Actions. The buyer agent is Claude Code with our `valio-purchasing` skill.
 
-What is not real in the prototype, and the known trust limits, are listed openly in
-[docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md).
+## Honest limits
+
+This is a prototype. There is no real Valio Aimo order API, the stock is a snapshot, prices are
+EUR ex VAT and there is one approver per buyer. The full list, and the known trust limits, are in
+[docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md). What comes next, and the path to AP2, is in
+[docs/NEXT_STEPS.md](docs/NEXT_STEPS.md).
+
+## Open standards
+
+* MCP for agents, REST described in OpenAPI 3.1 for other systems.
+* JSON-RPC 2.0, ISO 8601 times and EUR amounts as exact decimals.
+* JWS and JWKS for signatures.
+* Our mandate, approval and order model is close to AP2 and UCP, but we don't claim compliance.
 
 ## Quick start
 
