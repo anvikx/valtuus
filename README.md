@@ -6,6 +6,10 @@ logged.
 
 Built at Junction 2026 for the Valio Aimo "Trusted Trade Agents" challenge.
 
+**Status:** the event is over. The Valio Aimo challenge mock APIs have been offline since
+Junction, so the live agent flow can no longer get prices or stock. The
+[screenshots](#screenshots) show the real UI in its fixture mode, which runs with no backend.
+
 ## The problem
 
 Professional kitchens are starting to let AI agents do their purchasing. A wholesaler that accepts
@@ -42,6 +46,39 @@ A hotel kitchen manager talks to a Claude Code agent that runs our purchasing sk
    still arrive.
 4. **"800 litres."** Over the limit again. The manager raises the limit, and checkout goes through
    under mandate version 2. The audit shows which version allowed it.
+
+## Screenshots
+
+From the frontend's fixture mode (`VITE_USE_FIXTURES=true`). Fixture data is not signed, so the
+trust mark shows "Not signed (development)" where the live system shows a verified signature.
+
+**Approvals inbox.** Every cart that waits for the manager, with the reason and the time left.
+
+<img src="docs/images/inbox.png" alt="Approvals inbox with eight carts waiting and two decided today" width="800">
+
+**Approval on a phone.** The first cart waits because it is over the limit. The second waits
+because the agent offered a substitute. The third shows that the agent changed the cart, so the
+manager must review the change before approval.
+
+<p>
+  <img src="docs/images/approval.png" alt="Approval page: 1,010 EUR over the 500 EUR limit" width="260">
+  <img src="docs/images/approval-substitute.png" alt="Approval page with a substitute product and its price difference" width="260">
+  <img src="docs/images/approval-revised.png" alt="Approval page that asks to review an updated cart first" width="260">
+</p>
+
+**A denied order.** The product contains an allergen that the buyer does not allow. The record
+under it shows each step with its time.
+
+<img src="docs/images/denied.png" alt="Denied order with the step by step record" width="260">
+
+**The record.** What happened to one order, in the words the gateway wrote at the time.
+
+<img src="docs/images/record.png" alt="Record of one order from request to commit" width="800">
+
+**Agent permissions.** The limits, the product rules, what always needs a person, and the agents
+with a stop button for each.
+
+<img src="docs/images/permissions.png" alt="Agent permissions page with limits, rules and agent keys" width="800">
 
 ## What we built
 
